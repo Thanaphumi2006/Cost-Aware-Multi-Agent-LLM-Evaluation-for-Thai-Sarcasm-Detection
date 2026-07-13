@@ -1,0 +1,137 @@
+========================================================================
+ THAI SARCASM DETECTION — PROJECT NOTES
+ บันทึกโปรเจกต์ตรวจจับข้อความประชด/เสียดสีภาษาไทย
+========================================================================
+
+เป้าหมาย: สร้างชุดข้อมูล gold (ป้ายโดยคน) สำหรับงานจำแนก "ประชด (1) / ไม่ประชด (0)"
+          แล้วทำ baseline ไว้เทียบกับระบบที่ซับซ้อนกว่า (multi-agent) ทีหลัง
+
+ป้าย:  1 = ประชด/เสียดสี   |   0 = ไม่ประชด   |   X = ตัดสินไม่ได้/ต้องใช้บริบทนอกข้อความ
+
+
+========================================================================
+ PART 1 — WHAT EACH FILE DOES  (แต่ละไฟล์ทำอะไร)
+========================================================================
+
+--- สคริปต์ (โค้ด) ---
+
+Load_data.py
+    โหลดชุดข้อมูลไทยจาก Hugging Face (Wongnai + Wisesight) รวมเป็นตารางเดียว
+    -> เขียน raw_texts.csv  (72,865 ข้อความ, คอลัมน์ text, source)
+
+First_round_Test/Keyword Filter for NLP Project.py
+    สเต็ปคีย์เวิร์ด: ให้คะแนน "ความน่าสงสัยว่าประชด" ด้วยคีย์เวิร์ด/แพตเทิร์น
+    (คำชม + บริบทแย่ = สัญญาณแรง)
+    -> scored_texts.csv  (ทุกข้อ + suspect_score + signals)
+    -> to_label.csv      (สุ่ม 400 ข้อ = สงสัยสูง 240 + ปกติ 160 ไว้ติดป้าย)
+
+First_round_Test/Label/Lim_prelabel.py   [ใช้ OpenAI GPT-4o | ต้องมี OPENAI_API_KEY]
+    ให้ LLM ติดป้าย "ร่าง" ทีละข้อ (llm_label, llm_reason) จาก to_label.csv
+    เซฟทุก 10 ข้อ, รันซ้ำได้
+    -> to_label_prelabeled.csv
+    ** ป้ายนี้เป็นแค่ร่าง คนต้องมาตรวจ/แก้ **
+
+First_round_Test/Label/human_review.py   [ไม่ต้องใช้ API key — โต้ตอบด้วยมือ]
+    คนตรวจ/แก้ป้ายร่างทีละข้อ
+    - MODE="blind": ปิดคำตอบ LLM ให้คุณตัดสินก่อน แล้วเฉลย -> บอก % เห็นตรงกับ LLM
+    - MODE="fast" : โชว์คำตอบ LLM, Enter=เห็นด้วย, พิมพ์=แก้
+    -> to_label_reviewed.csv (เพิ่ม human_label)  และสร้าง gold.csv
+
+First_round_Test/Label/baseline_zeroshot.py   [ใช้ GPT-4o | ยังไม่ได้รัน]
+    Baseline "เอเจนต์เดี่ยว" LLM zero-shot: ทำนายทุกข้อใน gold.csv
+    วัด accuracy / precision / recall / F1 (คลาสบวก=ประชด) + confusion matrix
+    -> baseline_preds.csv  (เก็บ F1 ไว้เป็นเส้นฐาน)
+
+Gold/Check_gold.py   [ไม่ต้องใช้ API key]
+    เช็กว่า gold.csv พอวัดผลไหม: จำนวน, สัดส่วน 1/0, คำเตือนเรื่องข้อมูลเอียง
+
+Gold/adjudicate.py   [ไม่ต้องใช้ API key — โต้ตอบด้วยมือ | ยังไม่ได้รัน]
+    เดินให้ "ชี้ขาด" เฉพาะข้อที่ คน vs LLM เห็นไม่ตรงกัน (27 ข้อ)
+    ใช้คู่กับ labeling_rubric.md -> อัปเดต final_label -> สร้าง gold.csv ใหม่
+
+Gold/Harvest.py   [ใช้ GPT-4o | ต้องมี OPENAI_API_KEY]
+    ขุด "ผู้ต้องสงสัยประชด" เพิ่มจากกองใหญ่ scored_texts.csv (68k)
+    เน้น Wisesight + ข้อความสั้น + เรียง suspect_score สูง, ให้ LLM คัด
+    -> Gold/harvest_to_review.csv (กองหนาแน่นประชด ไว้ตรวจด้วยมือต่อ)
+
+--- เอกสาร ---
+
+Gold/labeling_rubric.md
+    คู่มือติดป้าย (ฉบับคม) แยกเส้นแบ่ง:
+    ประชด vs ตำหนิตรงๆ vs รีวิวสมดุล vs ชมจริงใจ  พร้อมตัวอย่างจริงจากข้อมูลเรา
+
+NLP Project Proposal README.md
+    เอกสารข้อเสนอโปรเจกต์ (ของเดิม)
+
+--- ไฟล์ข้อมูล (ผลลัพธ์) ---
+
+raw_texts.csv .............. 72,865 ข้อความดิบ (Wongnai+Wisesight)
+scored_texts.csv .......... ทุกข้อ + คะแนนน่าสงสัย (จากคีย์เวิร์ด)
+to_label_prelabeled.csv ... 400 ข้อ + ป้ายร่างจาก GPT
+to_label_reviewed.csv ..... 400 ข้อ + human_label (คนตรวจแล้ว 116 ข้อ)
+Gold/gold.csv ............. ชุด gold (ป้าย 1/0 เท่านั้น) = 101 ข้อ (1:7, 0:94)
+Gold/harvest_to_review.csv  ผู้ต้องสงสัยประชดที่ขุดเพิ่ม = 495 ข้อ (มีช่อง label ให้ตรวจ)
+                            ** LLM over-flag: เยอะแต่หลายข้อไม่ใช่ประชดจริง ต้องตรวจมือ **
+
+
+========================================================================
+ PART 2 — TIMELINE  (ลำดับสิ่งที่ทำ)
+========================================================================
+
+STEP 0  ตั้งค่า
+    - ติดตั้งไลบรารี: datasets, pandas (มีอยู่แล้ว), anthropic, openai
+    - หมายเหตุ: ตอนแรกใช้ Claude/Anthropic ภายหลังเปลี่ยนเป็น OpenAI/GPT
+
+STEP 1  โหลดข้อมูล
+    รัน Load_data.py -> raw_texts.csv (72,865 ข้อความ)
+
+STEP 2  คัดกรองด้วยคีย์เวิร์ด
+    รัน "Keyword Filter for NLP Project.py"
+    -> scored_texts.csv (สงสัยสูง 30,047 / ปกติ 38,224)
+    -> to_label.csv (400 ข้อไว้ติดป้าย)
+
+STEP 3  เตรียมไฟล์ให้ติดป้ายง่าย
+    สร้างเวอร์ชันอ่านง่าย (1 คอมเมนต์ = 1 บรรทัด) + ไฟล์ Excel มี dropdown
+
+STEP 4  ให้ LLM ติดป้ายร่าง
+    เปลี่ยน Lim_prelabel.py จาก Claude -> OpenAI GPT-4o
+    รันครบ 400 ข้อ -> to_label_prelabeled.csv
+    ผลป้ายร่าง GPT:  ไม่ประชด(0)=314 | ประชด(1)=48 | X=38
+
+STEP 5  คนตรวจ (human review)
+    รัน human_review.py (MODE=blind) ตรวจไป 116 ข้อ
+    -> to_label_reviewed.csv -> gold.csv
+
+    ** เจอปัญหา/แก้บั๊ก **
+    - Check_gold.py อ่าน path ผิด + อ่านคอลัมน์ label ว่างซ้ำ -> แก้แล้ว
+    - human_review.py สร้างคอลัมน์ label ซ้ำ -> แก้ make_gold()
+    - เขียน gold.csv ใหม่ให้สะอาด: 101 ข้อ (ประชด 7 / ไม่ประชด 94)
+
+STEP 6  วิเคราะห์ คน vs LLM  (สำคัญ)
+    บน 116 ข้อที่ตรวจ: LLM ว่าประชด 17 / คุณว่าประชด 7
+    เห็นตรงกัน 76.7% | ข้อที่ LLM ว่า 1 คุณคงไว้แค่ 3/17 (downgrade 14)
+    สรุป: LLM "over-flag" ประชดเยอะ -> เชื่อ LLM ล้วนไม่ได้ ต้องมีคนตรวจ
+    ปัญหาจริง: positive แค่ 7 ข้อ น้อยไป (ควร >=30-40)
+
+STEP 7  เครื่องมือยกคุณภาพ
+    - สร้าง labeling_rubric.md (คู่มือคม + ตัวอย่างเคสจริง)
+    - สร้าง adjudicate.py (ชี้ขาด 27 ข้อที่เห็นไม่ตรงกัน)  [ยังไม่รัน]
+
+STEP 8  ขุด positive เพิ่ม
+    แก้ Harvest.py: ให้ขุดจาก scored_texts.csv (68k) แทน to_label.csv,
+    path ทนทาน, retry กันเน็ตหลุด, เซฟบางส่วน
+    รัน -> Gold/harvest_to_review.csv (กำลังทำ, hit rate ~60%)
+
+
+========================================================================
+ PART 3 — WHAT'S NEXT  (ขั้นต่อไป)
+========================================================================
+
+[ ] 1. ตรวจ Gold/harvest_to_review.csv ด้วยมือ (blind) เก็บข้อที่เป็น 1 จริง
+[ ] 2. รัน Gold/adjudicate.py ชี้ขาด 27 ข้อที่เห็นไม่ตรงกัน
+[ ] 3. ตรวจ to_label_reviewed.csv ให้ครบ 400 (เหลือ ~284)
+[ ] 4. รวม positive ให้ถึง ~30-40 -> ได้ gold.csv ที่ใช้ได้จริง
+[ ] 5. รัน baseline_zeroshot.py -> ได้ F1 เส้นฐาน
+[ ] 6. สัปดาห์ 2: สร้างระบบ multi-agent มาเทียบกับ baseline
+
+*** ค้าง: rotate OpenAI API key (เคยวางในแชท ควรลบแล้วสร้างใหม่) ***

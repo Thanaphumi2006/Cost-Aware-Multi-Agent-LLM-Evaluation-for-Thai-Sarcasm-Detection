@@ -1,0 +1,23 @@
+# ---- ความลับ: ห้ามขึ้น GitHub เด็ดขาด ----
+# settings.local.json มี OPENAI_API_KEY ฝังอยู่ในรายการ allowed commands
+.claude/
+.env
+*.key
+
+# ---- ไฟล์ใหญ่เกินลิมิต GitHub ----
+# น้ำหนักโมเดล WangchanBERTa 401 MB (GitHub บล็อกไฟล์ > 100 MB)
+# สร้างใหม่ได้ด้วย:  python Gold/train_final_wcb.py
+Gold/wcb_model/
+
+# ---- ข้อมูลดิบ ~230 MB (ไม่จำเป็นต่อการทำซ้ำผลการทดลอง) ----
+# gold.csv 127 ข้อ คือชุดที่ใช้วัดผลจริง -- อยู่ใน repo แล้ว
+raw_texts.csv
+scored_texts.csv
+First_round_Test/scored_texts.csv
+
+# ---- ขยะ ----
+__pycache__/
+*.pyc
+*.log
+venv/
+.venv/

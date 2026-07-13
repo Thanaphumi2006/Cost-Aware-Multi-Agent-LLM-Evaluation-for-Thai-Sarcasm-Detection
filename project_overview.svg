@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 790" font-family="Segoe UI, Tahoma, sans-serif">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#8a94a6"/>
+    </marker>
+    <marker id="ag" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 z" fill="#2f9e5e"/>
+    </marker>
+  </defs>
+
+  <rect width="1160" height="790" fill="#ffffff"/>
+  <text x="34" y="44" font-size="23" font-weight="700" fill="#1a1f2b">ภาพรวมโปรเจ็ค — การตรวจจับ “ประชด/เสียดสี” ภาษาไทย</text>
+  <text x="34" y="68" font-size="13.5" fill="#6b7482">คำถามวิจัย: ระบบ multi-agent คุ้มกว่าเอเจนต์เดี่ยวไหม (วัดคุณภาพ + ค่าใช้จ่าย + เวลา)</text>
+
+  <!-- ============ PHASE 1 ============ -->
+  <rect x="30" y="92" width="1100" height="176" rx="10" fill="#f4f8f5" stroke="#cfe3d6"/>
+  <text x="46" y="116" font-size="14" font-weight="700" fill="#2f6b47">① สร้างชุดข้อมูลอ้างอิง (gold) — เสร็จแล้ว</text>
+
+  <rect x="46" y="132" width="150" height="60" rx="7" fill="#fff" stroke="#b9c4d0"/>
+  <text x="121" y="155" font-size="12.5" font-weight="600" text-anchor="middle" fill="#1a1f2b">ข้อมูลดิบ</text>
+  <text x="121" y="174" font-size="11" text-anchor="middle" fill="#6b7482">Wongnai + Wisesight</text>
+
+  <line x1="196" y1="162" x2="232" y2="162" stroke="#8a94a6" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <rect x="234" y="132" width="152" height="60" rx="7" fill="#fff" stroke="#b9c4d0"/>
+  <text x="310" y="155" font-size="12.5" font-weight="600" text-anchor="middle" fill="#1a1f2b">คัดด้วยคีย์เวิร์ด</text>
+  <text x="310" y="174" font-size="11" text-anchor="middle" fill="#6b7482">ให้คะแนนความน่าสงสัย</text>
+
+  <line x1="386" y1="162" x2="422" y2="162" stroke="#8a94a6" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <rect x="424" y="132" width="152" height="60" rx="7" fill="#fff8ec" stroke="#e0c48a"/>
+  <text x="500" y="155" font-size="12.5" font-weight="600" text-anchor="middle" fill="#1a1f2b">ขุดเพิ่มด้วย GPT-4o</text>
+  <text x="500" y="174" font-size="11" text-anchor="middle" fill="#8a6d2f">คัด 800 → 495 ข้อ</text>
+
+  <line x1="576" y1="162" x2="612" y2="162" stroke="#8a94a6" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <rect x="614" y="132" width="152" height="60" rx="7" fill="#fff" stroke="#b9c4d0"/>
+  <text x="690" y="155" font-size="12.5" font-weight="600" text-anchor="middle" fill="#1a1f2b">คนติดป้าย (blind)</text>
+  <text x="690" y="174" font-size="11" text-anchor="middle" fill="#6b7482">ตัดสินตาม rubric</text>
+
+  <line x1="766" y1="162" x2="802" y2="162" stroke="#2f9e5e" stroke-width="1.8" marker-end="url(#ag)"/>
+
+  <rect x="804" y="126" width="300" height="72" rx="7" fill="#e8f5ee" stroke="#2f9e5e" stroke-width="1.6"/>
+  <text x="954" y="150" font-size="13.5" font-weight="700" text-anchor="middle" fill="#1e5c3c">gold.csv — 127 ข้อ</text>
+  <text x="954" y="170" font-size="11.5" text-anchor="middle" fill="#2f6b47">ประชด 30 · ไม่ประชด 97</text>
+  <text x="954" y="187" font-size="10.5" text-anchor="middle" fill="#8a6d2f">⚠ ฝั่งประชดถูกขุดโดย LLM → มี self-selection bias</text>
+
+  <text x="46" y="222" font-size="11" fill="#6b7482">ข้อจำกัดที่ต้องระบุในรายงาน: ประชด 30 ข้อไม่ได้มาจากการสุ่ม แต่ผ่านการคัดของ GPT-4o มาก่อน (ดู PROVENANCE.md)</text>
+  <text x="46" y="243" font-size="11" fill="#6b7482">ผลที่ตามมา: recall ของ GPT-4o อาจสูงเกินจริง — แต่ bias นี้กระทบทุกระบบเท่ากัน การ “เทียบ” จึงยังยุติธรรม</text>
+
+  <!-- arrow down -->
+  <line x1="580" y1="268" x2="580" y2="300" stroke="#8a94a6" stroke-width="1.8" marker-end="url(#a)"/>
+
+  <!-- ============ PHASE 2 ============ -->
+  <rect x="30" y="304" width="1100" height="300" rx="10" fill="#f7f8fa" stroke="#d8dde5"/>
+  <text x="46" y="328" font-size="14" font-weight="700" fill="#334">② วัดผล 3 ระบบ บน gold ชุดเดียวกัน · harness เดียวกัน — ครบทั้ง 3 แล้ว</text>
+
+  <!-- system 1 -->
+  <rect x="46" y="344" width="330" height="146" rx="8" fill="#e8f5ee" stroke="#2f9e5e" stroke-width="1.6"/>
+  <text x="62" y="367" font-size="13" font-weight="700" fill="#1e5c3c">① เอเจนต์เดี่ยว (baseline)</text>
+  <text x="62" y="387" font-size="11.5" fill="#2f6b47">LLM เรียกครั้งเดียว → ตัดสิน 1/0</text>
+  <rect x="62" y="398" width="298" height="78" rx="5" fill="#fff" stroke="#cfe3d6"/>
+  <text x="74" y="417" font-size="11.5" fill="#1a1f2b">F1 <tspan font-weight="700">0.690</tspan>  ·  precision <tspan font-weight="700">0.526</tspan>  ·  recall <tspan font-weight="700" fill="#1e5c3c">1.000</tspan></text>
+  <text x="74" y="435" font-size="11.5" fill="#1a1f2b">127 calls  ·  $0.094  ·  p50 751 ms</text>
+  <text x="74" y="453" font-size="10.5" fill="#a04747">จุดอ่อน: false positive 27 ข้อ (รีวิวสมดุล)</text>
+  <text x="74" y="469" font-size="10.5" fill="#6b7482">FN = 0 → จับประชดครบทุกข้อ</text>
+
+  <!-- system 2 -->
+  <rect x="392" y="344" width="330" height="146" rx="8" fill="#e8f5ee" stroke="#2f9e5e" stroke-width="1.6"/>
+  <text x="408" y="367" font-size="13" font-weight="700" fill="#1e5c3c">② Multi-agent (detector → verifier)</text>
+  <text x="408" y="387" font-size="11.5" fill="#2f6b47">verifier = ด่าน<tspan font-weight="700">กรองทิ้ง</tspan> FP ตาม rubric</text>
+  <rect x="408" y="398" width="298" height="78" rx="5" fill="#fff" stroke="#cfe3d6"/>
+  <text x="420" y="417" font-size="11.5" fill="#1a1f2b">F1 <tspan font-weight="700">0.744</tspan>  ·  precision <tspan font-weight="700">0.604</tspan>  ·  recall <tspan font-weight="700">0.967</tspan></text>
+  <text x="420" y="435" font-size="11.5" fill="#1a1f2b">183 calls  ·  $0.169  ·  p50 967 ms</text>
+  <text x="420" y="453" font-size="10.5" fill="#8a6d2f">แลก: cost 1.80× · calls 1.44× · ช้าลง 1.29×</text>
+  <text x="420" y="469" font-size="10.5" fill="#6b7482">verifier ยิงเฉพาะข้อที่ detector ตอบ 1 (ประหยัด 28%)</text>
+
+  <!-- system 3 -->
+  <rect x="738" y="344" width="330" height="146" rx="8" fill="#e8f5ee" stroke="#2f9e5e" stroke-width="1.6"/>
+  <text x="754" y="367" font-size="13" font-weight="700" fill="#1e5c3c">③ WangchanBERTa (โมเดลเล็ก เทรนเอง)</text>
+  <text x="754" y="387" font-size="11.5" fill="#2f6b47">5-fold CV × 3 seeds · ไม่ใช้ LLM เลย</text>
+  <rect x="754" y="398" width="298" height="78" rx="5" fill="#fff" stroke="#cfe3d6"/>
+  <text x="766" y="417" font-size="11.5" fill="#1a1f2b">F1 <tspan font-weight="700">0.620</tspan> (SD 0.005)  ·  prec <tspan font-weight="700">0.553</tspan>  ·  recall <tspan font-weight="700">0.700</tspan></text>
+  <text x="766" y="435" font-size="11.5" fill="#1a1f2b"><tspan font-weight="700">0 calls</tspan>  ·  <tspan font-weight="700" fill="#1e5c3c">$0.00</tspan>  ·  p50 <tspan font-weight="700" fill="#1e5c3c">26 ms</tspan> (เร็วกว่า 29×)</text>
+  <text x="766" y="453" font-size="10.5" fill="#a04747">จุดอ่อน: ปล่อยประชดหลุด 9 ข้อ (FN=9)</text>
+  <text x="766" y="469" font-size="10.5" fill="#6b7482">เทรนบน CPU 44 นาที · รันออฟไลน์ได้</text>
+
+  <!-- arrows into harness -->
+  <line x1="211" y1="490" x2="211" y2="508" stroke="#8a94a6" stroke-width="1.6"/>
+  <line x1="557" y1="490" x2="557" y2="508" stroke="#8a94a6" stroke-width="1.6"/>
+  <line x1="903" y1="490" x2="903" y2="508" stroke="#8a94a6" stroke-width="1.6"/>
+  <line x1="211" y1="508" x2="903" y2="508" stroke="#8a94a6" stroke-width="1.6"/>
+  <line x1="557" y1="508" x2="557" y2="528" stroke="#8a94a6" stroke-width="1.8" marker-end="url(#a)"/>
+
+  <rect x="248" y="530" width="618" height="52" rx="7" fill="#fff" stroke="#8a94a6" stroke-width="1.4"/>
+  <text x="557" y="551" font-size="12.5" font-weight="700" text-anchor="middle" fill="#1a1f2b">Harness เดียวกัน — วัด 4 มิติ</text>
+  <text x="557" y="571" font-size="11.5" text-anchor="middle" fill="#6b7482">คุณภาพ (F1/precision/recall)  ·  ค่าใช้จ่าย  ·  latency  ·  จำนวน LLM calls</text>
+
+  <!-- ablation callout -->
+  <rect x="878" y="530" width="236" height="52" rx="7" fill="#fdf1f1" stroke="#d9a3a3"/>
+  <text x="890" y="549" font-size="11" font-weight="700" fill="#a04747">ablation: verifier เวอร์ชันดุ (v1)</text>
+  <text x="890" y="566" font-size="10.5" fill="#8a5a5a">พลิกทิ้ง 27 → ฆ่า TP ผิด 10 → recall 0.667</text>
+
+  <line x1="580" y1="604" x2="580" y2="628" stroke="#2f9e5e" stroke-width="1.8" marker-end="url(#ag)"/>
+
+  <!-- ============ FINDING ============ -->
+  <rect x="30" y="630" width="1100" height="136" rx="10" fill="#fff8ec" stroke="#e0c48a" stroke-width="1.4"/>
+  <text x="46" y="653" font-size="13.5" font-weight="700" fill="#8a6d2f">FINDINGS</text>
+
+  <text x="46" y="675" font-size="11.5" fill="#5c5340"><tspan font-weight="700">① multi-agent ช่วยได้จริง แต่ marginal:</tspan> F1 +0.054 (0.690 → 0.744) · paired bootstrap 95% CI [−0.002, +0.113] → มั่นใจ ~97% · McNemar 8:1</text>
+  <text x="46" y="693" font-size="11.5" fill="#5c5340">   แลกด้วย cost <tspan font-weight="700">1.80×</tspan> · calls 1.44× · latency 1.29× — คุ้มเฉพาะเมื่อ false positive มีราคาแพง</text>
+
+  <text x="46" y="714" font-size="11.5" fill="#5c5340"><tspan font-weight="700">② การออกแบบ verifier สำคัญกว่าการมี verifier:</tspan> verifier ตัวเดียวกัน เปลี่ยนแค่กฎตอนก้ำกึ่ง → recall ต่างกัน 0.667 vs 0.967</text>
+
+  <text x="46" y="735" font-size="11.5" fill="#5c5340"><tspan font-weight="700">③ โมเดลเล็กฟรี “ยังตัดทิ้งไม่ได้”:</tspan> WangchanBERTa F1 ต่ำกว่า baseline −0.072 แต่ CI [−0.206, +0.053] <tspan font-weight="700">คร่อม 0</tspan> · McNemar <tspan font-weight="700">15:14</tspan> (แทบเสมอ)</text>
+  <text x="46" y="753" font-size="11.5" fill="#5c5340">   → ที่ n=30 <tspan font-weight="700">ยังฟันธงไม่ได้ว่า LLM ชนะโมเดลฟรีจริง</tspan> · สมมติฐานตั้งต้นผิด: recall เต็มอยู่แล้ว คอขวดคือ precision · เพดานคือสถิติ ไม่ใช่เทคนิค</text>
+</svg>
