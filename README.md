@@ -1,72 +1,79 @@
 # Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection
 
-ระบบหลายเอเจนต์ (multi-agent) คุ้มค่ากว่าเอเจนต์เดี่ยวจริงหรือไม่ สำหรับงานตรวจจับ**ประชด/เสียดสีภาษาไทย**?
-งานนี้วัดคำตอบด้วย 4 มิติพร้อมกัน: **คุณภาพ (F1) · ค่าใช้จ่าย · latency · จำนวน LLM calls**
+Is a multi-agent LLM system actually worth it over a single agent, for detecting **Thai sarcasm (ประชด/เสียดสี)**?
+This project answers that on four axes at once: **quality (F1) · cost · latency · number of LLM calls**.
 
-ทุกระบบวัดบน gold ชุดเดียวกัน (127 ข้อ: ประชด 30 / ไม่ประชด 97), ใช้ GPT-4o และ harness เดียวกัน
-เปรียบเทียบด้วย **paired bootstrap (5,000 รอบ) + McNemar** เพราะทุกระบบรันบนข้อมูลชุดเดียวกัน
+Every system is evaluated on the same gold set (127 items: 30 sarcastic / 97 not), with the same GPT-4o backend
+and the same measurement harness. Systems are compared with a **paired bootstrap (5,000 resamples) + McNemar's test**,
+which is the correct choice here because all systems run on the identical items.
 
-## ผลการทดลอง
+## Results
 
-| ระบบ | F1 | precision | recall | LLM calls | ค่าใช้จ่าย | latency p50 |
+| System | F1 | Precision | Recall | LLM calls | Cost | Latency p50 |
 |---|---|---|---|---|---|---|
-| ① เอเจนต์เดี่ยว (baseline) | 0.690 | 0.526 | **1.000** | 127 | $0.094 | 751 ms |
-| ② **pipeline v2 — ผู้คัดกรอง → ผู้ตรวจสอบ** ⭐ | **0.744** | 0.604 | 0.967 | 183 | $0.169 | 967 ms |
-| ③ pipeline v1 (verifier พลิกอิสระ) | 0.714 | **0.769** | 0.667 | 180 | $0.157 | 721 ms |
-| ④ debate (อัยการ + ทนาย + ผู้พิพากษา) | 0.694 | 0.595 | 0.833 | 381 | $0.695 | 4,557 ms |
-| ⑤ hybrid (คัดกรอง + คณะโต้แย้ง 4 เอเจนต์) | 0.700 | 0.560 | 0.933 | 292 | $0.407 | 832 ms |
+| ① Single agent (baseline) | 0.690 | 0.526 | **1.000** | 127 | $0.094 | 751 ms |
+| ② **Pipeline v2 — screener → verifier** ⭐ | **0.744** | 0.604 | 0.967 | 183 | $0.169 | 967 ms |
+| ③ Pipeline v1 (verifier flips freely) | 0.714 | **0.769** | 0.667 | 180 | $0.157 | 721 ms |
+| ④ Debate (prosecutor + defender + judge) | 0.694 | 0.595 | 0.833 | 381 | $0.695 | 4,557 ms |
+| ⑤ Hybrid (screener + debate panel, 4 agents) | 0.700 | 0.560 | 0.933 | 292 | $0.407 | 832 ms |
 | ⑥ WangchanBERTa (5-fold CV × 3 seeds) | 0.620 ±0.005 | 0.553 | 0.700 | **0** | **$0.00** | **26 ms** |
 
-## ข้อค้นพบหลัก
+## Main finding
 
-> **การจำกัดอำนาจของเอเจนต์ให้ถูกต้อง สำคัญกว่าจำนวนเอเจนต์หรือความลึกของการถกเถียง**
+> **Constraining an agent's power correctly matters more than the number of agents or the depth of deliberation.**
 
-ระบบที่ชนะคือระบบที่**เรียบง่ายและถูกที่สุด** — เอเจนต์ตัวที่สองทำได้อย่างเดียวคือ**ปัดตก** (พลิก 1→0)
-จึงรักษา recall = 1.000 ที่ตัวคัดกรองได้มาฟรีไว้เกือบครบ แล้วค่อยๆ ซื้อ precision
+The winning system is also the **simplest and cheapest** one. Its second agent can do exactly one thing — **reject**
+(flip 1→0). It therefore preserves the recall = 1.000 that the screener already achieved for free, and buys
+precision on top of it, instead of re-deciding every item from scratch and gambling that recall away.
 
-หลักฐาน 3 เส้นที่ชี้ไปทางเดียวกัน:
-1. **v1 vs v2** — ระบบเดียวกัน ต่างแค่กฎ "เวลาไม่แน่ใจให้ทำยังไง" → recall 0.667 vs 0.967
-2. **pipeline vs debate** — เอเจนต์ 3 เท่า จ่ายแพงกว่า 4.1× ช้ากว่า 4.7× แต่ **แพ้** (0.694 vs 0.744)
-3. **hybrid** — ให้ถกเถียงกันภายใต้กรอบที่จำกัด ก็ยัง **แพ้** (0.700) เพราะผู้พิพากษาลังเลขึ้น
+Three independent lines of evidence point the same way:
 
-รายละเอียดทั้งหมด (พร้อม CI, McNemar, และข้อควรระวัง) → **[`Gold/RESULTS.md`](Gold/RESULTS.md)**
+1. **v1 vs v2** — same system, the only difference is the tie-break rule for "what to do when unsure" → recall 0.667 vs 0.967.
+2. **Pipeline vs debate** — 3× the agents, 4.1× the cost, 4.7× the latency, and it still **loses** (0.694 vs 0.744).
+3. **Hybrid** — allow deliberation *inside* the constrained frame, and it **still loses** (0.700): after hearing both
+   sides the judge becomes more hesitant and rejects only 5 items instead of the verifier's 8.
 
-## ข้อควรระวัง (อ่านก่อนอ้างอิงตัวเลข)
+Full numbers, confidence intervals, and McNemar counts → **[`Gold/RESULTS.md`](Gold/RESULTS.md)**
 
-- **ห้ามใช้ accuracy** — baseline ได้ 0.787 ซึ่งเกือบเท่ากับเดา "ไม่ประชด" ทุกข้อ (0.764) เพราะข้อมูลเอียง
-- **self-selection bias**: ข้อประชดใน gold ส่วนหนึ่งถูกขุดมาด้วย GPT-4o → recall ของ GPT-4o อาจสูงเกินจริง
-  แต่ bias นี้กระทบทุกระบบเท่ากัน การ *เปรียบเทียบ* จึงยังยุติธรรม (ดู [`Gold/PROVENANCE.md`](Gold/PROVENANCE.md))
-- **n ประชด = 30** เท่านั้น → ทุกข้อสรุปต้องแนบ CI ไม่ใช่ point estimate เดี่ยว
+## Caveats (read before citing any number)
 
-## โครงสร้าง
+- **Do not use accuracy.** The baseline scores 0.787, which is barely above the always-predict-"not sarcasm"
+  floor of 0.764 — the class distribution is skewed, so accuracy is meaningless here.
+- **Self-selection bias.** Part of the gold positives were mined with GPT-4o, so GPT-4o's recall is likely inflated.
+  The bias hits every system equally, so the *comparison between systems* remains fair
+  (details: [`Gold/PROVENANCE.md`](Gold/PROVENANCE.md)).
+- **n(sarcasm) = 30.** Every conclusion needs a confidence interval, not a bare point estimate. No amount of prompt
+  tuning narrows that CI — only a larger gold set will.
+
+## Repository layout
 
 ```
 Gold/
-  gold.csv                 ชุดวัดผล 127 ข้อ (ที่มา: Wongnai + Wisesight)
-  labeling_rubric.md       เกณฑ์ติดป้าย -- ประชดต้องมี "การเสแสร้ง"
-  baseline.py              ① เอเจนต์เดี่ยว
-  multiagent.py            ② + ③ pipeline (detector -> verifier)
-  multiagent_debate.py     ④ debate
-  multiagent_hybrid.py     ⑤ hybrid
-  wangchanberta.py         ⑥ โมเดลเล็ก (5-fold CV -- ตัวเลขที่ใช้รายงาน)
+  gold.csv                 evaluation set, 127 items (sources: Wongnai + Wisesight)
+  labeling_rubric.md       annotation rubric -- sarcasm requires feigned praise ("การเสแสร้ง")
+  baseline.py              (1) single agent
+  multiagent.py            (2) + (3) pipeline (detector -> verifier)
+  multiagent_debate.py     (4) debate
+  multiagent_hybrid.py     (5) hybrid
+  wangchanberta.py         (6) small model, 5-fold CV -- these are the reported numbers
   compare_systems.py       paired bootstrap + McNemar
-  app.py                   เว็บทดลอง/เทียบระบบสดๆ
-  *_preds_*.csv            ผลทำนายรายข้อของทุกระบบ (ตรวจย้อนได้)
+  app.py                   web app for testing and comparing systems live
+  *_preds_*.csv            per-item predictions for every system (fully auditable)
   RESULTS.md REPORT.md SLIDES.md
 ```
 
-## วิธีรัน
+## Running it
 
 ```powershell
 pip install openai pandas numpy scikit-learn flask torch transformers sentencepiece protobuf
-$env:OPENAI_API_KEY="sk-..."     # ห้าม commit คีย์ลง repo
+$env:OPENAI_API_KEY="sk-..."     # never commit a key to the repo
 
 cd Gold
-python baseline.py               # ① เอเจนต์เดี่ยว
-python multiagent.py             # ② pipeline
-python compare_systems.py        # เทียบทุกระบบ + สถิติ
-python app.py                    # เว็บที่ http://127.0.0.1:5000
+python baseline.py               # (1) single agent
+python multiagent.py             # (2) pipeline
+python compare_systems.py        # compare all systems + statistics
+python app.py                    # web app at http://127.0.0.1:5000
 ```
 
-**ไม่มีอยู่ใน repo** (สร้างใหม่ได้): `Gold/wcb_model/` (401 MB — รัน `train_final_wcb.py`)
-และข้อมูลดิบ `raw_texts.csv` / `scored_texts.csv` (~230 MB) ซึ่งไม่จำเป็นต่อการทำซ้ำผลการทดลอง
+**Not in the repo** (regenerable): `Gold/wcb_model/` (401 MB — run `train_final_wcb.py`) and the raw scrape
+`raw_texts.csv` / `scored_texts.csv` (~230 MB), neither of which is needed to reproduce the results.
