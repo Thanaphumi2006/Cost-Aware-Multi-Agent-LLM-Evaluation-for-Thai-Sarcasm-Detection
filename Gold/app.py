@@ -7,7 +7,9 @@
   เปิด http://127.0.0.1:5000
 
 หมายเหตุ:
-- คีย์ API อ่านจาก environment variable เท่านั้น ไม่เก็บลงไฟล์ ไม่ฝังในโค้ด
+- คีย์ API ใส่ได้ 2 ทาง: environment variable หรือ พิมพ์ในหน้าเว็บ (ช่อง 🔑 ด้านบน)
+  ทั้งสองทางเก็บไว้ใน RAM ของโปรเซสเท่านั้น -- ไม่เขียนลงไฟล์ ไม่ฝังในโค้ด ปิดเซิร์ฟเวอร์แล้วหาย
+- เว็บนี้ผูกกับ 127.0.0.1 อย่าเปิดออกสู่เน็ต เพราะช่องใส่คีย์จะกลายเป็นช่องให้คนอื่นยิง API ด้วยคีย์เรา
 - ถ้าไม่มีคีย์ เว็บยังใช้ได้ แต่จะรันได้แค่ WangchanBERTa (ตัวที่ไม่ต้องใช้ API)
 - WangchanBERTa ที่เว็บใช้เทรนบน gold ครบทุกข้อ -> ห้ามเอาไปวัดผลบน gold
   ถ้าพิมพ์ข้อความที่อยู่ใน gold มันจะ "จำคำตอบได้" (เว็บจะเตือนให้เอง)
@@ -40,6 +42,7 @@ GOLD_TEXTS = dict(zip(_gold["text"], _gold["label"]))
 
 _wcb = None       # โหลดแบบ lazy (torch หนัก)
 _client = None
+_api_key = os.environ.get("OPENAI_API_KEY", "").strip()   # อยู่ใน RAM เท่านั้น ไม่เขียนลงดิสก์
 
 
 def wcb():
@@ -56,10 +59,15 @@ def wcb():
 
 def client():
     global _client
-    if _client is None and os.environ.get("OPENAI_API_KEY"):
+    if _client is None and _api_key:
         from openai import OpenAI
-        _client = OpenAI()
+        _client = OpenAI(api_key=_api_key)
     return _client
+
+
+def mask_key(k):
+    """sk-proj-abcd...wxyz -- พอให้รู้ว่าเป็นคีย์ตัวไหน แต่ไม่เผยคีย์"""
+    return f"{k[:6]}…{k[-4:]}" if len(k) > 14 else "sk-…"
 
 
 def has_wcb():
@@ -213,6 +221,34 @@ def api_predict():
     # run_debate()/run_hybrid() ยังอยู่ ถ้าอยากเปิดกลับมาก็เสียบกลับได้ทันที
 
 
+@app.route("/api/key", methods=["POST"])
+def api_key_set():
+    """รับคีย์จากหน้าเว็บ -> ยิงเช็คกับ OpenAI จริงก่อนรับ (models.list ไม่คิดเงิน)
+    เก็บไว้ใน RAM ของโปรเซสเท่านั้น -- ปิดเซิร์ฟเวอร์แล้วหาย ไม่มีการเขียนลงไฟล์"""
+    global _api_key, _client
+    key = (request.json or {}).get("key", "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "ยังไม่ได้ใส่คีย์"}), 400
+    if not key.startswith("sk-"):
+        return jsonify({"ok": False, "error": "รูปแบบคีย์ไม่ถูก -- ต้องขึ้นต้นด้วย sk-"}), 400
+
+    from openai import OpenAI
+    try:
+        OpenAI(api_key=key).models.list()          # ตรวจว่าคีย์ใช้ได้จริง
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"คีย์ใช้ไม่ได้: {type(e).__name__}"}), 400
+
+    _api_key, _client = key, None                  # ล้าง client เก่า -> สร้างใหม่ด้วยคีย์นี้
+    return jsonify({"ok": True, "masked": mask_key(key)})
+
+
+@app.route("/api/key", methods=["DELETE"])
+def api_key_clear():
+    global _api_key, _client
+    _api_key, _client = "", None
+    return jsonify({"ok": True})
+
+
 @app.route("/api/sample")
 def api_sample():
     lab = request.args.get("label")
@@ -225,7 +261,9 @@ def api_sample():
 def index():
     return render_template_string(
         PAGE, rows=GOLD_ROWS,
-        has_key=bool(os.environ.get("OPENAI_API_KEY")),
+        has_key=bool(_api_key),
+        masked=mask_key(_api_key) if _api_key else "",
+        from_env=bool(os.environ.get("OPENAI_API_KEY", "").strip()),
         has_wcb=has_wcb(),
     )
 
@@ -272,8 +310,9 @@ tr.best td{background:#f2faf5}
 @keyframes s{to{transform:rotate(360deg)}}
 
 /* ---- multi-agent flow ---- */
-.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:14px}
-.ag{flex:1;min-width:250px;border:1.6px solid #cfd6df;border-radius:10px;padding:14px;background:#fff}
+.flow{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:14px}
+.ag{border:1.6px solid #cfd6df;border-radius:10px;padding:14px;background:#fff;
+  width:100%;max-width:330px}
 .ag.on{border-color:#2f9e5e;background:#f4fbf7}
 .ag.off{border-style:dashed;background:#fafbfc;opacity:.72}
 .ag.kill{border-color:#c96a6a;background:#fdf5f5}
@@ -284,19 +323,55 @@ tr.best td{background:#f2faf5}
 .ag.on .say{background:#e3f3ea;color:#1e5c3c} .ag.kill .say{background:#f8e4e4;color:#a02020}
 .ag.off .say{background:#f0f1f3;color:#98a1ad;font-weight:500;font-size:12.5px}
 .ag .meta{font-size:11.5px;color:#6b7482;display:flex;justify-content:space-between;padding:2px 0}
-.arw{display:flex;align-items:center;justify-content:center;padding:0 10px;font-size:22px;color:#8a94a6}
+.arw{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:10px 0;font-size:22px;color:#8a94a6;text-align:center}
 .arw small{font-size:10.5px;color:#8a94a6;display:block;text-align:center;line-height:1.3}
 .fin{margin-top:12px;padding:11px 14px;border-radius:8px;font-size:13.5px;font-weight:600;text-align:center}
 .fin.k{background:#fdecec;color:#a02020} .fin.p{background:#eaf5ee;color:#1e5c3c}
 .rule{font-size:12px;color:#5c5340;background:#fff8ec;border:1px solid #e8d9b0;
   border-radius:7px;padding:10px 12px;margin-top:12px;line-height:1.65}
+
+/* ---- key panel ---- */
+.keyhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.keycard input{flex:1;min-width:260px;padding:9px 12px;border:1px solid #cfd6df;border-radius:7px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
+.keycard input:focus{outline:2px solid #2f6b47;outline-offset:-1px;border-color:#2f6b47}
+.ok{font-size:12px;color:#1e5c3c;background:#eaf5ee;border:1px solid #b8ddc6;
+  border-radius:7px;padding:9px 11px;margin-top:10px}
 </style></head><body><div class="wrap">
 
 <h1>ทดลอง &amp; เทียบระบบตรวจจับประชดภาษาไทย</h1>
 <div class="sub">เอเจนต์เดี่ยว vs Multi-agent vs WangchanBERTa — วัดคุณภาพ ค่าใช้จ่าย และเวลา พร้อมกัน</div>
 
-{% if not has_key %}<div class="warn"><b>ไม่พบ OPENAI_API_KEY</b> — ระบบที่ใช้ LLM จะรันไม่ได้ (WangchanBERTa ยังใช้ได้ปกติ)<br>
-ตั้งค่าใน PowerShell: <code>$env:OPENAI_API_KEY="sk-..."</code> แล้วสตาร์ทใหม่</div>{% endif %}
+<div class="card keycard" id="keycard">
+  <div class="keyhead">
+    <div>
+      <h3 style="margin:0 0 3px;font-size:15px">🔑 OpenAI API key</h3>
+      <div class="sub" style="margin:0">ระบบที่ใช้ LLM (① และ ②) ต้องมีคีย์ถึงจะรันได้ — WangchanBERTa ไม่ต้องใช้</div>
+    </div>
+    <span class="pill {{ 'v0' if has_key else 'vna' }}" id="keypill">
+      {{ 'พร้อมใช้งาน · ' ~ masked if has_key else 'ยังไม่มีคีย์' }}
+    </span>
+  </div>
+
+  <div class="row" id="keyform" {% if has_key %}style="display:none"{% endif %}>
+    <input type="password" id="k" placeholder="sk-..." autocomplete="off" spellcheck="false">
+    <button class="go" id="ksave" onclick="saveKey()">บันทึกคีย์</button>
+  </div>
+  <div class="row" id="keydone" {% if not has_key %}style="display:none"{% endif %}>
+    <button class="ghost" onclick="clearKey()">ลบคีย์ออก</button>
+    {% if from_env %}<span class="sub" style="margin:0">อ่านมาจาก environment variable <code>OPENAI_API_KEY</code></span>{% endif %}
+  </div>
+  <div id="kmsg"></div>
+
+  <div class="note" style="margin-top:12px">
+    คีย์ถูกเก็บไว้<b>ในหน่วยความจำของเซิร์ฟเวอร์เท่านั้น</b> — ไม่เขียนลงไฟล์ ไม่ใส่ใน cookie
+    ปิดเซิร์ฟเวอร์เมื่อไหร่ก็หายไป ต้องใส่ใหม่<br>
+    เว็บนี้เปิดที่ <code>127.0.0.1</code> (เครื่องตัวเองเท่านั้น) — <b>อย่า deploy ขึ้นเน็ตทั้งอย่างนี้</b>
+    เพราะใครก็ตามที่เข้าถึงหน้านี้ได้จะยิง API ด้วยคีย์ของคุณได้
+  </div>
+</div>
+
 {% if not has_wcb %}<div class="warn"><b>ยังไม่มีโมเดล WangchanBERTa</b> — รัน <code>train_final_wcb.py</code> ก่อน</div>{% endif %}
 
 <div class="card">
@@ -330,7 +405,7 @@ tr.best td{background:#f2faf5}
         </div>
       </div>
 
-      <div class="arw">→<small>ส่งต่อ<br><b>เฉพาะข้อที่ตอบ “ใช่”</b></small></div>
+      <div class="arw">↓<small>ส่งต่อ<br><b>เฉพาะข้อที่ตอบ “ใช่”</b></small></div>
 
       <div class="ag">
         <div class="who">🔍 คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
@@ -392,6 +467,36 @@ tr.best td{background:#f2faf5}
 
 <script>
 const $=i=>document.getElementById(i);
+
+function keyUI(on,masked){
+  $('keypill').className='pill '+(on?'v0':'vna');
+  $('keypill').textContent = on ? 'พร้อมใช้งาน · '+masked : 'ยังไม่มีคีย์';
+  $('keyform').style.display = on?'none':'flex';
+  $('keydone').style.display = on?'flex':'none';
+}
+async function saveKey(){
+  const key=$('k').value.trim(); if(!key){$('k').focus();return}
+  $('ksave').disabled=true; $('ksave').innerHTML='<span class="sp"></span>กำลังตรวจคีย์...';
+  $('kmsg').innerHTML='';
+  try{
+    const r=await fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key})});
+    const d=await r.json();
+    if(d.ok){
+      $('k').value='';                       // ไม่ทิ้งคีย์ไว้ใน DOM
+      keyUI(true,d.masked);
+      $('kmsg').innerHTML='<div class="ok">ใช้คีย์นี้ได้ — ระบบ ① และ ② พร้อมรันแล้ว</div>';
+    } else {
+      $('kmsg').innerHTML='<div class="warn">'+d.error+'</div>';
+    }
+  }catch(e){ $('kmsg').innerHTML='<div class="warn">ต่อเซิร์ฟเวอร์ไม่ได้: '+e+'</div>' }
+  $('ksave').disabled=false; $('ksave').textContent='บันทึกคีย์';
+}
+async function clearKey(){
+  await fetch('/api/key',{method:'DELETE'});
+  keyUI(false,''); $('kmsg').innerHTML='';
+}
+
 async function samp(l){
   const r=await fetch('/api/sample?label='+l); const d=await r.json();
   $('t').value=d.text; $('goldbox').innerHTML=''; $('out').innerHTML='';
@@ -428,8 +533,8 @@ function drawFlow(m){
   const c1 = s1.said==='1' ? 'on' : '';
   const c2 = !s2.ran ? 'off' : (s2.said==='0' ? 'kill' : 'on');
   const arrow = s2.ran
-    ? '→<small>ส่งไปตรวจ<br><b>เพราะคนแรกตอบ “ประชด”</b></small>'
-    : '⇢<small style="color:#c0c6cf">ไม่ต้องตรวจ<br><b>คนแรกตอบ “ไม่ประชด”</b></small>';
+    ? '↓<small>ส่งไปตรวจ<br><b>เพราะคนแรกตอบ “ประชด”</b></small>'
+    : '⇣<small style="color:#c0c6cf">ไม่ต้องตรวจ<br><b>คนแรกตอบ “ไม่ประชด”</b></small>';
   const say2 = !s2.ran
     ? 'ไม่ได้ทำงาน — ไม่มีอะไรให้ตรวจ'
     : (s2.said==='0' ? '❌ ปัดตก — คนแรกทายผิด' : '✅ ยืนยัน — คนแรกทายถูก');
@@ -486,6 +591,7 @@ async function run(){
   $('go').disabled=false; $('go').textContent='วิเคราะห์ด้วยทั้ง 3 ระบบ';
 }
 $('t').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')run()});
+$('k').addEventListener('keydown',e=>{if(e.key==='Enter')saveKey()});
 </script>
 </div></body></html>
 """
