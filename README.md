@@ -11,29 +11,67 @@ which is the correct choice here because all systems run on the identical items.
 
 | System | F1 | Precision | Recall | LLM calls | Cost | Latency p50 |
 |---|---|---|---|---|---|---|
-| ① Single agent (baseline) | 0.690 | 0.526 | **1.000** | 127 | $0.094 | 751 ms |
-| ② **Pipeline v2 — screener → verifier** ⭐ | **0.744** | 0.604 | 0.967 | 183 | $0.169 | 967 ms |
+| ① Single agent (baseline, argmax) | 0.690 | 0.526 | **1.000** | 127 | $0.094 | 751 ms |
+| ① **Single agent + threshold** (reads its own logprob) ⭐ | 0.725 | 0.641 | 0.833 | 127 | **$0.094** | 751 ms |
+| ② Pipeline v2 — screener → verifier | **0.744** | 0.604 | 0.967 | 183 | $0.169 | 967 ms |
 | ③ Pipeline v1 (verifier flips freely) | 0.714 | **0.769** | 0.667 | 180 | $0.157 | 721 ms |
 | ④ Debate (prosecutor + defender + judge) | 0.694 | 0.595 | 0.833 | 381 | $0.695 | 4,557 ms |
 | ⑤ Hybrid (screener + debate panel, 4 agents) | 0.700 | 0.560 | 0.933 | 292 | $0.407 | 832 ms |
+| ⑦ Cascade (WangchanBERTa screens → GPT verifier) ✗ | 0.628 | 0.500 | 0.844 | 119 | $0.124 | — |
 | ⑥ WangchanBERTa (5-fold CV × 3 seeds) | 0.620 ±0.005 | 0.553 | 0.700 | **0** | **$0.00** | **26 ms** |
 
 ## Main finding
 
-> **Constraining an agent's power correctly matters more than the number of agents or the depth of deliberation.**
+> **Before asking "should I add another agent?", ask "have I used everything the one agent already gives me?"
+> On this task, once the single agent reads its own confidence, no multi-agent system beats it by a statistically
+> significant margin — and several cost 2–7× more to tie.**
 
-The winning system is also the **simplest and cheapest** one. Its second agent can do exactly one thing — **reject**
-(flip 1→0). It therefore preserves the recall = 1.000 that the screener already achieved for free, and buys
-precision on top of it, instead of re-deciding every item from scratch and gambling that recall away.
+The single agent's output isn't really "sarcasm / not" — it's a *token* with a log-probability behind it. Reading
+`P("sarcasm")` off that logprob and tuning one threshold (**leave-fold-out**, no leakage) lifts F1 from 0.690 to
+**0.725 at identical cost and zero extra calls**. That score is the honest opponent every multi-agent system should
+have been measured against.
 
-Three independent lines of evidence point the same way:
+When you do that (paired bootstrap, 5,000 resamples), **every system's confidence interval crosses zero**:
 
-1. **v1 vs v2** — same system, the only difference is the tie-break rule for "what to do when unsure" → recall 0.667 vs 0.967.
-2. **Pipeline vs debate** — 3× the agents, 4.1× the cost, 4.7× the latency, and it still **loses** (0.694 vs 0.744).
-3. **Hybrid** — allow deliberation *inside* the constrained frame, and it **still loses** (0.700): after hearing both
-   sides the judge becomes more hesitant and rejects only 5 items instead of the verifier's 8.
+| System | ΔF1 vs tuned single agent | 95% CI | P(not better) | Cost |
+|---|---|---|---|---|
+| Pipeline v2 (best multi-agent) | +0.019 | [−0.073, +0.113] | 36% | 1.80× |
+| Hybrid | −0.025 | [−0.117, +0.071] | 70% | 4.3× |
+| Debate | −0.030 | [−0.158, +0.096] | 69% | 7.4× |
 
-Full numbers, confidence intervals, and McNemar counts → **[`Gold/RESULTS.md`](Gold/RESULTS.md)**
+The multi-agent edge that earlier looked like "+0.054 over baseline" was **half handicap**: about half of it was the
+baseline throwing away information it had already paid for, not the extra agents earning their keep.
+
+**Two caveats that keep this honest, not hype:**
+
+1. **This is "can't distinguish," not "proven equal."** At n(sarcasm) = 30 the CIs are wide — the data can't resolve
+   a ~0.02 F1 difference either way. A larger gold set could still reveal a real multi-agent edge.
+2. **The error profiles differ.** v2 holds recall 0.967 (misses 1 sarcastic item); the threshold trick buys precision
+   by dropping recall to 0.833 (misses 5). For "screen and never miss," the second agent still earns its $0.075.
+   The claim is *multi-agent doesn't win on F1*, not *multi-agent is useless*.
+
+### The bigger lever is the model, not the architecture
+
+Running that same tuned single agent across five models spanning a **25× price range** (leave-fold-out threshold each):
+
+| Model | F1 | $ / run (127 items) | $ / 1M in |
+|---|---|---|---|
+| gpt-4.1-nano | 0.706 | $0.0038 | $0.10 |
+| gpt-4o-mini | 0.676 | $0.0056 | $0.15 |
+| **gpt-4.1-mini** ⭐ | **0.727** | $0.0150 | $0.40 |
+| gpt-4.1 | 0.716 | $0.0752 | $2.00 |
+| gpt-4o | 0.725 | $0.0940 | $2.50 |
+
+F1 stays in a 0.05 band across the whole range — **smaller than the ±0.10 CI at n=30, i.e. mostly noise** — and the
+**highest F1 belongs to a model 6× cheaper than gpt-4o**, the model this entire project was built on. The punchline,
+paired and head-to-head: **a cheap single agent (gpt-4.1-mini + threshold, F1 0.727, $0.015) is statistically tied
+with the flagship two-agent pipeline (gpt-4o v2, F1 0.744, $0.169) — at 1/11th the cost** (ΔF1 +0.016, 95% CI
+[−0.094, +0.135]).
+
+So the real "cost-aware" move here isn't picking an architecture — it's **picking a cheap model and reading its logprob.**
+(Model prices are estimates in `Gold/frontier.py`; verify against current pricing. Token counts are measured exactly.)
+
+Full numbers, confidence intervals, and McNemar counts → **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 6–9)
 
 ## Caveats (read before citing any number)
 

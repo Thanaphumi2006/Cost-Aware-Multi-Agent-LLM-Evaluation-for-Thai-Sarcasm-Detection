@@ -1,0 +1,2 @@
+model,in_tok,out_tok,cost
+gpt-4.1-nano,34535,762,0.0037583000000000004

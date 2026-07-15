@@ -1,0 +1,2 @@
+model,in_tok,out_tok,cost
+gpt-4o,34535,762,0.09395750000000001

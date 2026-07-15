@@ -1,0 +1,2 @@
+model,in_tok,out_tok,cost
+gpt-4.1-mini,34535,762,0.015033200000000002
