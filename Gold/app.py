@@ -125,7 +125,7 @@ def run_multiagent(text):
     d_ms = round((time.perf_counter() - t0) * 1000)
     steps.append({
         "role": "ด่าน 1 · พนักงานคัดกรอง (detector)",
-        "job": "อ่านข้อความดิบ แล้วชี้ว่า “น่าจะประชด” หรือไม่ — เหวี่ยงแหกว้างไว้ก่อน",
+        "job": "อ่านข้อความดิบ แล้วชี้ว่า “น่าจะประชด” หรือไม่ เหวี่ยงแหกว้างไว้ก่อน",
         "said": det, "say_txt": {"1": "ประชด", "0": "ไม่ประชด"}.get(det, "ตอบเพี้ยน"),
         "ms": d_ms, "in_tok": i1, "out_tok": o1, "cost": round(cost(i1, o1), 6), "ran": True,
     })
@@ -136,7 +136,7 @@ def run_multiagent(text):
         v_ms = round((time.perf_counter() - t1) * 1000)
         steps.append({
             "role": "ด่าน 2 · หัวหน้า QC (verifier)",
-            "job": "ตรวจเฉพาะข้อที่ด่าน 1 ชี้ว่าประชด — มีอำนาจ “ปัดตก” อย่างเดียว เพิ่มประชดใหม่ไม่ได้",
+            "job": "ตรวจเฉพาะข้อที่ด่าน 1 ชี้ว่าประชด มีอำนาจ “ปัดตก” อย่างเดียว เพิ่มประชดใหม่ไม่ได้",
             "said": ver, "say_txt": {"1": "ยืนยัน: คงเป็นประชด", "0": "ปัดตก: ไม่ใช่ประชด"}.get(ver, "ตอบเพี้ยน"),
             "ms": v_ms, "in_tok": i2, "out_tok": o2, "cost": round(cost(i2, o2), 6), "ran": True,
         })
@@ -145,7 +145,7 @@ def run_multiagent(text):
     else:
         steps.append({
             "role": "ด่าน 2 · หัวหน้า QC (verifier)",
-            "job": "ตรวจเฉพาะข้อที่ด่าน 1 ชี้ว่าประชด — มีอำนาจ “ปัดตก” อย่างเดียว เพิ่มประชดใหม่ไม่ได้",
+            "job": "ตรวจเฉพาะข้อที่ด่าน 1 ชี้ว่าประชด มีอำนาจ “ปัดตก” อย่างเดียว เพิ่มประชดใหม่ไม่ได้",
             "said": "", "say_txt": "ไม่ได้ถูกเรียก (ด่าน 1 ว่าไม่ประชด → ปล่อยผ่านเลย)",
             "ms": 0, "in_tok": 0, "out_tok": 0, "cost": 0.0, "ran": False,
         })
@@ -291,7 +291,7 @@ def api_youtube():
         comments, plat = fs.fetch_any(url, limit)
     except fs.UnsupportedError:
         # แพลตฟอร์มดึงอัตโนมัติไม่ได้ (Twitter/IG/ฯลฯ ต้องล็อกอิน/API) -> บอกให้วางเอง
-        return jsonify({"error": f"ดึงจาก {plat} อัตโนมัติไม่ได้ (แพลตฟอร์มนี้ต้องล็อกอิน/เสียเงิน API) — "
+        return jsonify({"error": f"ดึงจาก {plat} อัตโนมัติไม่ได้ (แพลตฟอร์มนี้ต้องล็อกอิน/เสียเงิน API) "
                                  f"ก๊อปคอมเมนต์มาวางในแท็บ “อัปโหลดไฟล์” แทน (ใช้ได้กับทุกแพลตฟอร์ม)",
                         "paste_hint": True}), 422
     except Exception as e:
@@ -383,7 +383,7 @@ def index():
 
 @app.route("/app")
 def public_app():
-    """หน้าสำหรับผู้ใช้ทั่วไป: สะอาด ง่าย — ผลลัพธ์เดียวชัดๆ (ไม่มีของวิจัย)
+    """หน้าสำหรับผู้ใช้ทั่วไป: สะอาด ง่าย ผลลัพธ์เดียวชัดๆ (ไม่มีของวิจัย)
     ใช้ backend ตัวเดียวกับหน้า / (predict.py + endpoints เดิม)"""
     return render_template_string(PUBLIC_PAGE, has_key=bool(_api_key))
 
@@ -489,7 +489,7 @@ details.about[open]>summary::before{content:"\25BE  "}
   <div class="steplabel"><span class="num">1</span> ใส่กุญแจ OpenAI (ทำครั้งเดียว)</div>
   <div class="card keycard" id="keycard">
     <div class="keyhead">
-      <div class="sub" style="max-width:52ch">ระบบที่เป็น AI ต้องมี API key ถึงจะทำงาน — ส่วน WangchanBERTa (โมเดลฟรี) ใช้ได้เลยไม่ต้องใส่</div>
+      <div class="sub" style="max-width:52ch">ระบบที่เป็น AI ต้องมี API key ถึงจะทำงาน ส่วน WangchanBERTa (โมเดลฟรี) ใช้ได้เลยไม่ต้องใส่</div>
       <span class="pill {{ 'v0' if has_key else 'vna' }}" id="keypill">{{ 'พร้อมใช้งาน · ' ~ masked if has_key else 'ยังไม่มีคีย์' }}</span>
     </div>
     <div class="row" id="keyform" {% if has_key %}style="display:none"{% endif %}>
@@ -501,11 +501,11 @@ details.about[open]>summary::before{content:"\25BE  "}
       {% if from_env %}<span class="sub">อ่านมาจาก environment variable <code>OPENAI_API_KEY</code></span>{% endif %}
     </div>
     <div id="kmsg"></div>
-    <div class="note">คีย์เก็บในหน่วยความจำเซิร์ฟเวอร์เท่านั้น — ไม่เขียนลงไฟล์ ปิดเว็บแล้วหาย · เว็บนี้เปิดแค่บนเครื่องคุณ (127.0.0.1) อย่าเปิดออกอินเทอร์เน็ต</div>
+    <div class="note">คีย์เก็บในหน่วยความจำเซิร์ฟเวอร์เท่านั้น ไม่เขียนลงไฟล์ ปิดเว็บแล้วหาย · เว็บนี้เปิดแค่บนเครื่องคุณ (127.0.0.1) อย่าเปิดออกอินเทอร์เน็ต</div>
   </div>
 </div>
 
-{% if not has_wcb %}<div class="warn" style="margin-top:14px"><b>ยังไม่มีโมเดล WangchanBERTa</b> — รัน <code>train_final_wcb.py</code> ก่อน (ระบบอื่นใช้ได้ปกติ)</div>{% endif %}
+{% if not has_wcb %}<div class="warn" style="margin-top:14px"><b>ยังไม่มีโมเดล WangchanBERTa</b> รัน <code>train_final_wcb.py</code> ก่อน (ระบบอื่นใช้ได้ปกติ)</div>{% endif %}
 
 <div class="step">
   <div class="steplabel"><span class="num">2</span> เลือกวิธีใช้</div>
@@ -530,16 +530,16 @@ details.about[open]>summary::before{content:"\25BE  "}
 
   <div class="card tabpanel" id="tab-batch" style="display:none">
     <div class="sub" style="margin-bottom:10px">อัปโหลดไฟล์ CSV (มีคอลัมน์ <code>text</code>) หรือวางข้อความทีละบรรทัด → ได้ผลเป็นตาราง ดาวน์โหลดได้</div>
-    <div class="warn" style="margin-bottom:12px">คำเตือน: โมเดลวัดผลไว้แค่ <b>รีวิวร้าน + ทวีตสั้น</b> (F1~0.72) — ข้อความโดเมนอื่นยังไม่ได้ทดสอบ ผลอาจเพี้ยน</div>
+    <div class="warn" style="margin-bottom:12px">คำเตือน: โมเดลวัดผลไว้แค่ <b>รีวิวร้าน + ทวีตสั้น</b> (F1~0.72) ข้อความโดเมนอื่นยังไม่ได้ทดสอบ ผลอาจเพี้ยน</div>
     <div class="row" style="margin-top:0;margin-bottom:4px">
       <label class="sub">ความละเอียด:
         <select id="bop">
-          <option value="balanced">ปกติ — เร็ว/ถูก (gpt-4.1-mini)</option>
-          <option value="high_recall">จับให้ครบ — แม่นแต่แพงกว่า (gpt-4o)</option>
+          <option value="balanced">ปกติ เร็ว/ถูก (gpt-4.1-mini)</option>
+          <option value="high_recall">จับให้ครบ แม่นแต่แพงกว่า (gpt-4o)</option>
         </select></label>
       <label class="sub" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="brev"> ข้อก้ำกึ่งให้คนตัดสิน</label>
     </div>
-    <textarea id="btext" placeholder="วางข้อความทีละบรรทัด — หรือเลือกไฟล์ด้านล่าง"></textarea>
+    <textarea id="btext" placeholder="วางข้อความทีละบรรทัด หรือเลือกไฟล์ด้านล่าง"></textarea>
     <div class="row">
       <button class="go" id="bgo" onclick="runBatch()">ตรวจทั้งหมด</button>
       <input type="file" id="bfile" accept=".csv,.txt" style="font-size:13px;padding:0;border:0;background:none">
@@ -555,7 +555,7 @@ details.about[open]>summary::before{content:"\25BE  "}
       แพลตฟอร์มอื่น (Twitter/X, Instagram, TikTok, Facebook) เข้าถึงคอมเมนต์ฟรีไม่ได้ →
       ก๊อปมาวางในแท็บ <b>“อัปโหลดไฟล์”</b> ได้ทุกที่
     </div>
-    <div class="warn" style="margin-bottom:12px">คำเตือน: <b>โซเชียลเป็นโดเมนที่ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย) กด “ตัดสินผิด” เพื่อสอนได้</div>
+    <div class="warn" style="margin-bottom:12px">คำเตือน: <b>โซเชียลเป็นโดเมนที่ยังไม่ได้ทดสอบ</b> ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย) กด “ตัดสินผิด” เพื่อสอนได้</div>
     <div class="row" style="margin-top:0">
       <input type="text" id="yurl" placeholder="วางลิงก์ YouTube / Pantip / Reddit ..." style="flex:1;min-width:230px">
       <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
@@ -569,7 +569,7 @@ details.about[open]>summary::before{content:"\25BE  "}
   <summary>ระบบทำงานยังไง + คะแนนจากงานวิจัย</summary>
   <div class="about-body">
     <h3>ระบบ “AI สองชั้น” ทำงานยังไง</h3>
-    <div class="sub" style="margin-bottom:4px">AI เดี่ยว + เพิ่ม <b>ผู้ตรวจสอบ</b> อีกหนึ่งคน — แค่นั้น</div>
+    <div class="sub" style="margin-bottom:4px">AI เดี่ยว + เพิ่ม <b>ผู้ตรวจสอบ</b> อีกหนึ่งคน แค่นั้น</div>
   <div id="flow">
     <div class="flow">
       <div class="ag">
@@ -579,7 +579,7 @@ details.about[open]>summary::before{content:"\25BE  "}
         <div class="say">ประชด? → ใช่ / ไม่ใช่</div>
         <div style="font-size:11.5px;color:#5a6472;background:#f6f8fa;border-radius:6px;padding:8px 10px">
           <b>เก่ง:</b> จับประชดได้ครบ ไม่พลาดเลยสักข้อ<br>
-          <b>ไม่เก่ง:</b> เหวี่ยงแหกว้างไป — ทายว่าประชด 27 ข้อที่จริงไม่ใช่
+          <b>ไม่เก่ง:</b> เหวี่ยงแหกว้างไป ทายว่าประชด 27 ข้อที่จริงไม่ใช่
         </div>
       </div>
 
@@ -592,7 +592,7 @@ details.about[open]>summary::before{content:"\25BE  "}
         <div class="say">ยืนยัน / ปัดตก</div>
         <div style="font-size:11.5px;color:#5a6472;background:#f6f8fa;border-radius:6px;padding:8px 10px">
           <b>อำนาจของเขามีแค่อย่างเดียว: ปัดตก</b><br>
-          เขา<b>เพิ่ม</b>ประชดใหม่ไม่ได้ — ทำได้แค่บอกว่า “อันนี้คนแรกทายผิด”
+          เขา<b>เพิ่ม</b>ประชดใหม่ไม่ได้ ทำได้แค่บอกว่า “อันนี้คนแรกทายผิด”
         </div>
       </div>
     </div>
@@ -606,12 +606,12 @@ details.about[open]>summary::before{content:"\25BE  "}
       <b>กฎข้อเดียวที่ชี้เป็นชี้ตายคือ “เวลาไม่แน่ใจให้ทำยังไง”</b><br>
       • ถ้าสั่งว่า <b>“ไม่แน่ใจ → ปัดตก”</b> → เขาเผลอตัดประชด<b>จริง</b>ทิ้ง 10 ข้อ → F1 แย่ลง<br>
       • ถ้าสั่งว่า <b>“ไม่แน่ใจ → เก็บไว้”</b> → เสียแค่ 1 ข้อ → <b>F1 ดีที่สุด (0.744)</b><br>
-      เหตุผล: <b>ประชดที่แนบเนียนมันอ่านได้สองแง่อยู่แล้วโดยธรรมชาติ</b> —
+      เหตุผล: <b>ประชดที่แนบเนียนมันอ่านได้สองแง่อยู่แล้วโดยธรรมชาติ</b>  
       ถ้าลังเลแปลว่ามัน<b>น่าจะ</b>ประชด ไม่ใช่ไม่ประชด
     </div>
 
     <div class="note">
-      <b>เราลองแบบซับซ้อนกว่านี้แล้ว — และมันแพ้</b><br>
+      <b>เราลองแบบซับซ้อนกว่านี้แล้ว และมันแพ้</b><br>
       • <b>Debate</b> (อัยการ + ทนาย + ผู้พิพากษา, 3 คน ตัดสินใหม่ได้อิสระ) → F1 <b>0.694</b> · แพงกว่า <b>4.1×</b><br>
       • <b>Hybrid</b> (เอา debate มาเป็นผู้ตรวจสอบ, 4 คน) → F1 <b>0.700</b> · แพงกว่า <b>2.4×</b><br>
       ทั้งคู่<b>แพ้</b>ระบบ 2 คนข้างบน (0.744) ที่ถูกที่สุดและง่ายที่สุด<br>
@@ -632,7 +632,7 @@ details.about[open]>summary::before{content:"\25BE  "}
       <td>{{ r.calls }}</td><td>${{ "%.3f"|format(r.cost) }}</td>
     </tr>{% endfor %}
   </table>
-    <div class="note">multi-agent (สองชั้น) ได้ F1 สูงสุด แต่จ่ายแพงสุด · AI เดี่ยวจับประชดครบทุกข้อ (FN=0) แต่เหวี่ยงแหเกิน (FP 27) · WangchanBERTa ฟรีและออฟไลน์ แต่ปล่อยประชดหลุด 9 ข้อ · <b>อย่าดู accuracy</b> — ข้อมูลเอียง 76/24</div>
+    <div class="note">multi-agent (สองชั้น) ได้ F1 สูงสุด แต่จ่ายแพงสุด · AI เดี่ยวจับประชดครบทุกข้อ (FN=0) แต่เหวี่ยงแหเกิน (FP 27) · WangchanBERTa ฟรีและออฟไลน์ แต่ปล่อยประชดหลุด 9 ข้อ · <b>อย่าดู accuracy</b> ข้อมูลเอียง 76/24</div>
   </div>
 </details>
 
@@ -659,7 +659,7 @@ async function saveKey(){
     if(d.ok){
       $('k').value='';                       // ไม่ทิ้งคีย์ไว้ใน DOM
       keyUI(true,d.masked);
-      $('kmsg').innerHTML='<div class="ok">ใช้คีย์นี้ได้ — ระบบ ① และ ② พร้อมรันแล้ว</div>';
+      $('kmsg').innerHTML='<div class="ok">ใช้คีย์นี้ได้ ระบบ ① และ ② พร้อมรันแล้ว</div>';
     } else {
       $('kmsg').innerHTML='<div class="warn">'+d.error+'</div>';
     }
@@ -702,7 +702,7 @@ function drawFlow(m){
     ? `<div class="meta"><span>ใช้เวลา</span><b>${s.ms} ms</b></div>
        <div class="meta"><span>ค่าใช้จ่าย</span><b>$${s.cost.toFixed(5)}</b></div>`
     : `<div class="meta"><span>ใช้เวลา</span><b>0 ms</b></div>
-       <div class="meta"><span>ค่าใช้จ่าย</span><b>$0.00000 — ประหยัดได้</b></div>`;
+       <div class="meta"><span>ค่าใช้จ่าย</span><b>$0.00000 ประหยัดได้</b></div>`;
   const said1 = s1.said==='1' ? 'ประชด' : (s1.said==='0' ? 'ไม่ประชด' : 'ตอบเพี้ยน');
   const c1 = s1.said==='1' ? 'on' : '';
   const c2 = !s2.ran ? 'off' : (s2.said==='0' ? 'kill' : 'on');
@@ -710,12 +710,12 @@ function drawFlow(m){
     ? '↓<small>ส่งไปตรวจ<br><b>เพราะคนแรกตอบ “ประชด”</b></small>'
     : '⇣<small style="color:#c0c6cf">ไม่ต้องตรวจ<br><b>คนแรกตอบ “ไม่ประชด”</b></small>';
   const say2 = !s2.ran
-    ? 'ไม่ได้ทำงาน — ไม่มีอะไรให้ตรวจ'
-    : (s2.said==='0' ? 'ปัดตก — คนแรกทายผิด' : 'ยืนยัน — คนแรกทายถูก');
+    ? 'ไม่ได้ทำงาน ไม่มีอะไรให้ตรวจ'
+    : (s2.said==='0' ? 'ปัดตก คนแรกทายผิด' : 'ยืนยัน คนแรกทายถูก');
   let fin, cls;
-  if(m.flipped){ fin='ผลสุดท้าย: <b>ไม่ประชด</b> — ผู้ตรวจสอบจับได้ว่าคนแรกทายผิด แล้วปัดตกทิ้ง'; cls='k'; }
-  else if(m.pred==='1'){ fin='ผลสุดท้าย: <b>ประชด</b> — ผู้ตรวจสอบตรวจแล้ว ยืนยันตามคนแรก'; cls='p'; }
-  else { fin='ผลสุดท้าย: <b>ไม่ประชด</b> — คนแรกตีตกตั้งแต่ต้น ผู้ตรวจสอบไม่ต้องทำงาน'; cls='p'; }
+  if(m.flipped){ fin='ผลสุดท้าย: <b>ไม่ประชด</b> ผู้ตรวจสอบจับได้ว่าคนแรกทายผิด แล้วปัดตกทิ้ง'; cls='k'; }
+  else if(m.pred==='1'){ fin='ผลสุดท้าย: <b>ประชด</b> ผู้ตรวจสอบตรวจแล้ว ยืนยันตามคนแรก'; cls='p'; }
+  else { fin='ผลสุดท้าย: <b>ไม่ประชด</b> คนแรกตีตกตั้งแต่ต้น ผู้ตรวจสอบไม่ต้องทำงาน'; cls='p'; }
   document.getElementById('flow').innerHTML=`
     <div class="flow">
       <div class="ag ${c1}">
@@ -726,14 +726,14 @@ function drawFlow(m){
       <div class="arw">${arrow}</div>
       <div class="ag ${c2}">
         <div class="who">คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
-        <div class="job">ปัดตกได้อย่างเดียว — เพิ่มประชดใหม่ไม่ได้</div>
+        <div class="job">ปัดตกได้อย่างเดียว เพิ่มประชดใหม่ไม่ได้</div>
         <div class="say">${say2}</div>${meta(s2)}
       </div>
     </div>
     <div class="fin ${cls}">${fin}</div>
     <div class="rule">
       ข้อความนี้ใช้ไป <b>${m.calls} ครั้ง</b> · <b>${m.latency_ms} ms</b> · <b>$${m.cost.toFixed(5)}</b>
-      &nbsp;—&nbsp; เทียบกับเอเจนต์เดี่ยวที่ใช้ 1 ครั้งเสมอ<br>
+      &nbsp; &nbsp; เทียบกับเอเจนต์เดี่ยวที่ใช้ 1 ครั้งเสมอ<br>
       <b>สังเกต:</b> ผู้ตรวจสอบ<b>เพิ่มประชดใหม่ไม่ได้</b> ทำได้แค่ปัดตกของคนแรก →
       ระบบนี้จึงซื้อได้แค่ <b>ความแม่นยำ</b> (ลดการทายเกิน) ไม่ได้ซื้อ “ความครบ”
     </div>`;
@@ -748,7 +748,7 @@ async function run(){
     const d=await r.json();
     let g='';
     if(d.in_gold){
-      g=`<div class="gold"><b>ข้อความนี้อยู่ใน gold set</b> — คำตอบจริง:
+      g=`<div class="gold"><b>ข้อความนี้อยู่ใน gold set</b> คำตอบจริง:
         <b>${d.gold==='1'?'ประชด':'ไม่ประชด'}</b> (✓/✗ ข้างล่างคือถูก/ผิดเทียบคำตอบจริง)<br>
         <span style="color:#a02020">ระวัง: WangchanBERTa เทรนด้วยข้อนี้มาแล้ว → มันจำคำตอบได้ ไม่ใช่ฝีมือจริง
         ตัวเลขจริงของมันอยู่ในตารางข้างล่าง (out-of-fold)</span></div>`;
@@ -822,7 +822,7 @@ function renderYT(){
       <div style="font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         ${pill(r.decision)} <span class="mono">P(ประชด)=${r.prob==null?'–':r.prob}</span> ${btn}</div>
     </div>`;
-  }).join('') || '<div class="sub" style="padding:8px 0">— ไม่มี —</div>';
+  }).join('') || '<div class="sub" style="padding:8px 0">  ไม่มี  </div>';
   const relearn = _corrected>0
     ? `<button class="go" style="padding:7px 14px" onclick="reanalyzeYT()">วิเคราะห์คอมเมนต์เดิมใหม่ด้วยสิ่งที่แก้ (${_corrected} ข้อ)</button>`
     : '';
@@ -831,7 +831,7 @@ function renderYT(){
       ดึงได้ <b>${s.n}</b> คอมเมนต์ · ระบบคิดว่าประชด <b>${s.sarcasm}</b> ข้อ · ${s.model}
       &nbsp; <button class="ghost" onclick="ytToggle(true)">โชว์เฉพาะประชด</button>
       <button class="ghost" onclick="ytToggle(false)">โชว์ทั้งหมด</button>
-      <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น — ระบบจะจำ<b>ถาวร (ข้ามเซสชัน)</b>
+      <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น ระบบจะจำ<b>ถาวร (ข้ามเซสชัน)</b>
       เป็นตัวอย่าง (few-shot) แล้วเก่งขึ้นกับข้อความคล้ายๆ กัน · จำได้ไม่จำกัดจำนวน ·
       อยากฝังในโมเดลจริงถาวรใช้ <code>finetune.py</code> (ไม่ใช่การเทรนใหม่ในเว็บ)</span> ${relearn}
     </div>
@@ -908,7 +908,7 @@ function pill(dec){
 function renderBatch(d){
   const s=d.summary;
   let rows=_brows.map((r,i)=>{
-    const g=r.in_gold?' <span title="อยู่ใน gold — โมเดลอาจเคยเห็น" style="color:#a06a00">(gold)</span>':'';
+    const g=r.in_gold?' <span title="อยู่ใน gold โมเดลอาจเคยเห็น" style="color:#a06a00">(gold)</span>':'';
     return `<tr><td>${i+1}</td><td style="text-align:left;max-width:420px">${esc(r.text)}${g}</td>
       <td>${r.prob==null?'–':r.prob}</td><td>${pill(r.decision)}</td></tr>`;
   }).join('');
@@ -936,7 +936,7 @@ function dlCSV(){
 """
 
 
-# ================= หน้าสำหรับผู้ใช้ทั่วไป (/app) — สะอาด ผลลัพธ์เดียว =================
+# ================= หน้าสำหรับผู้ใช้ทั่วไป (/app) สะอาด ผลลัพธ์เดียว =================
 PUBLIC_PAGE = r"""
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1044,7 +1044,7 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
 {% endif %}
 
 <div class="box panel">
-  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความตรงนี้ (หลายบรรทัดก็ได้) — หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
+  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความตรงนี้ (หลายบรรทัดก็ได้) หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
   <div class="hint">วางลิงก์ = ดึงคอมเมนต์มาตรวจให้ · หลายบรรทัด = ตรวจทีละบรรทัด</div>
   <div class="actions">
     <button class="go" id="go" onclick="analyze()">ตรวจเลย!</button>
@@ -1053,7 +1053,7 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
   <div id="out"></div>
 </div>
 
-<p class="note">ผลลัพธ์เป็น “การเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย — เห็นว่าผิดก็กด “ตัดสินผิด” ช่วยให้มันเก่งขึ้นได้</p>
+<p class="note">ผลลัพธ์เป็น “การเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย เห็นว่าผิดก็กด “ตัดสินผิด” ช่วยให้มันเก่งขึ้นได้</p>
 <div class="foot">~ ตรวจจับประชดภาษาไทย ~</div>
 
 <script>
