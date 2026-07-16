@@ -443,6 +443,11 @@ tr.best td{background:#f2faf5}
     อัปโหลด CSV (หรือวางข้อความทีละบรรทัด) → ใช้ <code>predict.py</code> ตัวเดียวกับ production
     (เอเจนต์เดี่ยว + threshold, มี cache ยิงซ้ำฟรี)
   </div>
+  <div class="warn" style="margin-bottom:12px">
+    ⚠ <b>วัดผลไว้แค่บนรีวิวร้าน (Wongnai) + ทวีตสั้น (Wisesight)</b> — F1 ~0.72 ·
+    ข้อความโดเมนอื่น (YouTube / ข่าว / ทางการ) <b>ยังไม่ได้ทดสอบ</b> ผลอาจเพี้ยน
+    (จะเช็คก่อนก็ได้: <code>eval_domain.py</code>)
+  </div>
   <div class="row" style="margin-bottom:10px">
     <label style="font-size:13px;color:#42505f">จุดทำงาน:
       <select id="bop" style="padding:6px 8px;border:1px solid #cfd6df;border-radius:6px;font-family:inherit">

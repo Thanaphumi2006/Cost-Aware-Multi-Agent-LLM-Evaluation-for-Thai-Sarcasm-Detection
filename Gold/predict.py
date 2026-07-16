@@ -154,6 +154,8 @@ def main():
         sys.exit("ต้องมี OPENAI_API_KEY (export OPENAI_API_KEY=sk-...)")
     det = SarcasmDetector(operating=a.op)
     print(f"[predict] {det.model} · จุดทำงาน '{a.op}' (t={det.t}) · {OPERATING[a.op]['desc']}", file=sys.stderr)
+    print("[predict] ⚠ วัดผลไว้แค่บนรีวิว/ทวีต (F1~0.72) — โดเมนอื่น (YouTube/ข่าว/ทางการ) ยังไม่เทสต์",
+          file=sys.stderr)
 
     if a.csv:
         import pandas as pd
