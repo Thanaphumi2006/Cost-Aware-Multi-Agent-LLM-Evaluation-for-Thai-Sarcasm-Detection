@@ -279,26 +279,25 @@ def api_youtube():
     url = str(body.get("url", "")).strip()
     op = body.get("op", "balanced")
     limit = min(int(body.get("limit", 80)), 200)
-    if "youtu" not in url:
-        return jsonify({"error": "ใส่ลิงก์ YouTube ที่ถูกต้อง"}), 400
+    if not url.startswith("http"):
+        return jsonify({"error": "ใส่ลิงก์ให้ถูก (ขึ้นต้น http)"}), 400
     try:
-        import fetch_yt_comments as yt
+        import fetch_social as fs
     except ImportError:
         return jsonify({"error": "ยังไม่ได้ติดตั้ง yt-dlp (pip install yt-dlp)"}), 500
 
+    plat = fs.platform_of(url)
     try:
-        raw = yt.fetch(url, limit)
+        comments, plat = fs.fetch_any(url, limit)
+    except fs.UnsupportedError:
+        # แพลตฟอร์มดึงอัตโนมัติไม่ได้ (Twitter/IG/ฯลฯ ต้องล็อกอิน/API) -> บอกให้วางเอง
+        return jsonify({"error": f"ดึงจาก {plat} อัตโนมัติไม่ได้ (แพลตฟอร์มนี้ต้องล็อกอิน/เสียเงิน API) — "
+                                 f"ก๊อปคอมเมนต์มาวางในแท็บ “อัปโหลดไฟล์” แทน (ใช้ได้กับทุกแพลตฟอร์ม)",
+                        "paste_hint": True}), 422
     except Exception as e:
-        return jsonify({"error": f"ดึงคอมเมนต์ไม่สำเร็จ: {type(e).__name__}"}), 502
-    seen, comments = set(), []
-    for c in raw:
-        c = yt.clean(c)
-        if yt.is_thai(c) and 8 <= len(c) <= 300 and c not in seen:
-            seen.add(c); comments.append(c)
-        if len(comments) >= limit:
-            break
+        return jsonify({"error": f"ดึงไม่สำเร็จ: {type(e).__name__}"}), 502
     if not comments:
-        return jsonify({"error": "ไม่พบคอมเมนต์ภาษาไทย (คลิปอาจปิดคอมเมนต์)"}), 404
+        return jsonify({"error": f"ไม่พบคอมเมนต์ภาษาไทยจาก {plat} (อาจปิดคอมเมนต์ หรือคอมเมนต์ไม่ใช่ไทย)"}), 404
 
     det = detector(op)
     rows = []
@@ -310,7 +309,7 @@ def api_youtube():
         rows.append({"text": c, **r})
     rows.sort(key=lambda r: -(r.get("prob") or 0))       # ประชดมั่นใจสุดอยู่บน
     summ = {"n": len(rows), "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
-            "model": det.model, "op": op}
+            "model": det.model, "op": op, "platform": plat}
     return jsonify({"rows": rows, "summary": summ})
 
 
@@ -506,7 +505,7 @@ details.about[open]>summary::before{content:"\25BE  "}
   <div class="tabs">
     <button class="tab active" id="tabbtn-single" onclick="showTab('single')">พิมพ์ทีละข้อความ</button>
     <button class="tab" id="tabbtn-batch" onclick="showTab('batch')">อัปโหลดไฟล์</button>
-    <button class="tab" id="tabbtn-yt" onclick="showTab('yt')">YouTube</button>
+    <button class="tab" id="tabbtn-yt" onclick="showTab('yt')">จากลิงก์โซเชียล</button>
   </div>
 
   <div class="card tabpanel" id="tab-single">
@@ -543,10 +542,15 @@ details.about[open]>summary::before{content:"\25BE  "}
   </div>
 
   <div class="card tabpanel" id="tab-yt" style="display:none">
-    <div class="sub" style="margin-bottom:10px">วางลิงก์คลิป → ดึงคอมเมนต์ไทย → โชว์เฉพาะคอมเมนต์ที่ระบบคิดว่า “ประชด”</div>
-    <div class="warn" style="margin-bottom:12px">คำเตือน: <b>YouTube ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย)</div>
+    <div class="sub" style="margin-bottom:10px">วางลิงก์ → ดึงคอมเมนต์ไทย → โชว์เฉพาะคอมเมนต์ที่ระบบคิดว่า “ประชด”</div>
+    <div class="note" style="margin-top:0;margin-bottom:10px">
+      ดึงอัตโนมัติได้: <b>YouTube</b> (ชัวร์) · <b>Reddit</b> (บางที) ·
+      <b>Twitter/X · Instagram · TikTok</b> ดึงไม่ได้ (แพลตฟอร์มบังคับล็อกอิน/API เสียเงิน) →
+      ใช้แท็บ <b>“อัปโหลดไฟล์”</b> ก๊อปคอมเมนต์มาวางเอง ได้ทุกแพลตฟอร์ม
+    </div>
+    <div class="warn" style="margin-bottom:12px">คำเตือน: <b>โซเชียลเป็นโดเมนที่ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย) กด “ตัดสินผิด” เพื่อสอนได้</div>
     <div class="row" style="margin-top:0">
-      <input type="text" id="yurl" placeholder="https://www.youtube.com/watch?v=..." style="flex:1;min-width:230px">
+      <input type="text" id="yurl" placeholder="วางลิงก์ YouTube หรือ Reddit ..." style="flex:1;min-width:230px">
       <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
     </div>
     <div class="sub" id="yhint" style="margin-top:8px">ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่</div>
@@ -767,7 +771,10 @@ async function runYT(){
     const r=await fetch('/api/youtube',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url,op:$('bop').value,limit:80})});
     const d=await r.json();
-    if(d.error){$('yout').innerHTML='<div class="warn">'+d.error+'</div>'}
+    if(d.error){
+      const jump=d.paste_hint?' <button class="go" style="padding:6px 12px;margin-top:8px" onclick="showTab(\'batch\')">ไปแท็บอัปโหลดไฟล์</button>':'';
+      $('yout').innerHTML='<div class="warn">'+d.error+jump+'</div>';
+    }
     else{ _yall=d.rows; _ysum=d.summary; _yonly=true; _ypage=1; renderYT(); }
   }catch(e){ $('yout').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>' }
   $('ygo').disabled=false; $('ygo').textContent='ดึง + วิเคราะห์';
