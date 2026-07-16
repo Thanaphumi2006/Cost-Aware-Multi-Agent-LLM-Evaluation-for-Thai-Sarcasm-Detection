@@ -233,38 +233,73 @@ def detector(op):
     return _detectors[key]
 
 
+# ระบบที่หน้า /app เลือกได้ (แต่ละตัวมีมาสคอต)
+MODELS_PUBLIC = ("balanced", "high_recall", "multiagent", "wangchanberta")
+MODEL_LABEL = {"balanced": "gpt-4.1-mini", "high_recall": "gpt-4o",
+               "multiagent": "multi-agent (2 ตัว)", "wangchanberta": "WangchanBERTa (ฟรี)"}
+
+
+def _dec(pred):
+    return "sarcasm" if pred == "1" else ("not_sarcasm" if pred == "0" else "error")
+
+
+def _classify(model, text, review=False):
+    """ตรวจ 1 ข้อความด้วยระบบที่เลือก -> row มาตรฐาน (multiagent แถม steps ไว้ให้ animate)"""
+    if model == "multiagent":
+        r = run_multiagent(text)
+        p = r.get("pred")
+        return {"text": text, "label": p if p in ("0", "1") else None, "prob": None,
+                "decision": _dec(p), "steps": r.get("steps"), "note": r.get("note")}
+    if model == "wangchanberta":
+        r = run_wcb(text)
+        p = r.get("pred")
+        conf = r.get("conf")                                   # ความมั่นใจของคลาสที่ทาย
+        psarc = conf if p == "1" else (1 - conf if p == "0" and conf is not None else None)
+        return {"text": text, "label": p if p in ("0", "1") else None, "prob": psarc,
+                "decision": _dec(p), "note": r.get("note")}
+    r = detector(model).predict(text, review_band=review)     # balanced / high_recall
+    return {"text": text, **r}
+
+
+def _need_check(model):
+    """คืน error message ถ้าใช้ระบบนี้ไม่ได้ตอนนี้ (คีย์/โมเดล) ไม่งั้น None"""
+    if model not in MODELS_PUBLIC:
+        return f"ไม่รู้จักระบบ: {model}"
+    if model != "wangchanberta" and not _api_key:
+        return "ยังไม่มี OPENAI_API_KEY (ใส่คีย์ด้านบนก่อน)"
+    if model == "wangchanberta" and not has_wcb():
+        return "ยังไม่มีโมเดล WangchanBERTa (รัน train_final_wcb.py)"
+    return None
+
+
 @app.route("/api/batch", methods=["POST"])
 def api_batch():
-    """ตรวจหลายข้อความรวดเดียว (เอาไว้อัปโหลด CSV จากหน้าเว็บ) -- ใช้ predict.py ระบบพร้อมใช้จริง"""
-    if not _api_key:
-        return jsonify({"error": "ยังไม่มี OPENAI_API_KEY (ใส่คีย์ด้านบนก่อน)"}), 400
+    """ตรวจหลายข้อความรวดเดียว -- เลือกระบบได้ (balanced/high_recall/multiagent/wangchanberta)"""
     body = request.json or {}
     texts = [str(t).strip() for t in body.get("texts", []) if str(t).strip()]
-    op = body.get("op", "balanced")
+    model = body.get("model") or body.get("op") or "balanced"
     review = bool(body.get("review_band", False))
     if not texts:
         return jsonify({"error": "ไม่มีข้อความ"}), 400
     if len(texts) > 500:
         return jsonify({"error": f"มากเกินไป ({len(texts)}) -- จำกัด 500 ข้อ/ครั้ง"}), 400
-    import predict
-    if op not in predict.OPERATING:
-        return jsonify({"error": f"operating point ไม่รู้จัก: {op}"}), 400
+    err = _need_check(model)
+    if err:
+        return jsonify({"error": err}), 400
 
-    det = detector(op)
-    h0 = det.hits
     rows = []
     for t in texts:
         try:
-            r = det.predict(t, review_band=review)
+            r = _classify(model, t, review)
         except Exception as e:
-            r = {"label": None, "prob": None, "decision": f"error: {type(e).__name__}"}
-        rows.append({"text": t, **r, "in_gold": t in GOLD_TEXTS, "gold": GOLD_TEXTS.get(t)})
+            r = {"text": t, "label": None, "prob": None, "decision": f"error: {type(e).__name__}"}
+        rows.append({**r, "in_gold": t in GOLD_TEXTS, "gold": GOLD_TEXTS.get(t)})
     summ = {
         "n": len(rows),
         "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
         "not": sum(1 for r in rows if r["decision"] == "not_sarcasm"),
         "review": sum(1 for r in rows if r["decision"] == "review"),
-        "cached": det.hits - h0, "model": det.model, "op": op,
+        "model": MODEL_LABEL.get(model, model), "op": model,
     }
     return jsonify({"rows": rows, "summary": summ})
 
@@ -273,12 +308,13 @@ def api_batch():
 def api_youtube():
     """วางลิงก์ YouTube -> ดึงคอมเมนต์ไทย -> จับประชด -> คืนรายการ (โชว์เฉพาะที่ประชด)
     *** โดเมน YouTube ยังไม่ได้ validate (ดู eval_domain.py) -> ผลเป็น "เดา" เตือนที่หน้าเว็บ ***"""
-    if not _api_key:
-        return jsonify({"error": "ยังไม่มี OPENAI_API_KEY (ใส่คีย์ด้านบนก่อน)"}), 400
     body = request.json or {}
     url = str(body.get("url", "")).strip()
-    op = body.get("op", "balanced")
+    model = body.get("model") or body.get("op") or "balanced"
     limit = min(int(body.get("limit", 80)), 200)
+    err = _need_check(model)
+    if err:
+        return jsonify({"error": err}), 400
     if not url.startswith("http"):
         return jsonify({"error": "ใส่ลิงก์ให้ถูก (ขึ้นต้น http)"}), 400
     try:
@@ -299,17 +335,15 @@ def api_youtube():
     if not comments:
         return jsonify({"error": f"ไม่พบคอมเมนต์ภาษาไทยจาก {plat} (อาจปิดคอมเมนต์ หรือคอมเมนต์ไม่ใช่ไทย)"}), 404
 
-    det = detector(op)
     rows = []
     for c in comments:
         try:
-            r = det.predict(c)
-        except Exception as e:
-            r = {"label": None, "prob": None, "decision": f"error"}
-        rows.append({"text": c, **r})
-    rows.sort(key=lambda r: -(r.get("prob") or 0))       # ประชดมั่นใจสุดอยู่บน
+            rows.append(_classify(model, c))
+        except Exception:
+            rows.append({"text": c, "label": None, "prob": None, "decision": "error"})
+    rows.sort(key=lambda r: (r.get("decision") != "sarcasm", -(r.get("prob") or 0)))   # ประชดขึ้นก่อน
     summ = {"n": len(rows), "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
-            "model": det.model, "op": op, "platform": plat}
+            "model": MODEL_LABEL.get(model, model), "op": model, "platform": plat}
     return jsonify({"rows": rows, "summary": summ})
 
 
@@ -969,9 +1003,8 @@ h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:c
 .spark{position:absolute;pointer-events:none}
 .head{position:relative}
 .pick-title{font-family:var(--disp);font-size:clamp(19px,4.5vw,23px);text-align:center;color:var(--ink);margin-top:34px}
-.models{display:flex;gap:14px;margin-top:12px}
-@media(max-width:460px){.models{flex-direction:column}}
-.model{flex:1;background:var(--card);cursor:pointer;text-align:center;font-family:var(--body);
+.models{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.model{background:var(--card);cursor:pointer;text-align:center;font-family:var(--body);
   border:2.6px solid var(--ink);border-radius:225px 16px 255px 14px/14px 255px 16px 225px;
   box-shadow:4px 4px 0 var(--ink);padding:16px 10px 13px;transition:transform .09s,box-shadow .09s,border-color .09s}
 .model:nth-child(2){border-radius:16px 225px 14px 255px/255px 14px 225px 16px}
@@ -982,6 +1015,31 @@ h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:c
 .model.sel{border-color:var(--blue);box-shadow:5px 6px 0 var(--blue);transform:translateY(-3px) rotate(-1deg)}
 .model .tick{font-family:var(--body);font-weight:700;font-size:12px;color:var(--blue);height:14px;margin-top:5px}
 .panel{padding:clamp(20px,4.5vw,30px);margin-top:20px}
+/* ---- multi-agent workflow animation ---- */
+.flowbox{margin-top:16px;padding:20px 12px;text-align:center}
+.flowrow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:nowrap}
+.node{flex:none;width:104px;padding:12px 8px;background:var(--card);border:2.6px solid var(--ink);
+  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;box-shadow:3px 3px 0 var(--ink)}
+.node .nface{width:40px;height:40px}
+.node .nname{font-family:var(--disp);font-size:14px;color:var(--ink);line-height:1.15;margin-top:3px}
+.node .nsay{font-family:var(--body);font-size:12px;margin-top:4px;min-height:16px;color:var(--ink2)}
+.node.work{border-color:var(--blue);box-shadow:3px 3px 0 var(--blue);animation:bob .6s ease-in-out infinite}
+.node.done1{border-color:var(--sar);box-shadow:3px 3px 0 var(--sar)} .node.done1 .nsay{color:var(--sar);font-weight:700}
+.node.done0{border-color:var(--not);box-shadow:3px 3px 0 var(--not)} .node.done0 .nsay{color:var(--not);font-weight:700}
+.node.skip{opacity:.5;border-style:dashed}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.wire{position:relative;flex:none;width:46px;height:26px}
+.wire svg{position:absolute;inset:0;width:100%;height:100%}
+.packet{position:absolute;top:7px;left:0;width:11px;height:11px;border-radius:50%;background:var(--yellow);
+  border:2px solid var(--ink)}
+.wire.run .packet{animation:fly 1s linear infinite}
+@keyframes fly{0%{left:-2px;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:38px;opacity:0}}
+.flowcap{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:14px;min-height:18px}
+.miniflow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-family:var(--body);font-size:12.5px}
+.chip{padding:3px 9px;border:2px solid var(--ink);border-radius:10px 6px 10px 6px;background:#fff}
+.chip.s1{background:var(--sar-bg);color:var(--sar)} .chip.s0{background:var(--not-bg);color:var(--not)}
+.chip.skip{opacity:.55;border-style:dashed}
+.arrowc{color:var(--ink2);font-weight:700}
 label,.hint{font-family:var(--body)}
 textarea,input[type=text],input[type=password]{width:100%;padding:15px;font-family:var(--body);font-size:16px;
   color:var(--ink);background:#fffef9;border:2.4px dashed var(--ink);border-radius:18px 10px 20px 10px/10px 20px 10px 18px}
@@ -1087,6 +1145,35 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
     <div class="mdesc">ละเอียด จับครบ</div>
     <div class="tick"></div>
   </button>
+  <button class="model" data-op="multiagent" onclick="pickModel('multiagent',this)">
+    <svg class="mascot" viewBox="0 0 72 72">
+      <circle cx="25" cy="35" r="15" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4"/>
+      <circle cx="21" cy="33" r="2.3" fill="#34302a"/><circle cx="29" cy="33" r="2.3" fill="#34302a"/>
+      <path d="M21 40 Q25 43 29 40" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="47" r="5" fill="none" stroke="#34302a" stroke-width="2.2"/><line x1="15.5" y1="50.5" x2="19" y2="54" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="48" cy="35" r="15" fill="#a8e0c0" stroke="#34302a" stroke-width="2.4"/>
+      <circle cx="44" cy="33" r="2.3" fill="#34302a"/><circle cx="52" cy="33" r="2.3" fill="#34302a"/>
+      <path d="M44 40 Q48 43 52 40" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M55 45 L59 49 L65 41" fill="none" stroke="#38a05d" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="mname">คู่หูสองตรวจ</div>
+    <div class="mdesc">คัดกรอง แล้วตรวจซ้ำ</div>
+    <div class="tick"></div>
+  </button>
+  <button class="model" data-op="wangchanberta" onclick="pickModel('wangchanberta',this)">
+    <svg class="mascot" viewBox="0 0 72 72">
+      <line x1="36" y1="15" x2="36" y2="7" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
+      <circle cx="36" cy="6" r="3.4" fill="#ffd84d" stroke="#34302a" stroke-width="2.2"/>
+      <rect x="15" y="16" width="42" height="35" rx="11" fill="#cfe3f5" stroke="#34302a" stroke-width="2.6"/>
+      <rect x="9" y="28" width="6" height="11" rx="2" fill="#cfe3f5" stroke="#34302a" stroke-width="2.2"/>
+      <rect x="57" y="28" width="6" height="11" rx="2" fill="#cfe3f5" stroke="#34302a" stroke-width="2.2"/>
+      <circle cx="28" cy="31" r="4.2" fill="#34302a"/><circle cx="44" cy="31" r="4.2" fill="#34302a"/>
+      <rect x="26" y="40" width="20" height="5" rx="2.5" fill="none" stroke="#34302a" stroke-width="2.2"/>
+    </svg>
+    <div class="mname">น้องหุ่นไทย</div>
+    <div class="mdesc">ฟรี ไม่ต้องต่อเน็ต</div>
+    <div class="tick"></div>
+  </button>
 </div>
 
 <div class="box panel">
@@ -1136,10 +1223,37 @@ function pickModel(op,el){
 }
 function isURL(s){return /^https?:\/\//i.test(s)}
 
+// ---- multi-agent workflow animation (loading) ----
+const F1='<svg class="nface" viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#ffd1a8" stroke="#34302a" stroke-width="2.2"/><circle cx="16" cy="18" r="2" fill="#34302a"/><circle cx="24" cy="18" r="2" fill="#34302a"/><path d="M16 24 Q20 27 24 24" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>';
+const F2='<svg class="nface" viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#a8e0c0" stroke="#34302a" stroke-width="2.2"/><circle cx="16" cy="18" r="2" fill="#34302a"/><circle cx="24" cy="18" r="2" fill="#34302a"/><path d="M16 24 Q20 27 24 24" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>';
+function node(name,face,cls,say){return `<div class="node ${cls||''}"><div>${face}</div><div class="nname">${name}</div><div class="nsay">${say||''}</div></div>`;}
+function wire(run){return `<div class="wire ${run?'run':''}"><svg viewBox="0 0 46 26" preserveAspectRatio="none"><path d="M2 13 Q 23 4 44 13" fill="none" stroke="#34302a" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg><div class="packet"></div></div>`;}
+function showFlowLoading(){
+  $('out').innerHTML=`<div class="flowbox box" style="box-shadow:none;border:none">
+    <div class="flowrow">
+      ${node('ผู้คัดกรอง',F1,'work','กำลังอ่าน...')}
+      ${wire(true)}
+      ${node('ผู้ตรวจซ้ำ',F2,'work','รอรับงาน')}
+    </div>
+    <div class="flowcap"><span class="sp" style="border-color:#34302a;border-top-color:transparent"></span>คู่หูสองเกลอกำลังช่วยกันตรวจ...</div>
+  </div>`;
+}
+function miniflow(steps){
+  if(!steps||steps.length<2)return '';
+  const s1=steps[0], s2=steps[1];
+  const t1=s1.said==='1'?'ประชด':'ไม่ประชด', c1=s1.said==='1'?'chip s1':'chip s0';
+  let mid;
+  if(!s2.ran){ mid='<span class="arrowc">›</span><span class="chip skip">ไม่ต้องตรวจซ้ำ</span>'; }
+  else { const t2=s2.said==='0'?'ปัดตก':'ยืนยัน', c2=s2.said==='0'?'chip s0':'chip s1';
+    mid='<span class="arrowc">›</span><span class="'+c2+'">ตรวจซ้ำ: '+t2+'</span>'; }
+  return '<div class="miniflow"><span class="'+c1+'">คัดกรอง: '+t1+'</span>'+mid+'</div>';
+}
+
 async function analyze(){
   const raw=$('inp').value.trim(); if(!raw){$('inp').focus();return}
   $('go').disabled=true; $('go').innerHTML='<span class="sp"></span>กำลังตรวจ...';
   $('out').innerHTML='';
+  if(_op==='multiagent') showFlowLoading();
   const lines=raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   try{
     if(lines.length===1 && isURL(lines[0])){
@@ -1179,17 +1293,20 @@ async function markWrong(i,btn){
 let _isList=false;
 function renderCards(){
   _isList=false;
-  $('out').innerHTML='<div>'+_rows.map((r,i)=>{
+  $('out').innerHTML=_rows.map((r,i)=>{
     const v=verdictBits(r);
     const learned=r.corrected?'<span class="learned">จำแล้ว</span>'
       :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
+    const meter=v.pct==null?'':`<div class="meter"><span style="width:${v.pct}%;background:${v.col}"></span></div>
+      <div class="conf" style="justify-content:flex-start">มั่นใจ ${v.pct}%</div>`;
     return `<div class="result">
       <div class="verdict ${v.cls}"><span class="dot"></span>${v.word}</div>
       <div class="txt">“${esc(r.text)}”</div>
-      ${v.pct==null?'':`<div class="meter"><span style="width:${v.pct}%;background:${v.col}"></span></div>
-      <div class="conf"><span>มั่นใจ ${v.pct}%</span>${learned}</div>`}
+      ${miniflow(r.steps)}
+      ${meter}
+      <div class="conf" style="justify-content:flex-end;margin-top:10px">${learned}</div>
     </div>`;
-  }).join('')+'</div>';
+  }).join('');
 }
 function renderList(){
   _isList=true;
@@ -1203,6 +1320,7 @@ function renderList(){
       :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
     return `<div class="result" style="background:${v.sar?'var(--sar-bg)':'#fff'}">
       <div class="txt" style="margin:0">${esc(r.text)}</div>
+      ${miniflow(r.steps)}
       <div class="rowline"><span class="pill ${v.cls}">${v.word}</span>
         ${v.pct==null?'':`<span class="conf" style="margin:0">มั่นใจ ${v.pct}%</span>`}${learned}</div>
     </div>`;
