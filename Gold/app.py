@@ -768,12 +768,15 @@ async function runYT(){
       body:JSON.stringify({url,op:$('bop').value,limit:80})});
     const d=await r.json();
     if(d.error){$('yout').innerHTML='<div class="warn">'+d.error+'</div>'}
-    else{ _yall=d.rows; _ysum=d.summary; _yonly=true; renderYT(); }
+    else{ _yall=d.rows; _ysum=d.summary; _yonly=true; _ypage=1; renderYT(); }
   }catch(e){ $('yout').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>' }
   $('ygo').disabled=false; $('ygo').textContent='ดึง + วิเคราะห์';
   $('yhint').textContent='ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่ (ดึง+ยิงทีละข้อ)';
 }
-function ytToggle(only){_yonly=only; renderYT();}
+const YPP=5;                       // คอมเมนต์ต่อหน้า
+let _ypage=1;
+function ytToggle(only){_yonly=only; _ypage=1; renderYT();}
+function ytPage(p){_ypage=p; renderYT(); document.getElementById('tab-yt').scrollIntoView({behavior:'smooth',block:'nearest'});}
 let _corrected=0;
 async function markWrong(i,btn){
   const r=_yall[i]; if(!r||r.corrected)return;
@@ -790,7 +793,10 @@ async function markWrong(i,btn){
 function renderYT(){
   const s=_ysum;
   const rows=(_yonly?_yall.filter(r=>r.decision==='sarcasm'):_yall);
-  const list=rows.map(r=>{
+  const pages=Math.max(1,Math.ceil(rows.length/YPP));
+  if(_ypage>pages)_ypage=pages; if(_ypage<1)_ypage=1;
+  const pageRows=rows.slice((_ypage-1)*YPP,_ypage*YPP);
+  const list=pageRows.map(r=>{
     const i=_yall.indexOf(r);
     const wrongLabel = r.decision==='sarcasm' ? 'ไม่ใช่ประชด' : 'จริงๆ ประชด';
     const btn = r.corrected
@@ -814,7 +820,18 @@ function renderYT(){
       <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น — ระบบจะจำเป็นตัวอย่าง (few-shot)
       แล้วเก่งขึ้นกับข้อความคล้ายๆ กัน (ไม่ใช่การเทรนโมเดลใหม่)</span> ${relearn}
     </div>
-    <div style="margin-top:10px">${list}</div>`;
+    <div style="margin-top:10px">${list}</div>
+    ${pager(rows.length,pages)}`;
+}
+function pager(total,pages){
+  if(total<=YPP)return '';
+  const lo=(_ypage-1)*YPP+1, hi=Math.min(_ypage*YPP,total);
+  const prev=_ypage>1?`<button class="ghost" onclick="ytPage(${_ypage-1})">‹ ก่อนหน้า</button>`
+    :`<button class="ghost" disabled style="opacity:.4">‹ ก่อนหน้า</button>`;
+  const next=_ypage<pages?`<button class="ghost" onclick="ytPage(${_ypage+1})">ถัดไป ›</button>`
+    :`<button class="ghost" disabled style="opacity:.4">ถัดไป ›</button>`;
+  return `<div class="row" style="justify-content:center;margin-top:14px;align-items:center">
+    ${prev}<span class="sub" style="margin:0 4px">${lo}–${hi} จาก ${total} · หน้า ${_ypage}/${pages}</span>${next}</div>`;
 }
 async function reanalyzeYT(){
   const texts=_yall.map(r=>r.text);
@@ -826,7 +843,7 @@ async function reanalyzeYT(){
     if(d.error){$('yout').innerHTML='<div class="warn">'+d.error+'</div>';return}
     _yall=d.rows.map(r=>({text:r.text,decision:r.decision,prob:r.prob}));
     _ysum={n:d.summary.n,sarcasm:d.summary.sarcasm,model:d.summary.model};
-    _yonly=true; renderYT();
+    _yonly=true; _ypage=1; renderYT();
   }catch(e){ $('yout').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>' }
 }
 $('yurl').addEventListener('keydown',e=>{if(e.key==='Enter')runYT()});
