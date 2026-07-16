@@ -221,6 +221,54 @@ def api_predict():
     # run_debate()/run_hybrid() ยังอยู่ ถ้าอยากเปิดกลับมาก็เสียบกลับได้ทันที
 
 
+_detectors = {}       # cache detector ต่อ operating point (โหลด client ครั้งเดียว)
+
+
+def detector(op):
+    """ตัวตรวจจับพร้อมใช้จริงจาก predict.py -- ใช้คีย์ที่ผู้ใช้ใส่ในหน้าเว็บ + cache ร่วมกัน"""
+    import predict
+    key = (op, _api_key)
+    if key not in _detectors:
+        _detectors[key] = predict.SarcasmDetector(operating=op, api_key=_api_key)
+    return _detectors[key]
+
+
+@app.route("/api/batch", methods=["POST"])
+def api_batch():
+    """ตรวจหลายข้อความรวดเดียว (เอาไว้อัปโหลด CSV จากหน้าเว็บ) -- ใช้ predict.py ระบบพร้อมใช้จริง"""
+    if not _api_key:
+        return jsonify({"error": "ยังไม่มี OPENAI_API_KEY (ใส่คีย์ด้านบนก่อน)"}), 400
+    body = request.json or {}
+    texts = [str(t).strip() for t in body.get("texts", []) if str(t).strip()]
+    op = body.get("op", "balanced")
+    review = bool(body.get("review_band", False))
+    if not texts:
+        return jsonify({"error": "ไม่มีข้อความ"}), 400
+    if len(texts) > 500:
+        return jsonify({"error": f"มากเกินไป ({len(texts)}) -- จำกัด 500 ข้อ/ครั้ง"}), 400
+    import predict
+    if op not in predict.OPERATING:
+        return jsonify({"error": f"operating point ไม่รู้จัก: {op}"}), 400
+
+    det = detector(op)
+    h0 = det.hits
+    rows = []
+    for t in texts:
+        try:
+            r = det.predict(t, review_band=review)
+        except Exception as e:
+            r = {"label": None, "prob": None, "decision": f"error: {type(e).__name__}"}
+        rows.append({"text": t, **r, "in_gold": t in GOLD_TEXTS, "gold": GOLD_TEXTS.get(t)})
+    summ = {
+        "n": len(rows),
+        "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
+        "not": sum(1 for r in rows if r["decision"] == "not_sarcasm"),
+        "review": sum(1 for r in rows if r["decision"] == "review"),
+        "cached": det.hits - h0, "model": det.model, "op": op,
+    }
+    return jsonify({"rows": rows, "summary": summ})
+
+
 @app.route("/api/key", methods=["POST"])
 def api_key_set():
     """รับคีย์จากหน้าเว็บ -> ยิงเช็คกับ OpenAI จริงก่อนรับ (models.list ไม่คิดเงิน)
@@ -239,6 +287,7 @@ def api_key_set():
         return jsonify({"ok": False, "error": f"คีย์ใช้ไม่ได้: {type(e).__name__}"}), 400
 
     _api_key, _client = key, None                  # ล้าง client เก่า -> สร้างใหม่ด้วยคีย์นี้
+    _detectors.clear()
     return jsonify({"ok": True, "masked": mask_key(key)})
 
 
@@ -246,6 +295,7 @@ def api_key_set():
 def api_key_clear():
     global _api_key, _client
     _api_key, _client = "", None
+    _detectors.clear()
     return jsonify({"ok": True})
 
 
@@ -386,6 +436,32 @@ tr.best td{background:#f2faf5}
 </div>
 
 <div id="out"></div>
+
+<div class="card">
+  <h2 style="margin:0 0 4px;font-size:17px">📄 ตรวจทั้งไฟล์ (batch) — ระบบพร้อมใช้จริง</h2>
+  <div class="sub" style="margin-bottom:12px">
+    อัปโหลด CSV (หรือวางข้อความทีละบรรทัด) → ใช้ <code>predict.py</code> ตัวเดียวกับ production
+    (เอเจนต์เดี่ยว + threshold, มี cache ยิงซ้ำฟรี)
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <label style="font-size:13px;color:#42505f">จุดทำงาน:
+      <select id="bop" style="padding:6px 8px;border:1px solid #cfd6df;border-radius:6px;font-family:inherit">
+        <option value="balanced">balanced — gpt-4.1-mini (ถูก)</option>
+        <option value="high_recall">high_recall — gpt-4o (จับครบ)</option>
+      </select>
+    </label>
+    <label style="font-size:13px;color:#42505f;display:inline-flex;align-items:center;gap:5px">
+      <input type="checkbox" id="brev"> ยกข้อก้ำกึ่งให้คนตัดสิน
+    </label>
+  </div>
+  <textarea id="btext" placeholder="วางข้อความทีละบรรทัด แล้วกดปุ่ม — หรือเลือกไฟล์ CSV ด้านล่าง"></textarea>
+  <div class="row">
+    <button class="go" id="bgo" onclick="runBatch()">ตรวจทั้งหมด</button>
+    <input type="file" id="bfile" accept=".csv,.txt" style="font-size:13px">
+    <span class="sub" id="bhint" style="margin:0">รองรับสูงสุด 500 ข้อ/ครั้ง</span>
+  </div>
+  <div id="bout"></div>
+</div>
 
 <div class="card">
   <h2 style="margin:0 0 4px;font-size:17px">② Multi-agent ทำงานยังไง</h2>
@@ -592,6 +668,75 @@ async function run(){
 }
 $('t').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')run()});
 $('k').addEventListener('keydown',e=>{if(e.key==='Enter')saveKey()});
+
+// ---------- batch ----------
+let _brows=[];
+function parseCSV(txt){
+  // แยกบรรทัด ตัด header ถ้ามีคอลัมน์ "text" -> เอาคอลัมน์นั้น ไม่งั้นเอาทั้งบรรทัด
+  const lines=txt.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return [];
+  const head=lines[0].split(',').map(s=>s.trim().toLowerCase());
+  const ti=head.indexOf('text');
+  if(ti>=0){
+    return lines.slice(1).map(l=>{
+      const m=l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)||[];
+      let c=(m[ti]||'').replace(/,$/,'').trim();
+      if(c.startsWith('"')&&c.endsWith('"')) c=c.slice(1,-1).replace(/""/g,'"');
+      return c;
+    }).filter(Boolean);
+  }
+  return lines;   // ไม่มี header text -> ทีละบรรทัด
+}
+$('bfile').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const txt=await f.text();
+  $('btext').value=parseCSV(txt).join('\n');
+  $('bhint').textContent=parseCSV(txt).length+' ข้อจากไฟล์ พร้อมตรวจ';
+});
+async function runBatch(){
+  const texts=$('btext').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!texts.length){$('btext').focus();return}
+  $('bgo').disabled=true; $('bgo').innerHTML='<span class="sp"></span>กำลังตรวจ '+texts.length+' ข้อ...';
+  $('bout').innerHTML='';
+  try{
+    const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({texts,op:$('bop').value,review_band:$('brev').checked})});
+    const d=await r.json();
+    if(d.error){$('bout').innerHTML='<div class="warn">'+d.error+'</div>'}
+    else{ _brows=d.rows; renderBatch(d); }
+  }catch(e){ $('bout').innerHTML='<div class="warn">เรียก API ไม่สำเร็จ: '+e+'</div>' }
+  $('bgo').disabled=false; $('bgo').textContent='ตรวจทั้งหมด';
+}
+function pill(dec){
+  const m={sarcasm:['ประชด','v1'],not_sarcasm:['ไม่ประชด','v0'],review:['ยกให้คน','vna']};
+  const x=m[dec]||[dec,'vna']; return '<span class="pill '+x[1]+'">'+x[0]+'</span>';
+}
+function renderBatch(d){
+  const s=d.summary;
+  let rows=_brows.map((r,i)=>{
+    const g=r.in_gold?' <span title="อยู่ใน gold — โมเดลอาจเคยเห็น" style="color:#a06a00">⚑</span>':'';
+    return `<tr><td>${i+1}</td><td style="text-align:left;max-width:420px">${esc(r.text)}${g}</td>
+      <td>${r.prob==null?'–':r.prob}</td><td>${pill(r.decision)}</td></tr>`;
+  }).join('');
+  $('bout').innerHTML=`
+    <div class="note" style="margin-top:14px">
+      <b>${s.n} ข้อ</b> · ${s.model} (${s.op}) · ประชด <b>${s.sarcasm}</b> · ไม่ประชด ${s.not}
+      ${s.review?'· ยกให้คน '+s.review:''} · จาก cache ${s.cached} (ฟรี)
+      &nbsp; <button class="ghost" onclick="dlCSV()">⬇ ดาวน์โหลด CSV</button>
+    </div>
+    <div style="overflow-x:auto;margin-top:10px"><table>
+      <tr><th>#</th><th style="text-align:left">ข้อความ</th><th>P(ประชด)</th><th>ผล</th></tr>
+      ${rows}</table></div>`;
+}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function dlCSV(){
+  const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const head='text,pred_prob,pred_label,pred_decision,in_gold\n';
+  const body=_brows.map(r=>[r.text,r.prob,r.label,r.decision,r.in_gold].map(q).join(',')).join('\n');
+  const blob=new Blob(['﻿'+head+body],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='sarcasm_predictions.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
 </script>
 </div></body></html>
 """

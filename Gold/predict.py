@@ -27,13 +27,17 @@
 หรือ import:  from predict import SarcasmDetector
 """
 import argparse
+import hashlib
 import json
 import math
 import os
 import sys
+import threading
 
 sys.stdout.reconfigure(encoding="utf-8")
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+CACHE_PATH = os.path.join(HERE, ".predict_cache.json")   # gitignored -- ยิงข้อความซ้ำ = ฟรี
 MODEL = "gpt-4.1-mini"
 DETECT_SYS = (
     'ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่\n'
@@ -49,16 +53,60 @@ OPERATING = {
 REVIEW_LO, REVIEW_HI = 0.05, 0.50   # แถบ "ยกให้คนตัดสิน" สำหรับโหมด review_band
 
 
+class _Cache:
+    """cache แบบไฟล์ JSON: (model,text) -> prob. ยิงข้อความเดิมซ้ำ = อ่านจาก cache ไม่เสียเงิน
+    key เป็น hash กันไฟล์บวม/ประเด็นอักขระ · เขียนแบบ atomic กันไฟล์พังถ้าปิดกลางคัน"""
+    def __init__(self, path=CACHE_PATH):
+        self.path, self.lock, self.d = path, threading.Lock(), {}
+        if path and os.path.exists(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    self.d = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                self.d = {}
+
+    @staticmethod
+    def key(model, text):
+        return hashlib.sha1(f"{model}\x00{text}".encode()).hexdigest()
+
+    def get(self, model, text):
+        return self.d.get(self.key(model, text))
+
+    def put(self, model, text, prob):
+        if not self.path:
+            return
+        with self.lock:
+            self.d[self.key(model, text)] = prob
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.d, f)
+            os.replace(tmp, self.path)
+
+
 class SarcasmDetector:
-    def __init__(self, operating="balanced", api_key=None, model=None):
+    def __init__(self, operating="balanced", api_key=None, model=None, cache=True):
         from openai import OpenAI
         self.model = model or OPERATING[operating]["model"]
         self.t = OPERATING[operating]["t"]
         self.op = operating
         self.client = OpenAI(api_key=api_key, timeout=30.0, max_retries=3)
+        self.cache = _Cache() if cache else None
+        self.hits = self.misses = 0
 
     def prob(self, text):
-        """คืน P(ประชด) 0..1 จาก logprob ของ token label (1 call)"""
+        """คืน P(ประชด) 0..1 จาก logprob ของ token label (1 call) — เช็ค cache ก่อน"""
+        if self.cache is not None:
+            c = self.cache.get(self.model, text)
+            if c is not None:
+                self.hits += 1
+                return c
+        self.misses += 1
+        p = self._call(text)
+        if self.cache is not None and p == p:      # ไม่ cache ค่า NaN
+            self.cache.put(self.model, text, p)
+        return p
+
+    def _call(self, text):
         r = self.client.chat.completions.create(
             model=self.model, max_tokens=20, response_format={"type": "json_object"},
             logprobs=True, top_logprobs=20,
@@ -120,7 +168,8 @@ def main():
         df.to_csv(out, index=False, encoding="utf-8-sig")
         n = len(df); ns = sum(1 for r in res if r["decision"] == "sarcasm")
         nr = sum(1 for r in res if r["decision"] == "review")
-        print(f"เขียน {out} · {n} ข้อ · ประชด {ns}" + (f" · ยกให้คน {nr}" if a.review_band else ""))
+        print(f"เขียน {out} · {n} ข้อ · ประชด {ns}" + (f" · ยกให้คน {nr}" if a.review_band else "")
+              + f" · cache hit {det.hits}/{det.hits+det.misses}")
     elif a.text:
         r = det.predict(a.text, review_band=a.review_band)
         print(json.dumps(r, ensure_ascii=False))
