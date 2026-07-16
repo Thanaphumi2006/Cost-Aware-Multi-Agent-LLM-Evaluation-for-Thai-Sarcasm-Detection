@@ -381,6 +381,13 @@ def index():
     )
 
 
+@app.route("/app")
+def public_app():
+    """หน้าสำหรับผู้ใช้ทั่วไป: สะอาด ง่าย — ผลลัพธ์เดียวชัดๆ (ไม่มีของวิจัย)
+    ใช้ backend ตัวเดียวกับหน้า / (predict.py + endpoints เดิม)"""
+    return render_template_string(PUBLIC_PAGE, has_key=bool(_api_key))
+
+
 PAGE = r"""
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -927,6 +934,205 @@ function dlCSV(){
 </script>
 </div></body></html>
 """
+
+
+# ================= หน้าสำหรับผู้ใช้ทั่วไป (/app) — สะอาด ผลลัพธ์เดียว =================
+PUBLIC_PAGE = r"""
+<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ประชดหรือเปล่า?</title>
+<style>
+:root{
+  --bg:#eef2f7; --card:#fff; --line:#e4e9f0; --ink:#151c26; --ink2:#5a6675; --muted:#93a0b0;
+  --brand:#2f6bd6; --brand-d:#2457b3; --brand-soft:#e8effc;
+  --sar:#c0392b; --sar-bg:#fdeceb; --not:#1c7a49; --not-bg:#e7f6ee;
+  --radius:16px; --shadow:0 1px 2px rgba(20,30,45,.04),0 10px 30px rgba(20,30,45,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,system-ui,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:clamp(28px,7vw,64px) clamp(16px,4vw,24px) 90px}
+h1{font-size:clamp(28px,7vw,40px);margin:0;letter-spacing:-.02em;font-weight:800;text-align:center}
+.tag{color:var(--ink2);text-align:center;margin:10px 0 0;font-size:clamp(14px,3vw,16px);text-wrap:pretty}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel{padding:clamp(18px,4vw,26px);margin-top:26px}
+textarea,input[type=text],input[type=password]{width:100%;padding:14px;border:1px solid #cdd7e2;border-radius:12px;
+  font-family:inherit;font-size:16px;background:#fff;color:var(--ink)}
+textarea{min-height:104px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:var(--brand)}
+.hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button{padding:13px 22px;border:0;border-radius:12px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:650}
+.go{background:var(--brand);color:#fff;flex:1;min-width:160px} .go:hover{background:var(--brand-d)} .go:disabled{opacity:.55;cursor:wait}
+.file{font-size:13px;color:var(--ink2)}
+.result{margin-top:12px;padding:16px 18px;border-radius:14px;border:1px solid var(--line);background:#fff}
+.verdict{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800}
+.dot{width:12px;height:12px;border-radius:50%}
+.sar .dot{background:var(--sar)} .sar{color:var(--sar)} .notx .dot{background:var(--not)} .notx{color:var(--not)}
+.txt{font-size:15px;color:var(--ink);margin:8px 0 0}
+.meter{height:7px;border-radius:6px;background:#eef1f5;overflow:hidden;margin-top:12px}
+.meter>span{display:block;height:100%;border-radius:6px}
+.conf{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between}
+.list .result{margin-top:9px}
+.rowline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}
+.pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12.5px;font-weight:700}
+.pill.sar{background:var(--sar-bg);color:var(--sar)} .pill.notx{background:var(--not-bg);color:var(--not)}
+.wrongbtn{padding:5px 12px;border-radius:9px;background:#eef2f7;color:#46546a;font-weight:600;font-size:12px;border:0;cursor:pointer}
+.wrongbtn:hover{background:#e2e8f0}
+.learned{color:var(--not);font-weight:600;font-size:12.5px}
+.warn{font-size:12.5px;color:var(--sar);background:var(--sar-bg);border:1px solid #edc4c1;border-radius:10px;padding:11px 13px;margin-top:12px}
+.ok{font-size:12.5px;color:var(--not);background:var(--not-bg);border:1px solid #bfe3ce;border-radius:10px;padding:11px 13px;margin-top:12px}
+.keybar{padding:14px 16px;margin-top:22px}
+.keybar .actions{margin-top:10px}
+.pagerow{display:flex;justify-content:center;gap:8px;align-items:center;margin-top:16px}
+.pagerow button{padding:8px 14px;background:#eef2f7;color:#46546a}
+.pagerow button:disabled{opacity:.4;cursor:default}
+.sp{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;
+  animation:s .7s linear infinite;vertical-align:-2px;margin-right:7px}
+@keyframes s{to{transform:rotate(360deg)}}
+.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:34px}
+.note{font-size:12.5px;color:var(--ink2);text-align:center;margin-top:16px;text-wrap:pretty}
+</style></head><body><div class="wrap">
+
+<h1>ประชดหรือเปล่า?</h1>
+<p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วดูว่า “ประชด” หรือเปล่า</p>
+
+{% if not has_key %}
+<div class="card keybar">
+  <div class="hint" style="margin:0">ใส่ OpenAI API key ครั้งเดียวเพื่อเริ่มใช้</div>
+  <div class="actions">
+    <input type="password" id="k" placeholder="sk-..." autocomplete="off" style="flex:1">
+    <button class="go" style="flex:0;min-width:0" id="ksave" onclick="saveKey()">บันทึก</button>
+  </div>
+  <div id="kmsg"></div>
+</div>
+{% endif %}
+
+<div class="card panel">
+  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความที่นี่ (หลายบรรทัดก็ได้) — หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
+  <div class="hint">วางลิงก์ = ดึงคอมเมนต์มาตรวจให้ · หลายบรรทัด = ตรวจทีละบรรทัด</div>
+  <div class="actions">
+    <button class="go" id="go" onclick="analyze()">ตรวจ</button>
+    <input type="file" id="file" accept=".csv,.txt" class="file">
+  </div>
+  <div id="out"></div>
+</div>
+
+<p class="note">ผลลัพธ์เป็น “การคาดเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย — ถ้าเห็นว่าผิด กด “ตัดสินผิด” เพื่อช่วยให้มันเก่งขึ้น</p>
+<div class="foot">ขับเคลื่อนโดยโมเดลตรวจจับประชดภาษาไทย</div>
+
+<script>
+const $=i=>document.getElementById(i);
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+async function saveKey(){
+  const key=$('k').value.trim(); if(!key){$('k').focus();return}
+  $('ksave').disabled=true; $('ksave').innerHTML='<span class="sp"></span>';
+  $('kmsg').innerHTML='';
+  try{
+    const r=await fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+    const d=await r.json();
+    if(d.ok){ $('kmsg').innerHTML='<div class="ok">พร้อมใช้งานแล้ว</div>'; setTimeout(()=>location.reload(),700); }
+    else { $('kmsg').innerHTML='<div class="warn">'+d.error+'</div>'; $('ksave').disabled=false; $('ksave').textContent='บันทึก'; }
+  }catch(e){ $('kmsg').innerHTML='<div class="warn">ต่อเซิร์ฟเวอร์ไม่ได้</div>'; $('ksave').disabled=false; $('ksave').textContent='บันทึก'; }
+}
+
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const t=await f.text();
+  const lines=t.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  // ตัด header ถ้ามีคอลัมน์ text
+  if(lines[0]&&lines[0].toLowerCase().split(',').includes('text')) lines.shift();
+  $('inp').value=lines.map(l=>l.replace(/^"|"$/g,'')).join('\n');
+});
+
+let _rows=[], _page=1; const PP=5;
+function isURL(s){return /^https?:\/\//i.test(s)}
+
+async function analyze(){
+  const raw=$('inp').value.trim(); if(!raw){$('inp').focus();return}
+  $('go').disabled=true; $('go').innerHTML='<span class="sp"></span>กำลังตรวจ...';
+  $('out').innerHTML='';
+  const lines=raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  try{
+    if(lines.length===1 && isURL(lines[0])){
+      const r=await fetch('/api/youtube',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({url:lines[0],limit:80})});
+      const d=await r.json();
+      if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
+      else { _rows=d.rows; _page=1; renderList(); }
+    } else {
+      const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({texts:lines})});
+      const d=await r.json();
+      if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
+      else { _rows=d.rows; _page=1; renderCards(); }
+    }
+  }catch(e){ $('out').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>'; }
+  $('go').disabled=false; $('go').textContent='ตรวจ';
+}
+
+function verdictBits(r){
+  const sar=r.decision==='sarcasm';
+  const pct=r.prob==null?null:Math.round((sar?r.prob:1-r.prob)*100);
+  return {sar,pct,word:sar?'ประชด':'ไม่ประชด',cls:sar?'sar':'notx',
+    col:sar?'var(--sar)':'var(--not)'};
+}
+async function markWrong(i,btn){
+  const r=_rows[i]; if(!r||r.corrected)return;
+  const correct=r.decision==='sarcasm'?'0':'1';
+  btn.disabled=true; btn.textContent='กำลังจำ...';
+  try{
+    const resp=await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:r.text,label:correct})});
+    if((await resp.json()).ok){ r.corrected=true; (_isList?renderList:renderCards)(); }
+    else { btn.disabled=false; btn.textContent='ตัดสินผิด'; }
+  }catch(e){ btn.disabled=false; btn.textContent='ตัดสินผิด'; }
+}
+let _isList=false;
+function renderCards(){
+  _isList=false;
+  $('out').innerHTML='<div>'+_rows.map((r,i)=>{
+    const v=verdictBits(r);
+    const learned=r.corrected?'<span class="learned">จำแล้ว</span>'
+      :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
+    return `<div class="result">
+      <div class="verdict ${v.cls}"><span class="dot"></span>${v.word}</div>
+      <div class="txt">“${esc(r.text)}”</div>
+      ${v.pct==null?'':`<div class="meter"><span style="width:${v.pct}%;background:${v.col}"></span></div>
+      <div class="conf"><span>มั่นใจ ${v.pct}%</span>${learned}</div>`}
+    </div>`;
+  }).join('')+'</div>';
+}
+function renderList(){
+  _isList=true;
+  const s=_rows.filter(r=>r.decision==='sarcasm').length;
+  const pages=Math.max(1,Math.ceil(_rows.length/PP));
+  if(_page>pages)_page=pages;
+  const slice=_rows.slice((_page-1)*PP,_page*PP);
+  const items=slice.map(r=>{
+    const i=_rows.indexOf(r); const v=verdictBits(r);
+    const learned=r.corrected?'<span class="learned">จำแล้ว</span>'
+      :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
+    return `<div class="result" style="background:${v.sar?'var(--sar-bg)':'#fff'}">
+      <div class="txt" style="margin:0">${esc(r.text)}</div>
+      <div class="rowline"><span class="pill ${v.cls}">${v.word}</span>
+        ${v.pct==null?'':`<span class="conf" style="margin:0">มั่นใจ ${v.pct}%</span>`}${learned}</div>
+    </div>`;
+  }).join('');
+  const pager = _rows.length>PP?`<div class="pagerow">
+    <button ${_page<=1?'disabled':''} onclick="_page--;renderList()">ก่อนหน้า</button>
+    <span class="conf">หน้า ${_page}/${pages}</span>
+    <button ${_page>=pages?'disabled':''} onclick="_page++;renderList()">ถัดไป</button></div>`:'';
+  $('out').innerHTML=`<div class="ok" style="background:var(--brand-soft);color:var(--ink);border-color:#cbd9f3">
+    ดึงมา ${_rows.length} คอมเมนต์ · ที่คิดว่าประชด ${s} ข้อ</div>
+    <div class="list">${items}</div>${pager}`;
+}
+$('inp').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')analyze()});
+</script>
+</div></body></html>
+"""
+
 
 if __name__ == "__main__":
     print("=" * 60)
