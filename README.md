@@ -7,6 +7,31 @@ Every system is evaluated on the same gold set (127 items: 30 sarcastic / 97 not
 and the same measurement harness. Systems are compared with a **paired bootstrap (5,000 resamples) + McNemar's test**,
 which is the correct choice here because all systems run on the identical items.
 
+## Using it for real (`Gold/predict.py`)
+
+The findings collapse into one deployable recommendation: **one cheap model, one call, read the logprob, apply a
+threshold** — no multi-agent machinery. `predict.py` packages exactly that, with operating points chosen from the
+gold PR curve:
+
+```bash
+export OPENAI_API_KEY=sk-...
+python Gold/predict.py "ขอบคุณที่ให้รอ 2 ชม. บริการดีจริงๆ"      # → {"label": 1, "prob": 1.0, "decision": "sarcasm"}
+python Gold/predict.py --csv reviews.csv --out scored.csv         # batch a whole file
+python Gold/predict.py "..." --op high_recall --review-band       # switch operating point
+```
+
+| Operating point | Model | P / R / F1 | Use when |
+|---|---|---|---|
+| `balanced` (default) | gpt-4.1-mini (~$0.0001/item) | 0.68 / 0.83 / 0.75 | general use, cost-sensitive |
+| `high_recall` | gpt-4o (~6× cost) | 0.43 / **1.00** / — | "never miss" screening → human reviews flags |
+| `--review-band` | either | — | abstain in the 0.05–0.50 band, route to a human |
+
+**Know before you ship** (measured, not guessed): **gpt-4.1-mini has a hard recall ceiling of ~0.83** — 5 of 30 gold
+positives score ≈0, invisible at any threshold; use `high_recall` (gpt-4o) if misses are costly. **Precision caps
+~0.68** on both models (balanced reviews are genuinely ambiguous), so a >0.80-precision setting isn't achievable.
+Gold recall is inflated by self-selection bias (see `PROVENANCE.md`), the data is Wongnai reviews + Wisesight tweets,
+and realistic F1 is ~0.70 — not 0.9x. Don't over-promise.
+
 ## Results
 
 | System | F1 | Precision | Recall | LLM calls | Cost | Latency p50 |
