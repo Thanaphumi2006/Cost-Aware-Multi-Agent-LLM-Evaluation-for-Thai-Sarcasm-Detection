@@ -126,22 +126,47 @@ Gold/
   multiagent_hybrid.py     (5) hybrid
   wangchanberta.py         (6) small model, 5-fold CV -- these are the reported numbers
   compare_systems.py       paired bootstrap + McNemar
-  app.py                   web app for testing and comparing systems live
+  predict.py               deployable predictor (the research conclusion, packaged)
+  app.py                   web demo: try / batch / YouTube, with correction-learning
+  eval_domain.py           measure the model on any labeled domain (metrics + CI)
+  label_any.py             terminal labeler for any text file
+  fetch_yt_comments.py     pull Thai YouTube comments  ·  validate_yt.py (one-command)
   *_preds_*.csv            per-item predictions for every system (fully auditable)
   RESULTS.md REPORT.md SLIDES.md
 ```
 
-## Running it
+## Web demo
 
-```powershell
-pip install openai pandas numpy scikit-learn flask torch transformers sentencepiece protobuf
-$env:OPENAI_API_KEY="sk-..."     # never commit a key to the repo
+```bash
+pip install openai pandas numpy scikit-learn flask yt-dlp    # + torch transformers for WangchanBERTa
+python Gold/app.py                                           # → http://127.0.0.1:5000
+```
 
+Open the page and paste your OpenAI key into the key box (kept in server memory only, never written to disk).
+No key? WangchanBERTa still runs offline. The demo has three tabs:
+
+- **Try one** — type a Thai sentence and compare all three systems side by side (single agent, 2-agent pipeline,
+  WangchanBERTa) with per-item cost, latency, and token counts.
+- **Batch** — upload a CSV (a `text` column) or paste lines; get a results table you can download. Repeated text is
+  cached, so re-scoring is free.
+- **YouTube** — paste a video link; it pulls the Thai comments, classifies them, and lists the sarcastic ones **5 per
+  page**. Each row has a **"wrong"** button: click it and your correction is fed back as a few-shot example, so the
+  model gets similar comments right on the next pass. *(This is in-context learning — it does not retrain the model —
+  and the UI says so. Corrections also accumulate as a labeled set for `eval_domain.py`.)*
+
+> **Caveat.** The model is validated only on restaurant reviews + tweets (F1 ~0.72). On other domains (YouTube, news, formal
+> text) results are a guess — the demo over-flags praise on YouTube, which is exactly why the correction feature and
+> the warnings are there. To measure a new domain properly, label a sample and run `eval_domain.py`.
+
+Runs on `127.0.0.1` only — do not expose it to the internet, since the key box would let any visitor spend your key.
+
+## Reproducing the research
+
+```bash
 cd Gold
 python baseline.py               # (1) single agent
 python multiagent.py             # (2) pipeline
-python compare_systems.py        # compare all systems + statistics
-python app.py                    # web app at http://127.0.0.1:5000
+python compare_systems.py        # compare all systems + statistics (paired bootstrap + McNemar)
 ```
 
 **Not in the repo** (regenerable): `Gold/wcb_model/` (401 MB — run `train_final_wcb.py`) and the raw scrape
