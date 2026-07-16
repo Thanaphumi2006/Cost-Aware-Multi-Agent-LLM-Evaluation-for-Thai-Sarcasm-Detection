@@ -30,3 +30,6 @@ Gold/.predict_cache.json
 Gold/yt_*_raw.txt
 Gold/yt_*_labeled.csv
 Gold/yt_raw.txt
+
+# corrections ที่คนกดแก้ (มีข้อความคอมเมนต์คนอื่น + regenerable)
+Gold/.predict_corrections.json

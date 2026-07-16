@@ -38,12 +38,64 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_PATH = os.path.join(HERE, ".predict_cache.json")   # gitignored -- ยิงข้อความซ้ำ = ฟรี
+CORR_PATH = os.path.join(HERE, ".predict_corrections.json")  # gitignored -- ที่คนแก้ว่า "โมเดลตัดสินผิด"
 MODEL = "gpt-4.1-mini"
 DETECT_SYS = (
     'ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่\n'
     "ประชด = เจตนาจริงตรงข้ามกับความหมายผิวเผิน เพื่อเหน็บหรือแสดงความไม่พอใจ\n\n"
     'ตอบเป็น JSON เท่านั้น: {"label": "1" หรือ "0"}\n1 = ประชด, 0 = ไม่ประชด'
 )
+
+# ---------- corrections: เรียนจากที่คนบอกว่า "ตัดสินผิด" (few-shot in-context ไม่ใช่การเทรนใหม่จริง) ----------
+_MAX_SHOTS = 12          # จำกัดจำนวนตัวอย่างในโปรมป์ กันโทเคนบวม (เอาอันล่าสุด)
+_corr_lock = threading.Lock()
+
+
+def load_corrections():
+    if os.path.exists(CORR_PATH):
+        try:
+            with open(CORR_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return []
+    return []
+
+
+def add_correction(text, correct_label):
+    """คนกดว่า 'ผิด' -> เก็บ (text, ป้ายที่ถูก). ป้าย '1'=ประชด '0'=ไม่ประชด
+    dedupe ตาม text (ตัวแก้ล่าสุดชนะ) · คืนจำนวน correction ทั้งหมด"""
+    text = (text or "").strip()
+    correct_label = str(correct_label).strip()
+    if not text or correct_label not in ("0", "1"):
+        raise ValueError("correct_label ต้องเป็น '0' หรือ '1' และ text ต้องไม่ว่าง")
+    with _corr_lock:
+        corr = [c for c in load_corrections() if c.get("text") != text]
+        corr.append({"text": text, "label": correct_label})
+        tmp = CORR_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(corr, f, ensure_ascii=False)
+        os.replace(tmp, CORR_PATH)
+    return len(corr)
+
+
+def _shots_block(corr):
+    """แปลง corrections เป็นบล็อก few-shot ต่อท้าย system prompt"""
+    if not corr:
+        return ""
+    lines = ["\n\nตัวอย่างที่คนยืนยันคำตอบที่ถูกแล้ว (ให้ยึดตามนี้กับข้อความคล้ายๆ กัน):"]
+    for c in corr[-_MAX_SHOTS:]:
+        t = c["text"].replace("\n", " ")[:160]
+        lines.append(f'  "{t}" -> {c["label"]}')
+    return "\n".join(lines)
+
+
+def _corr_sig(corr):
+    """ลายเซ็นสั้นของชุด corrections -> ใช้เป็นส่วนหนึ่งของ cache key
+    (corrections เปลี่ยน -> โปรมป์เปลี่ยน -> prob เก่าใช้ไม่ได้ ต้องแยก namespace)"""
+    if not corr:
+        return "0"
+    raw = "|".join(f'{c["text"]}={c["label"]}' for c in corr[-_MAX_SHOTS:])
+    return hashlib.sha1(raw.encode()).hexdigest()[:10]
 
 # จุดทำงาน: model+threshold คัดจาก PR curve บน gold — ดู header (เลือกโมเดลตามงาน)
 OPERATING = {
@@ -66,17 +118,17 @@ class _Cache:
                 self.d = {}
 
     @staticmethod
-    def key(model, text):
-        return hashlib.sha1(f"{model}\x00{text}".encode()).hexdigest()
+    def key(model, text, sig="0"):
+        return hashlib.sha1(f"{model}\x00{sig}\x00{text}".encode()).hexdigest()
 
-    def get(self, model, text):
-        return self.d.get(self.key(model, text))
+    def get(self, model, text, sig="0"):
+        return self.d.get(self.key(model, text, sig))
 
-    def put(self, model, text, prob):
+    def put(self, model, text, prob, sig="0"):
         if not self.path:
             return
         with self.lock:
-            self.d[self.key(model, text)] = prob
+            self.d[self.key(model, text, sig)] = prob
             tmp = self.path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(self.d, f)
@@ -92,25 +144,34 @@ class SarcasmDetector:
         self.client = OpenAI(api_key=api_key, timeout=30.0, max_retries=3)
         self.cache = _Cache() if cache else None
         self.hits = self.misses = 0
+        self.reload_corrections()
+
+    def reload_corrections(self):
+        """อ่าน corrections ล่าสุด -> ประกอบ system prompt + ลายเซ็นสำหรับ cache
+        เรียกใหม่หลังมีคนกด 'ผิด' เพื่อให้คำทำนายต่อไปใช้ตัวอย่างใหม่"""
+        corr = load_corrections()
+        self.sys_prompt = DETECT_SYS + _shots_block(corr)
+        self.corr_sig = _corr_sig(corr)
+        self.n_corr = len(corr)
 
     def prob(self, text):
         """คืน P(ประชด) 0..1 จาก logprob ของ token label (1 call) — เช็ค cache ก่อน"""
         if self.cache is not None:
-            c = self.cache.get(self.model, text)
+            c = self.cache.get(self.model, text, self.corr_sig)
             if c is not None:
                 self.hits += 1
                 return c
         self.misses += 1
         p = self._call(text)
         if self.cache is not None and p == p:      # ไม่ cache ค่า NaN
-            self.cache.put(self.model, text, p)
+            self.cache.put(self.model, text, p, self.corr_sig)
         return p
 
     def _call(self, text):
         r = self.client.chat.completions.create(
             model=self.model, max_tokens=20, response_format={"type": "json_object"},
             logprobs=True, top_logprobs=20,
-            messages=[{"role": "system", "content": DETECT_SYS},
+            messages=[{"role": "system", "content": self.sys_prompt},
                       {"role": "user", "content": f"ข้อความ: {text}"}])
         for tok in (r.choices[0].logprobs.content or []):
             if tok.token.strip().strip('"') not in ("0", "1"):

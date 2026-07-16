@@ -314,6 +314,25 @@ def api_youtube():
     return jsonify({"rows": rows, "summary": summ})
 
 
+@app.route("/api/correct", methods=["POST"])
+def api_correct():
+    """คนกดว่า 'โมเดลตัดสินผิด' -> เก็บคำตอบที่ถูก แล้วเอาไปเป็น few-shot ให้ครั้งต่อไป
+    หมายเหตุซื่อสัตย์: นี่คือ in-context learning (สอนผ่านตัวอย่างในโปรมป์) ไม่ใช่การเทรนโมเดลใหม่จริง"""
+    import predict
+    body = request.json or {}
+    text = str(body.get("text", "")).strip()
+    label = str(body.get("label", "")).strip()          # ป้ายที่ "ถูก" (ตรงข้ามกับที่โมเดลทาย)
+    if not text or label not in ("0", "1"):
+        return jsonify({"error": "ต้องมี text และ label ('0'/'1')"}), 400
+    try:
+        n = predict.add_correction(text, label)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    for det in _detectors.values():                     # ให้ detector ที่โหลดไว้ใช้ตัวอย่างใหม่ทันที
+        det.reload_corrections()
+    return jsonify({"ok": True, "total": n})
+
+
 @app.route("/api/key", methods=["POST"])
 def api_key_set():
     """รับคีย์จากหน้าเว็บ -> ยิงเช็คกับ OpenAI จริงก่อนรับ (models.list ไม่คิดเงิน)
@@ -755,22 +774,60 @@ async function runYT(){
   $('yhint').textContent='ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่ (ดึง+ยิงทีละข้อ)';
 }
 function ytToggle(only){_yonly=only; renderYT();}
+let _corrected=0;
+async function markWrong(i,btn){
+  const r=_yall[i]; if(!r||r.corrected)return;
+  const correct = r.decision==='sarcasm' ? '0' : '1';   // ป้ายที่ถูก = ตรงข้ามกับที่โมเดลทาย
+  btn.disabled=true; btn.textContent='กำลังจำ...';
+  try{
+    const resp=await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:r.text,label:correct})});
+    const d=await resp.json();
+    if(d.ok){ r.corrected=true; _corrected=d.total; renderYT(); }
+    else { btn.disabled=false; btn.textContent='ผิด'; alert(d.error||'ผิดพลาด'); }
+  }catch(e){ btn.disabled=false; btn.textContent='ผิด'; }
+}
 function renderYT(){
   const s=_ysum;
   const rows=(_yonly?_yall.filter(r=>r.decision==='sarcasm'):_yall);
-  const list=rows.map(r=>`<div style="padding:10px 12px;border:1px solid #e2e6ec;border-radius:8px;
-      background:${r.decision==='sarcasm'?'#fdf2f2':'#fff'};margin-bottom:7px">
+  const list=rows.map(r=>{
+    const i=_yall.indexOf(r);
+    const wrongLabel = r.decision==='sarcasm' ? 'ไม่ใช่ประชด' : 'จริงๆ ประชด';
+    const btn = r.corrected
+      ? '<span style="color:#1e7a4b;font-weight:600">✓ จำแล้ว จะใช้เป็นตัวอย่างครั้งต่อไป</span>'
+      : `<button class="ghost" style="padding:4px 10px;font-size:11.5px" onclick="markWrong(${i},this)">ตัดสินผิด → ${wrongLabel}</button>`;
+    return `<div style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+      background:${r.corrected?'#f2faf5':(r.decision==='sarcasm'?'#fdf2f2':'var(--card)')};margin-bottom:7px">
       <div style="font-size:14px">${esc(r.text)}</div>
-      <div style="font-size:11.5px;color:#8a94a6;margin-top:4px">
-        ${pill(r.decision)} <span class="mono" style="margin-left:6px">P(ประชด)=${r.prob==null?'–':r.prob}</span></div>
-    </div>`).join('') || '<div class="sub" style="padding:8px 0">— ไม่มี —</div>';
+      <div style="font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        ${pill(r.decision)} <span class="mono">P(ประชด)=${r.prob==null?'–':r.prob}</span> ${btn}</div>
+    </div>`;
+  }).join('') || '<div class="sub" style="padding:8px 0">— ไม่มี —</div>';
+  const relearn = _corrected>0
+    ? `<button class="go" style="padding:7px 14px" onclick="reanalyzeYT()">วิเคราะห์คอมเมนต์เดิมใหม่ด้วยสิ่งที่แก้ (${_corrected} ข้อ)</button>`
+    : '';
   $('yout').innerHTML=`
     <div class="note" style="margin-top:14px">
       ดึงได้ <b>${s.n}</b> คอมเมนต์ · ระบบคิดว่าประชด <b>${s.sarcasm}</b> ข้อ · ${s.model}
       &nbsp; <button class="ghost" onclick="ytToggle(true)">โชว์เฉพาะประชด</button>
       <button class="ghost" onclick="ytToggle(false)">โชว์ทั้งหมด</button>
+      <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น — ระบบจะจำเป็นตัวอย่าง (few-shot)
+      แล้วเก่งขึ้นกับข้อความคล้ายๆ กัน (ไม่ใช่การเทรนโมเดลใหม่)</span> ${relearn}
     </div>
     <div style="margin-top:10px">${list}</div>`;
+}
+async function reanalyzeYT(){
+  const texts=_yall.map(r=>r.text);
+  $('yout').innerHTML='<div class="note" style="margin-top:14px"><span class="sp" style="border-color:#888;border-top-color:transparent"></span>วิเคราะห์คอมเมนต์เดิมใหม่ด้วยสิ่งที่แก้...</div>';
+  try{
+    const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({texts,op:$('bop').value})});
+    const d=await r.json();
+    if(d.error){$('yout').innerHTML='<div class="warn">'+d.error+'</div>';return}
+    _yall=d.rows.map(r=>({text:r.text,decision:r.decision,prob:r.prob}));
+    _ysum={n:d.summary.n,sarcasm:d.summary.sarcasm,model:d.summary.model};
+    _yonly=true; renderYT();
+  }catch(e){ $('yout').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>' }
 }
 $('yurl').addEventListener('keydown',e=>{if(e.key==='Enter')runYT()});
 
