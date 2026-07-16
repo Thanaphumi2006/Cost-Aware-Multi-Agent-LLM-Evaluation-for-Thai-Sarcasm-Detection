@@ -7,7 +7,7 @@
   เปิด http://127.0.0.1:5000
 
 หมายเหตุ:
-- คีย์ API ใส่ได้ 2 ทาง: environment variable หรือ พิมพ์ในหน้าเว็บ (ช่อง 🔑 ด้านบน)
+- คีย์ API ใส่ได้ 2 ทาง: environment variable หรือ พิมพ์ในหน้าเว็บ (ช่องด้านบน)
   ทั้งสองทางเก็บไว้ใน RAM ของโปรเซสเท่านั้น -- ไม่เขียนลงไฟล์ ไม่ฝังในโค้ด ปิดเซิร์ฟเวอร์แล้วหาย
 - เว็บนี้ผูกกับ 127.0.0.1 อย่าเปิดออกสู่เน็ต เพราะช่องใส่คีย์จะกลายเป็นช่องให้คนอื่นยิง API ด้วยคีย์เรา
 - ถ้าไม่มีคีย์ เว็บยังใช้ได้ แต่จะรันได้แค่ WangchanBERTa (ตัวที่ไม่ต้องใช้ API)
@@ -456,7 +456,7 @@ details.about[open]>summary::before{content:"\25BE  "}
 </style></head><body><div class="wrap">
 
 <header>
-  <h1>ตรวจจับประชดภาษาไทย 🎭</h1>
+  <h1>ตรวจจับประชดภาษาไทย</h1>
   <p class="tagline">พิมพ์ข้อความ · อัปโหลดไฟล์ · หรือวางลิงก์ YouTube แล้วดูว่า “ประชด” หรือเปล่า</p>
 </header>
 
@@ -476,7 +476,7 @@ details.about[open]>summary::before{content:"\25BE  "}
       {% if from_env %}<span class="sub">อ่านมาจาก environment variable <code>OPENAI_API_KEY</code></span>{% endif %}
     </div>
     <div id="kmsg"></div>
-    <div class="note">🔒 คีย์เก็บในหน่วยความจำเซิร์ฟเวอร์เท่านั้น — ไม่เขียนลงไฟล์ ปิดเว็บแล้วหาย · เว็บนี้เปิดแค่บนเครื่องคุณ (127.0.0.1) อย่าเปิดออกอินเทอร์เน็ต</div>
+    <div class="note">คีย์เก็บในหน่วยความจำเซิร์ฟเวอร์เท่านั้น — ไม่เขียนลงไฟล์ ปิดเว็บแล้วหาย · เว็บนี้เปิดแค่บนเครื่องคุณ (127.0.0.1) อย่าเปิดออกอินเทอร์เน็ต</div>
   </div>
 </div>
 
@@ -485,9 +485,9 @@ details.about[open]>summary::before{content:"\25BE  "}
 <div class="step">
   <div class="steplabel"><span class="num">2</span> เลือกวิธีใช้</div>
   <div class="tabs">
-    <button class="tab active" id="tabbtn-single" onclick="showTab('single')">✍️ พิมพ์ทีละข้อความ</button>
-    <button class="tab" id="tabbtn-batch" onclick="showTab('batch')">📄 อัปโหลดไฟล์</button>
-    <button class="tab" id="tabbtn-yt" onclick="showTab('yt')">▶️ YouTube</button>
+    <button class="tab active" id="tabbtn-single" onclick="showTab('single')">พิมพ์ทีละข้อความ</button>
+    <button class="tab" id="tabbtn-batch" onclick="showTab('batch')">อัปโหลดไฟล์</button>
+    <button class="tab" id="tabbtn-yt" onclick="showTab('yt')">YouTube</button>
   </div>
 
   <div class="card tabpanel" id="tab-single">
@@ -495,8 +495,8 @@ details.about[open]>summary::before{content:"\25BE  "}
     <textarea id="t" placeholder="เช่น: ขอบคุณมากนะคะที่ให้รอแค่ 2 ชั่วโมง บริการดีเยี่ยมจริงๆ"></textarea>
     <div class="row">
       <button class="go" id="go" onclick="run()">วิเคราะห์</button>
-      <button class="ghost" onclick="samp('1')">🎲 ตัวอย่างประชด</button>
-      <button class="ghost" onclick="samp('0')">🎲 ตัวอย่างไม่ประชด</button>
+      <button class="ghost" onclick="samp('1')">ตัวอย่างประชด</button>
+      <button class="ghost" onclick="samp('0')">ตัวอย่างไม่ประชด</button>
       <button class="ghost" onclick="$('t').value='';$('out').innerHTML='';$('goldbox').innerHTML=''">ล้าง</button>
     </div>
     <div id="goldbox"></div>
@@ -505,7 +505,7 @@ details.about[open]>summary::before{content:"\25BE  "}
 
   <div class="card tabpanel" id="tab-batch" style="display:none">
     <div class="sub" style="margin-bottom:10px">อัปโหลดไฟล์ CSV (มีคอลัมน์ <code>text</code>) หรือวางข้อความทีละบรรทัด → ได้ผลเป็นตาราง ดาวน์โหลดได้</div>
-    <div class="warn" style="margin-bottom:12px">⚠ โมเดลวัดผลไว้แค่ <b>รีวิวร้าน + ทวีตสั้น</b> (F1~0.72) — ข้อความโดเมนอื่นยังไม่ได้ทดสอบ ผลอาจเพี้ยน</div>
+    <div class="warn" style="margin-bottom:12px">คำเตือน: โมเดลวัดผลไว้แค่ <b>รีวิวร้าน + ทวีตสั้น</b> (F1~0.72) — ข้อความโดเมนอื่นยังไม่ได้ทดสอบ ผลอาจเพี้ยน</div>
     <div class="row" style="margin-top:0;margin-bottom:4px">
       <label class="sub">ความละเอียด:
         <select id="bop">
@@ -525,7 +525,7 @@ details.about[open]>summary::before{content:"\25BE  "}
 
   <div class="card tabpanel" id="tab-yt" style="display:none">
     <div class="sub" style="margin-bottom:10px">วางลิงก์คลิป → ดึงคอมเมนต์ไทย → โชว์เฉพาะคอมเมนต์ที่ระบบคิดว่า “ประชด”</div>
-    <div class="warn" style="margin-bottom:12px">⚠ <b>YouTube ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย)</div>
+    <div class="warn" style="margin-bottom:12px">คำเตือน: <b>YouTube ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย)</div>
     <div class="row" style="margin-top:0">
       <input type="text" id="yurl" placeholder="https://www.youtube.com/watch?v=..." style="flex:1;min-width:230px">
       <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
@@ -536,14 +536,14 @@ details.about[open]>summary::before{content:"\25BE  "}
 </div>
 
 <details class="about">
-  <summary>ℹ️ ระบบทำงานยังไง + คะแนนจากงานวิจัย</summary>
+  <summary>ระบบทำงานยังไง + คะแนนจากงานวิจัย</summary>
   <div class="about-body">
     <h3>ระบบ “AI สองชั้น” ทำงานยังไง</h3>
     <div class="sub" style="margin-bottom:4px">AI เดี่ยว + เพิ่ม <b>ผู้ตรวจสอบ</b> อีกหนึ่งคน — แค่นั้น</div>
   <div id="flow">
     <div class="flow">
       <div class="ag">
-        <div class="who">👀 คนที่ 1 · <b>ผู้คัดกรอง</b></div>
+        <div class="who">คนที่ 1 · <b>ผู้คัดกรอง</b></div>
         <div class="job"><b>คือ ① เอเจนต์เดี่ยว ตัวเดิมเป๊ะ</b><br>
           อ่านข้อความ แล้วตอบว่า “ประชด” หรือ “ไม่ประชด”</div>
         <div class="say">ประชด? → ใช่ / ไม่ใช่</div>
@@ -556,7 +556,7 @@ details.about[open]>summary::before{content:"\25BE  "}
       <div class="arw">↓<small>ส่งต่อ<br><b>เฉพาะข้อที่ตอบ “ใช่”</b></small></div>
 
       <div class="ag">
-        <div class="who">🔍 คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
+        <div class="who">คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
         <div class="job"><b>คนใหม่ที่เพิ่มเข้ามา</b><br>
           ตรวจของที่คนแรกส่งมา ว่าเป็นประชด<b>จริง</b>ไหม</div>
         <div class="say">ยืนยัน / ปัดตก</div>
@@ -681,7 +681,7 @@ function drawFlow(m){
     : '⇣<small style="color:#c0c6cf">ไม่ต้องตรวจ<br><b>คนแรกตอบ “ไม่ประชด”</b></small>';
   const say2 = !s2.ran
     ? 'ไม่ได้ทำงาน — ไม่มีอะไรให้ตรวจ'
-    : (s2.said==='0' ? '❌ ปัดตก — คนแรกทายผิด' : '✅ ยืนยัน — คนแรกทายถูก');
+    : (s2.said==='0' ? 'ปัดตก — คนแรกทายผิด' : 'ยืนยัน — คนแรกทายถูก');
   let fin, cls;
   if(m.flipped){ fin='ผลสุดท้าย: <b>ไม่ประชด</b> — ผู้ตรวจสอบจับได้ว่าคนแรกทายผิด แล้วปัดตกทิ้ง'; cls='k'; }
   else if(m.pred==='1'){ fin='ผลสุดท้าย: <b>ประชด</b> — ผู้ตรวจสอบตรวจแล้ว ยืนยันตามคนแรก'; cls='p'; }
@@ -689,13 +689,13 @@ function drawFlow(m){
   document.getElementById('flow').innerHTML=`
     <div class="flow">
       <div class="ag ${c1}">
-        <div class="who">👀 คนที่ 1 · <b>ผู้คัดกรอง</b></div>
+        <div class="who">คนที่ 1 · <b>ผู้คัดกรอง</b></div>
         <div class="job">คือ ① เอเจนต์เดี่ยว ตัวเดิมเป๊ะ</div>
         <div class="say">พูดว่า: <b>${said1}</b></div>${meta(s1)}
       </div>
       <div class="arw">${arrow}</div>
       <div class="ag ${c2}">
-        <div class="who">🔍 คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
+        <div class="who">คนที่ 2 · <b>ผู้ตรวจสอบ</b></div>
         <div class="job">ปัดตกได้อย่างเดียว — เพิ่มประชดใหม่ไม่ได้</div>
         <div class="say">${say2}</div>${meta(s2)}
       </div>
@@ -819,7 +819,7 @@ function pill(dec){
 function renderBatch(d){
   const s=d.summary;
   let rows=_brows.map((r,i)=>{
-    const g=r.in_gold?' <span title="อยู่ใน gold — โมเดลอาจเคยเห็น" style="color:#a06a00">⚑</span>':'';
+    const g=r.in_gold?' <span title="อยู่ใน gold — โมเดลอาจเคยเห็น" style="color:#a06a00">(gold)</span>':'';
     return `<tr><td>${i+1}</td><td style="text-align:left;max-width:420px">${esc(r.text)}${g}</td>
       <td>${r.prob==null?'–':r.prob}</td><td>${pill(r.decision)}</td></tr>`;
   }).join('');
@@ -827,7 +827,7 @@ function renderBatch(d){
     <div class="note" style="margin-top:14px">
       <b>${s.n} ข้อ</b> · ${s.model} (${s.op}) · ประชด <b>${s.sarcasm}</b> · ไม่ประชด ${s.not}
       ${s.review?'· ยกให้คน '+s.review:''} · จาก cache ${s.cached} (ฟรี)
-      &nbsp; <button class="ghost" onclick="dlCSV()">⬇ ดาวน์โหลด CSV</button>
+      &nbsp; <button class="ghost" onclick="dlCSV()">ดาวน์โหลด CSV</button>
     </div>
     <div style="overflow-x:auto;margin-top:10px"><table>
       <tr><th>#</th><th style="text-align:left">ข้อความ</th><th>P(ประชด)</th><th>ผล</th></tr>
