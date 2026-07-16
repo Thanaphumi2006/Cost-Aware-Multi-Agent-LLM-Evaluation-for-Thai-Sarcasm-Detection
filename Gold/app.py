@@ -968,7 +968,20 @@ h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:c
   font-size:clamp(15px,3.4vw,18px)}
 .spark{position:absolute;pointer-events:none}
 .head{position:relative}
-.panel{padding:clamp(20px,4.5vw,30px);margin-top:34px}
+.pick-title{font-family:var(--disp);font-size:clamp(19px,4.5vw,23px);text-align:center;color:var(--ink);margin-top:34px}
+.models{display:flex;gap:14px;margin-top:12px}
+@media(max-width:460px){.models{flex-direction:column}}
+.model{flex:1;background:var(--card);cursor:pointer;text-align:center;font-family:var(--body);
+  border:2.6px solid var(--ink);border-radius:225px 16px 255px 14px/14px 255px 16px 225px;
+  box-shadow:4px 4px 0 var(--ink);padding:16px 10px 13px;transition:transform .09s,box-shadow .09s,border-color .09s}
+.model:nth-child(2){border-radius:16px 225px 14px 255px/255px 14px 225px 16px}
+.model .mascot{width:66px;height:66px}
+.model .mname{font-family:var(--disp);font-size:20px;margin-top:5px;color:var(--ink);line-height:1.1}
+.model .mdesc{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.model:not(.sel):hover{background:#fffdf0;transform:translateY(-2px)}
+.model.sel{border-color:var(--blue);box-shadow:5px 6px 0 var(--blue);transform:translateY(-3px) rotate(-1deg)}
+.model .tick{font-family:var(--body);font-weight:700;font-size:12px;color:var(--blue);height:14px;margin-top:5px}
+.panel{padding:clamp(20px,4.5vw,30px);margin-top:20px}
 label,.hint{font-family:var(--body)}
 textarea,input[type=text],input[type=password]{width:100%;padding:15px;font-family:var(--body);font-size:16px;
   color:var(--ink);background:#fffef9;border:2.4px dashed var(--ink);border-radius:18px 10px 20px 10px/10px 20px 10px 18px}
@@ -1043,6 +1056,39 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
 </div>
 {% endif %}
 
+<div class="pick-title">เลือกผู้ช่วยของคุณ</div>
+<div class="models">
+  <button class="model sel" data-op="balanced" onclick="pickModel('balanced',this)">
+    <svg class="mascot" viewBox="0 0 72 72">
+      <path d="M20 22 L15 7 L31 18 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M52 22 L57 7 L41 18 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/>
+      <circle cx="36" cy="39" r="22" fill="#ffd84d" stroke="#34302a" stroke-width="2.6"/>
+      <circle cx="28" cy="37" r="3" fill="#34302a"/><circle cx="44" cy="37" r="3" fill="#34302a"/>
+      <path d="M32 45 Q36 49 40 45" fill="none" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M8 39 L23 41 M10 45 L24 45" stroke="#34302a" stroke-width="2" stroke-linecap="round"/>
+      <path d="M64 39 L49 41 M62 45 L48 45" stroke="#34302a" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <div class="mname">น้องแมวไว</div>
+    <div class="mdesc">เร็ว ประหยัด</div>
+    <div class="tick">กำลังใช้</div>
+  </button>
+  <button class="model" data-op="high_recall" onclick="pickModel('high_recall',this)">
+    <svg class="mascot" viewBox="0 0 72 72">
+      <path d="M23 15 L18 5 L29 13 Z" fill="#bcd7f7" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M49 15 L54 5 L43 13 Z" fill="#bcd7f7" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M36 11 C55 11 58 30 56 44 C54 59 46 63 36 63 C26 63 18 59 16 44 C14 30 17 11 36 11 Z" fill="#d6e8fb" stroke="#34302a" stroke-width="2.6"/>
+      <circle cx="27" cy="34" r="10" fill="#fff" stroke="#34302a" stroke-width="2.4"/>
+      <circle cx="45" cy="34" r="10" fill="#fff" stroke="#34302a" stroke-width="2.4"/>
+      <circle cx="27" cy="34" r="3.4" fill="#34302a"/><circle cx="45" cy="34" r="3.4" fill="#34302a"/>
+      <path d="M36 34 L35.5 34" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M32 44 L36 51 L40 44 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
+    </svg>
+    <div class="mname">คุณนกฮูก</div>
+    <div class="mdesc">ละเอียด จับครบ</div>
+    <div class="tick"></div>
+  </button>
+</div>
+
 <div class="box panel">
   <textarea id="inp" placeholder="พิมพ์หรือวางข้อความตรงนี้ (หลายบรรทัดก็ได้) หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
   <div class="hint">วางลิงก์ = ดึงคอมเมนต์มาตรวจให้ · หลายบรรทัด = ตรวจทีละบรรทัด</div>
@@ -1082,6 +1128,12 @@ $('file').addEventListener('change',async e=>{
 });
 
 let _rows=[], _page=1; const PP=5;
+let _op='balanced';
+function pickModel(op,el){
+  _op=op;
+  document.querySelectorAll('.model').forEach(m=>{m.classList.remove('sel'); m.querySelector('.tick').textContent='';});
+  el.classList.add('sel'); el.querySelector('.tick').textContent='กำลังใช้';
+}
 function isURL(s){return /^https?:\/\//i.test(s)}
 
 async function analyze(){
@@ -1092,13 +1144,13 @@ async function analyze(){
   try{
     if(lines.length===1 && isURL(lines[0])){
       const r=await fetch('/api/youtube',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({url:lines[0],limit:80})});
+        body:JSON.stringify({url:lines[0],limit:80,op:_op})});
       const d=await r.json();
       if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
       else { _rows=d.rows; _page=1; renderList(); }
     } else {
       const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({texts:lines})});
+        body:JSON.stringify({texts:lines,op:_op})});
       const d=await r.json();
       if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
       else { _rows=d.rows; _page=1; renderCards(); }
