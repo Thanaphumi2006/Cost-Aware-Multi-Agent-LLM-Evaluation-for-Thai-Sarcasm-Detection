@@ -941,85 +941,120 @@ PUBLIC_PAGE = r"""
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ประชดหรือเปล่า?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#eef2f7; --card:#fff; --line:#e4e9f0; --ink:#151c26; --ink2:#5a6675; --muted:#93a0b0;
-  --brand:#2f6bd6; --brand-d:#2457b3; --brand-soft:#e8effc;
-  --sar:#c0392b; --sar-bg:#fdeceb; --not:#1c7a49; --not-bg:#e7f6ee;
-  --radius:16px; --shadow:0 1px 2px rgba(20,30,45,.04),0 10px 30px rgba(20,30,45,.08);
+  --paper:#fbf4e4; --card:#fffdf7; --ink:#34302a; --ink2:#6b6357; --dot:#ece0c6;
+  --blue:#4a86e8; --yellow:#ffd84d; --yellow-d:#f2c33a;
+  --sar:#e2593f; --sar-bg:#ffe7e1; --not:#38a05d; --not-bg:#e3f4e9;
+  --disp:'Itim','Comic Sans MS',cursive; --body:'Mali','Comic Sans MS',cursive;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,system-ui,sans-serif}
-.wrap{max-width:640px;margin:0 auto;padding:clamp(28px,7vw,64px) clamp(16px,4vw,24px) 90px}
-h1{font-size:clamp(28px,7vw,40px);margin:0;letter-spacing:-.02em;font-weight:800;text-align:center}
-.tag{color:var(--ink2);text-align:center;margin:10px 0 0;font-size:clamp(14px,3vw,16px);text-wrap:pretty}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.panel{padding:clamp(18px,4vw,26px);margin-top:26px}
-textarea,input[type=text],input[type=password]{width:100%;padding:14px;border:1px solid #cdd7e2;border-radius:12px;
-  font-family:inherit;font-size:16px;background:#fff;color:var(--ink)}
-textarea{min-height:104px;resize:vertical}
-input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:var(--brand)}
-.hint{font-size:13px;color:var(--muted);margin:8px 2px 0}
-.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
-button{padding:13px 22px;border:0;border-radius:12px;font-size:15px;cursor:pointer;font-family:inherit;font-weight:650}
-.go{background:var(--brand);color:#fff;flex:1;min-width:160px} .go:hover{background:var(--brand-d)} .go:disabled{opacity:.55;cursor:wait}
-.file{font-size:13px;color:var(--ink2)}
-.result{margin-top:12px;padding:16px 18px;border-radius:14px;border:1px solid var(--line);background:#fff}
-.verdict{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800}
-.dot{width:12px;height:12px;border-radius:50%}
-.sar .dot{background:var(--sar)} .sar{color:var(--sar)} .notx .dot{background:var(--not)} .notx{color:var(--not)}
-.txt{font-size:15px;color:var(--ink);margin:8px 0 0}
-.meter{height:7px;border-radius:6px;background:#eef1f5;overflow:hidden;margin-top:12px}
-.meter>span{display:block;height:100%;border-radius:6px}
-.conf{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between}
-.list .result{margin-top:9px}
-.rowline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}
-.pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12.5px;font-weight:700}
+body{margin:0;color:var(--ink);font-family:var(--body);line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-color:var(--paper);
+  background-image:radial-gradient(var(--dot) 1.6px,transparent 1.6px);background-size:24px 24px}
+.wrap{max-width:640px;margin:0 auto;padding:clamp(26px,7vw,58px) clamp(16px,4vw,24px) 90px}
+/* ---- doodle primitives ---- */
+.box{background:var(--card);border:2.6px solid var(--ink);
+  border-radius:255px 14px 225px 16px/16px 225px 15px 255px;
+  box-shadow:5px 5px 0 var(--ink)}
+.box.alt{border-radius:14px 235px 16px 225px/220px 15px 235px 16px}
+h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:center;line-height:1;
+  color:var(--ink);letter-spacing:.5px}
+.squiggle{display:block;width:min(300px,72%);height:20px;margin:2px auto 0}
+.tag{font-family:var(--body);color:var(--ink2);text-align:center;margin:14px auto 0;max-width:34ch;
+  font-size:clamp(15px,3.4vw,18px)}
+.spark{position:absolute;pointer-events:none}
+.head{position:relative}
+.panel{padding:clamp(20px,4.5vw,30px);margin-top:34px}
+label,.hint{font-family:var(--body)}
+textarea,input[type=text],input[type=password]{width:100%;padding:15px;font-family:var(--body);font-size:16px;
+  color:var(--ink);background:#fffef9;border:2.4px dashed var(--ink);border-radius:18px 10px 20px 10px/10px 20px 10px 18px}
+textarea{min-height:110px;resize:vertical}
+input:focus,textarea:focus{outline:none;border-style:solid;border-color:var(--blue);box-shadow:3px 3px 0 var(--blue)}
+.hint{font-size:13.5px;color:var(--ink2);margin:9px 4px 0}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+button{font-family:var(--disp);cursor:pointer;border:2.6px solid var(--ink);color:var(--ink);
+  padding:12px 24px;font-size:18px;border-radius:16px 9px 18px 9px/9px 18px 9px 16px;
+  box-shadow:3px 3px 0 var(--ink);transition:transform .05s,box-shadow .05s}
+button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.go{background:var(--yellow);flex:1;min-width:150px} .go:hover{background:var(--yellow-d)}
+.go:disabled{opacity:.6;cursor:wait}
+.file{font-family:var(--body);font-size:13px;color:var(--ink2)}
+.file::file-selector-button{font-family:var(--body);border:2.2px solid var(--ink);background:#fff;
+  border-radius:12px 7px 12px 7px;padding:7px 12px;cursor:pointer;box-shadow:2px 2px 0 var(--ink);margin-right:8px}
+/* ---- results ---- */
+.result{margin-top:14px;padding:18px 20px;background:var(--card);border:2.6px solid var(--ink);
+  border-radius:225px 16px 255px 14px/14px 255px 16px 225px;box-shadow:4px 4px 0 var(--ink)}
+.result:nth-child(even){border-radius:16px 225px 14px 255px/255px 14px 225px 16px;transform:rotate(-.5deg)}
+.result:nth-child(odd){transform:rotate(.4deg)}
+.verdict{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-size:26px}
+.dot{width:16px;height:16px;border-radius:50%;border:2.4px solid var(--ink);flex:none}
+.sar .dot{background:var(--sar)} .notx .dot{background:var(--not)}
+.sar .verdict,.sar.verdict{color:var(--sar)} .notx .verdict,.notx.verdict{color:var(--not)}
+.txt{font-size:16px;color:var(--ink);margin:10px 0 0}
+.meter{height:12px;border-radius:8px;background:#fff;border:2.2px solid var(--ink);overflow:hidden;margin-top:14px}
+.meter>span{display:block;height:100%}
+.conf{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:7px;display:flex;justify-content:space-between}
+.rowline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pill{font-family:var(--disp);display:inline-block;padding:5px 15px;font-size:15px;border:2.4px solid var(--ink);
+  border-radius:16px 8px 16px 8px/8px 16px 8px 16px;box-shadow:2px 2px 0 var(--ink)}
 .pill.sar{background:var(--sar-bg);color:var(--sar)} .pill.notx{background:var(--not-bg);color:var(--not)}
-.wrongbtn{padding:5px 12px;border-radius:9px;background:#eef2f7;color:#46546a;font-weight:600;font-size:12px;border:0;cursor:pointer}
-.wrongbtn:hover{background:#e2e8f0}
-.learned{color:var(--not);font-weight:600;font-size:12.5px}
-.warn{font-size:12.5px;color:var(--sar);background:var(--sar-bg);border:1px solid #edc4c1;border-radius:10px;padding:11px 13px;margin-top:12px}
-.ok{font-size:12.5px;color:var(--not);background:var(--not-bg);border:1px solid #bfe3ce;border-radius:10px;padding:11px 13px;margin-top:12px}
-.keybar{padding:14px 16px;margin-top:22px}
-.keybar .actions{margin-top:10px}
-.pagerow{display:flex;justify-content:center;gap:8px;align-items:center;margin-top:16px}
-.pagerow button{padding:8px 14px;background:#eef2f7;color:#46546a}
-.pagerow button:disabled{opacity:.4;cursor:default}
-.sp{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;
-  animation:s .7s linear infinite;vertical-align:-2px;margin-right:7px}
+.wrongbtn{font-family:var(--body);font-weight:600;padding:6px 13px;font-size:13px;background:#fff;color:var(--ink);
+  border:2.2px solid var(--ink);border-radius:12px 7px 12px 7px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
+.wrongbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
+.learned{font-family:var(--body);color:var(--not);font-weight:700;font-size:13.5px}
+.warn{font-family:var(--body);font-size:14px;color:#8a3320;background:var(--sar-bg);border:2.4px solid var(--sar);
+  border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--sar)}
+.ok{font-family:var(--body);font-size:14px;color:var(--not);background:var(--not-bg);border:2.4px solid var(--not);
+  border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--not)}
+.keybar{padding:16px 18px;margin-top:24px}
+.keybar .actions{margin-top:12px}
+.keybar button{font-size:16px;padding:10px 18px}
+.pagerow{display:flex;justify-content:center;gap:12px;align-items:center;margin-top:20px}
+.pagerow button{background:#fff;font-size:15px;padding:9px 16px}
+.pagerow button:disabled{opacity:.4;cursor:default;box-shadow:1px 1px 0 var(--ink)}
+.sp{display:inline-block;width:15px;height:15px;border:2.4px solid var(--ink);border-top-color:transparent;
+  border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:8px}
 @keyframes s{to{transform:rotate(360deg)}}
-.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:34px}
-.note{font-size:12.5px;color:var(--ink2);text-align:center;margin-top:16px;text-wrap:pretty}
+.foot{font-family:var(--body);text-align:center;color:var(--ink2);font-size:13px;margin-top:36px}
+.note{font-family:var(--body);font-size:13.5px;color:var(--ink2);text-align:center;margin-top:18px;
+  max-width:40ch;margin-left:auto;margin-right:auto}
 </style></head><body><div class="wrap">
 
-<h1>ประชดหรือเปล่า?</h1>
-<p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วดูว่า “ประชด” หรือเปล่า</p>
+<div class="head">
+  <svg class="spark" style="left:6%;top:-6px;width:34px;height:34px" viewBox="0 0 40 40"><path d="M20 3 L23 16 L36 20 L23 24 L20 37 L17 24 L4 20 L17 16 Z" fill="none" stroke="#f2c33a" stroke-width="2.6" stroke-linejoin="round"/></svg>
+  <svg class="spark" style="right:8%;top:18px;width:26px;height:26px" viewBox="0 0 40 40"><path d="M20 5 L23 17 L35 20 L23 23 L20 35 L17 23 L5 20 L17 17 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/></svg>
+  <h1>ประชดหรือเปล่า?</h1>
+  <svg class="squiggle" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 Q 38 3 74 12 T 148 12 T 222 12 T 297 10" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round"/></svg>
+  <p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วมาดูกันว่า “ประชด” ไหม</p>
+</div>
 
 {% if not has_key %}
-<div class="card keybar">
-  <div class="hint" style="margin:0">ใส่ OpenAI API key ครั้งเดียวเพื่อเริ่มใช้</div>
+<div class="box keybar alt">
+  <div class="hint" style="margin:0;font-size:15px">ใส่ OpenAI API key ครั้งเดียวเพื่อเริ่มเล่น</div>
   <div class="actions">
     <input type="password" id="k" placeholder="sk-..." autocomplete="off" style="flex:1">
-    <button class="go" style="flex:0;min-width:0" id="ksave" onclick="saveKey()">บันทึก</button>
+    <button id="ksave" onclick="saveKey()" style="background:#fff">บันทึก</button>
   </div>
   <div id="kmsg"></div>
 </div>
 {% endif %}
 
-<div class="card panel">
-  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความที่นี่ (หลายบรรทัดก็ได้) — หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
+<div class="box panel">
+  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความตรงนี้ (หลายบรรทัดก็ได้) — หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
   <div class="hint">วางลิงก์ = ดึงคอมเมนต์มาตรวจให้ · หลายบรรทัด = ตรวจทีละบรรทัด</div>
   <div class="actions">
-    <button class="go" id="go" onclick="analyze()">ตรวจ</button>
+    <button class="go" id="go" onclick="analyze()">ตรวจเลย!</button>
     <input type="file" id="file" accept=".csv,.txt" class="file">
   </div>
   <div id="out"></div>
 </div>
 
-<p class="note">ผลลัพธ์เป็น “การคาดเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย — ถ้าเห็นว่าผิด กด “ตัดสินผิด” เพื่อช่วยให้มันเก่งขึ้น</p>
-<div class="foot">ขับเคลื่อนโดยโมเดลตรวจจับประชดภาษาไทย</div>
+<p class="note">ผลลัพธ์เป็น “การเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย — เห็นว่าผิดก็กด “ตัดสินผิด” ช่วยให้มันเก่งขึ้นได้</p>
+<div class="foot">~ ตรวจจับประชดภาษาไทย ~</div>
 
 <script>
 const $=i=>document.getElementById(i);
