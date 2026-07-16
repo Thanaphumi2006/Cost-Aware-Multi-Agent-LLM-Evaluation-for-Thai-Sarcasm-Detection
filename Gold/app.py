@@ -817,8 +817,9 @@ function renderYT(){
       ดึงได้ <b>${s.n}</b> คอมเมนต์ · ระบบคิดว่าประชด <b>${s.sarcasm}</b> ข้อ · ${s.model}
       &nbsp; <button class="ghost" onclick="ytToggle(true)">โชว์เฉพาะประชด</button>
       <button class="ghost" onclick="ytToggle(false)">โชว์ทั้งหมด</button>
-      <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น — ระบบจะจำเป็นตัวอย่าง (few-shot)
-      แล้วเก่งขึ้นกับข้อความคล้ายๆ กัน (ไม่ใช่การเทรนโมเดลใหม่)</span> ${relearn}
+      <br><span style="color:var(--ink2)">เจอที่ตัดสินผิด? กด “ตัดสินผิด” ที่ข้อนั้น — ระบบจะจำ<b>ถาวร (ข้ามเซสชัน)</b>
+      เป็นตัวอย่าง (few-shot) แล้วเก่งขึ้นกับข้อความคล้ายๆ กัน · จำได้ไม่จำกัดจำนวน ·
+      อยากฝังในโมเดลจริงถาวรใช้ <code>finetune.py</code> (ไม่ใช่การเทรนใหม่ในเว็บ)</span> ${relearn}
     </div>
     <div style="margin-top:10px">${list}</div>
     ${pager(rows.length,pages)}`;

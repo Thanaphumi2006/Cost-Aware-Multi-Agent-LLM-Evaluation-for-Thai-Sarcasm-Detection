@@ -33,3 +33,6 @@ Gold/yt_raw.txt
 
 # corrections ที่คนกดแก้ (มีข้อความคอมเมนต์คนอื่น + regenerable)
 Gold/.predict_corrections.json
+
+# ไฟล์เทรน fine-tune (gold+corrections, regenerable)
+Gold/ft_train.jsonl

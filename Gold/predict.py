@@ -47,8 +47,26 @@ DETECT_SYS = (
 )
 
 # ---------- corrections: เรียนจากที่คนบอกว่า "ตัดสินผิด" (few-shot in-context ไม่ใช่การเทรนใหม่จริง) ----------
-_MAX_SHOTS = 12          # จำกัดจำนวนตัวอย่างในโปรมป์ กันโทเคนบวม (เอาอันล่าสุด)
+# เก็บ correction ได้ "ไม่จำกัด" (permanent, ข้ามเซสชัน) แล้วตอนทำนายค่อยดึงเฉพาะอันที่ "เกี่ยวข้องสุด" มาใส่โปรมป์
+_MAX_SHOTS = 10          # จำนวนตัวอย่างที่ใส่ต่อการทำนาย 1 ครั้ง (เลือกจากที่คล้ายที่สุด กันโทเคนบวม)
 _corr_lock = threading.Lock()
+
+
+def _trigrams(s):
+    s = "".join(s.split())
+    return set(s[i:i+3] for i in range(len(s) - 2)) if len(s) >= 3 else {s}
+
+
+def _relevant(corr, query, k=_MAX_SHOTS):
+    """เลือก correction ที่ "เกี่ยวข้องกับข้อความนี้ที่สุด" (Jaccard ของ char-trigram — ใช้กับไทยได้ ไม่ต้องตัดคำ)
+    -> เก็บ correction ไว้เยอะแค่ไหนก็ได้ แต่ใส่โปรมป์เฉพาะอันที่ช่วยข้อนี้ = เรียนถาวรและสเกลได้"""
+    if len(corr) <= k:
+        return corr
+    q = _trigrams(query)
+    def sim(c):
+        t = _trigrams(c["text"])
+        return len(t & q) / (len(t | q) or 1)
+    return sorted(corr, key=sim, reverse=True)[:k]
 
 
 def load_corrections():
@@ -78,23 +96,23 @@ def add_correction(text, correct_label):
     return len(corr)
 
 
-def _shots_block(corr):
-    """แปลง corrections เป็นบล็อก few-shot ต่อท้าย system prompt"""
-    if not corr:
+def _shots_block(shots):
+    """แปลงรายการ correction (ที่เลือกมาแล้ว) เป็นบล็อก few-shot ต่อท้าย system prompt"""
+    if not shots:
         return ""
     lines = ["\n\nตัวอย่างที่คนยืนยันคำตอบที่ถูกแล้ว (ให้ยึดตามนี้กับข้อความคล้ายๆ กัน):"]
-    for c in corr[-_MAX_SHOTS:]:
+    for c in shots:
         t = c["text"].replace("\n", " ")[:160]
         lines.append(f'  "{t}" -> {c["label"]}')
     return "\n".join(lines)
 
 
 def _corr_sig(corr):
-    """ลายเซ็นสั้นของชุด corrections -> ใช้เป็นส่วนหนึ่งของ cache key
+    """ลายเซ็นของชุด corrections *ทั้งหมด* -> เป็นส่วนหนึ่งของ cache key
     (corrections เปลี่ยน -> โปรมป์เปลี่ยน -> prob เก่าใช้ไม่ได้ ต้องแยก namespace)"""
     if not corr:
         return "0"
-    raw = "|".join(f'{c["text"]}={c["label"]}' for c in corr[-_MAX_SHOTS:])
+    raw = "|".join(f'{c["text"]}={c["label"]}' for c in corr)
     return hashlib.sha1(raw.encode()).hexdigest()[:10]
 
 # จุดทำงาน: model+threshold คัดจาก PR curve บน gold — ดู header (เลือกโมเดลตามงาน)
@@ -147,12 +165,11 @@ class SarcasmDetector:
         self.reload_corrections()
 
     def reload_corrections(self):
-        """อ่าน corrections ล่าสุด -> ประกอบ system prompt + ลายเซ็นสำหรับ cache
+        """อ่าน corrections ทั้งหมด (permanent จากไฟล์) เก็บไว้เลือกตอนทำนาย
         เรียกใหม่หลังมีคนกด 'ผิด' เพื่อให้คำทำนายต่อไปใช้ตัวอย่างใหม่"""
-        corr = load_corrections()
-        self.sys_prompt = DETECT_SYS + _shots_block(corr)
-        self.corr_sig = _corr_sig(corr)
-        self.n_corr = len(corr)
+        self.corr = load_corrections()
+        self.corr_sig = _corr_sig(self.corr)
+        self.n_corr = len(self.corr)
 
     def prob(self, text):
         """คืน P(ประชด) 0..1 จาก logprob ของ token label (1 call) — เช็ค cache ก่อน"""
@@ -168,10 +185,12 @@ class SarcasmDetector:
         return p
 
     def _call(self, text):
+        # เลือก correction ที่เกี่ยวข้องกับข้อความนี้ที่สุด แล้วต่อท้าย prompt (retrieval per-query)
+        sys_prompt = DETECT_SYS + _shots_block(_relevant(self.corr, text))
         r = self.client.chat.completions.create(
             model=self.model, max_tokens=20, response_format={"type": "json_object"},
             logprobs=True, top_logprobs=20,
-            messages=[{"role": "system", "content": self.sys_prompt},
+            messages=[{"role": "system", "content": sys_prompt},
                       {"role": "user", "content": f"ข้อความ: {text}"}])
         for tok in (r.choices[0].logprobs.content or []):
             if tok.token.strip().strip('"') not in ("0", "1"):
