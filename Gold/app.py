@@ -269,6 +269,51 @@ def api_batch():
     return jsonify({"rows": rows, "summary": summ})
 
 
+@app.route("/api/youtube", methods=["POST"])
+def api_youtube():
+    """วางลิงก์ YouTube -> ดึงคอมเมนต์ไทย -> จับประชด -> คืนรายการ (โชว์เฉพาะที่ประชด)
+    *** โดเมน YouTube ยังไม่ได้ validate (ดู eval_domain.py) -> ผลเป็น "เดา" เตือนที่หน้าเว็บ ***"""
+    if not _api_key:
+        return jsonify({"error": "ยังไม่มี OPENAI_API_KEY (ใส่คีย์ด้านบนก่อน)"}), 400
+    body = request.json or {}
+    url = str(body.get("url", "")).strip()
+    op = body.get("op", "balanced")
+    limit = min(int(body.get("limit", 80)), 200)
+    if "youtu" not in url:
+        return jsonify({"error": "ใส่ลิงก์ YouTube ที่ถูกต้อง"}), 400
+    try:
+        import fetch_yt_comments as yt
+    except ImportError:
+        return jsonify({"error": "ยังไม่ได้ติดตั้ง yt-dlp (pip install yt-dlp)"}), 500
+
+    try:
+        raw = yt.fetch(url, limit)
+    except Exception as e:
+        return jsonify({"error": f"ดึงคอมเมนต์ไม่สำเร็จ: {type(e).__name__}"}), 502
+    seen, comments = set(), []
+    for c in raw:
+        c = yt.clean(c)
+        if yt.is_thai(c) and 8 <= len(c) <= 300 and c not in seen:
+            seen.add(c); comments.append(c)
+        if len(comments) >= limit:
+            break
+    if not comments:
+        return jsonify({"error": "ไม่พบคอมเมนต์ภาษาไทย (คลิปอาจปิดคอมเมนต์)"}), 404
+
+    det = detector(op)
+    rows = []
+    for c in comments:
+        try:
+            r = det.predict(c)
+        except Exception as e:
+            r = {"label": None, "prob": None, "decision": f"error"}
+        rows.append({"text": c, **r})
+    rows.sort(key=lambda r: -(r.get("prob") or 0))       # ประชดมั่นใจสุดอยู่บน
+    summ = {"n": len(rows), "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
+            "model": det.model, "op": op}
+    return jsonify({"rows": rows, "summary": summ})
+
+
 @app.route("/api/key", methods=["POST"])
 def api_key_set():
     """รับคีย์จากหน้าเว็บ -> ยิงเช็คกับ OpenAI จริงก่อนรับ (models.list ไม่คิดเงิน)
@@ -466,6 +511,24 @@ tr.best td{background:#f2faf5}
     <span class="sub" id="bhint" style="margin:0">รองรับสูงสุด 500 ข้อ/ครั้ง</span>
   </div>
   <div id="bout"></div>
+</div>
+
+<div class="card">
+  <h2 style="margin:0 0 4px;font-size:17px">▶️ วางลิงก์ YouTube → หาคอมเมนต์ที่ประชด</h2>
+  <div class="sub" style="margin-bottom:10px">
+    วางลิงก์คลิป → ดึงคอมเมนต์ไทย → ระบบจับ แล้วโชว์เฉพาะ<b>ที่คิดว่าประชด</b>เป็นรายการ
+  </div>
+  <div class="warn" style="margin-bottom:12px">
+    ⚠ <b>YouTube เป็นโดเมนที่ยังไม่ได้ทดสอบ</b> — โมเดลวัดผลไว้แค่รีวิว/ทวีต ผลตรงนี้เป็น
+    <b>“การเดา”</b> อาจพลาดเยอะ (ดู <code>eval_domain.py</code> ถ้าอยากรู้แม่นจริงต้องให้คน label)
+  </div>
+  <div class="row">
+    <input type="text" id="yurl" placeholder="https://www.youtube.com/watch?v=..."
+      style="flex:1;min-width:260px;padding:9px 12px;border:1px solid #cfd6df;border-radius:7px;font-family:inherit">
+    <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
+  </div>
+  <div class="sub" id="yhint" style="margin:8px 0 0">ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่ (ดึง+ยิงทีละข้อ)</div>
+  <div id="yout"></div>
 </div>
 
 <div class="card">
@@ -673,6 +736,43 @@ async function run(){
 }
 $('t').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')run()});
 $('k').addEventListener('keydown',e=>{if(e.key==='Enter')saveKey()});
+
+// ---------- YouTube ----------
+let _yall=[], _ysum={}, _yonly=true;
+async function runYT(){
+  const url=$('yurl').value.trim();
+  if(!url){$('yurl').focus();return}
+  $('ygo').disabled=true; $('ygo').innerHTML='<span class="sp"></span>กำลังดึง+วิเคราะห์...';
+  $('yout').innerHTML=''; $('yhint').textContent='กำลังดึงคอมเมนต์ (อาจ 1-2 นาที)...';
+  try{
+    const r=await fetch('/api/youtube',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url,op:$('bop').value,limit:80})});
+    const d=await r.json();
+    if(d.error){$('yout').innerHTML='<div class="warn">'+d.error+'</div>'}
+    else{ _yall=d.rows; _ysum=d.summary; _yonly=true; renderYT(); }
+  }catch(e){ $('yout').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>' }
+  $('ygo').disabled=false; $('ygo').textContent='ดึง + วิเคราะห์';
+  $('yhint').textContent='ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่ (ดึง+ยิงทีละข้อ)';
+}
+function ytToggle(only){_yonly=only; renderYT();}
+function renderYT(){
+  const s=_ysum;
+  const rows=(_yonly?_yall.filter(r=>r.decision==='sarcasm'):_yall);
+  const list=rows.map(r=>`<div style="padding:10px 12px;border:1px solid #e2e6ec;border-radius:8px;
+      background:${r.decision==='sarcasm'?'#fdf2f2':'#fff'};margin-bottom:7px">
+      <div style="font-size:14px">${esc(r.text)}</div>
+      <div style="font-size:11.5px;color:#8a94a6;margin-top:4px">
+        ${pill(r.decision)} <span class="mono" style="margin-left:6px">P(ประชด)=${r.prob==null?'–':r.prob}</span></div>
+    </div>`).join('') || '<div class="sub" style="padding:8px 0">— ไม่มี —</div>';
+  $('yout').innerHTML=`
+    <div class="note" style="margin-top:14px">
+      ดึงได้ <b>${s.n}</b> คอมเมนต์ · ระบบคิดว่าประชด <b>${s.sarcasm}</b> ข้อ · ${s.model}
+      &nbsp; <button class="ghost" onclick="ytToggle(true)">โชว์เฉพาะประชด</button>
+      <button class="ghost" onclick="ytToggle(false)">โชว์ทั้งหมด</button>
+    </div>
+    <div style="margin-top:10px">${list}</div>`;
+}
+$('yurl').addEventListener('keydown',e=>{if(e.key==='Enter')runYT()});
 
 // ---------- batch ----------
 let _brows=[];
