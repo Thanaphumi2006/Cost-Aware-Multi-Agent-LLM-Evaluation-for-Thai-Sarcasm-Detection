@@ -21,3 +21,4 @@ __pycache__/
 *.log
 venv/
 .venv/
+gold_pre_expand.csv
