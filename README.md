@@ -18,7 +18,13 @@ export OPENAI_API_KEY=sk-...
 python Gold/predict.py "ขอบคุณที่ให้รอ 2 ชม. บริการดีจริงๆ"      # → {"label": 1, "prob": 1.0, "decision": "sarcasm"}
 python Gold/predict.py --csv reviews.csv --out scored.csv         # batch a whole file
 python Gold/predict.py "..." --op high_recall --review-band       # switch operating point
+python Gold/eval_domain.py newdomain.csv                          # test on a NEW labeled domain
 ```
+
+Repeated text is cached on disk (`.predict_cache.json`), so re-scoring the same items is free. The web app
+(`python Gold/app.py`) also has a browser CSV-upload batch path built on the same predictor. **Before trusting it
+outside restaurant reviews and tweets, run `eval_domain.py` on a human-labeled sample from your target domain** —
+cross-domain transfer is the biggest untested risk.
 
 | Operating point | Model | P / R / F1 | Use when |
 |---|---|---|---|
