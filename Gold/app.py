@@ -368,174 +368,178 @@ PAGE = r"""
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ทดลอง & เทียบระบบตรวจจับประชดภาษาไทย</title>
 <style>
-*{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Tahoma,sans-serif;background:#f5f7fa;color:#1a1f2b}
-.wrap{max-width:1080px;margin:0 auto;padding:24px}
-h1{font-size:22px;margin:0 0 4px} .sub{color:#6b7482;font-size:13px;margin-bottom:20px}
-.card{background:#fff;border:1px solid #e2e6ec;border-radius:10px;padding:18px;margin-bottom:18px}
-textarea{width:100%;min-height:96px;padding:12px;border:1px solid #cfd6df;border-radius:8px;
-  font-family:inherit;font-size:15px;resize:vertical}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-button{padding:9px 16px;border:0;border-radius:7px;font-size:14px;cursor:pointer;font-family:inherit}
-.go{background:#2f6b47;color:#fff;font-weight:600} .go:disabled{background:#9bb5a6;cursor:wait}
-.ghost{background:#eef1f5;color:#42505f}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:6px}
-.sys{border:1px solid #e2e6ec;border-radius:9px;padding:14px;background:#fff}
-.sys h3{margin:0 0 3px;font-size:14px} .sys .tag{font-size:11px;color:#8a94a6;margin-bottom:10px}
-.verdict{font-size:19px;font-weight:700;padding:9px 12px;border-radius:7px;margin-bottom:10px;text-align:center}
-.v1{background:#fdecec;color:#a02020} .v0{background:#eaf5ee;color:#1e5c3c}
-.vna{background:#f0f1f3;color:#8a94a6;font-size:14px;font-weight:500}
-.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:#5a6472}
-.kv b{color:#1a1f2b;font-weight:600}
+:root{
+  --bg:#eef1f5; --card:#fff; --card2:#f7f9fb; --line:#e3e8ef;
+  --ink:#182029; --ink2:#586675; --muted:#8b97a6;
+  --brand:#2f6bd6; --brand-d:#2457b3; --brand-soft:#e8effc;
+  --sar:#c0392b; --sar-bg:#fdeceb; --not:#1c7a49; --not-bg:#e7f6ee;
+  --warn-bg:#fff7e8; --warn-line:#ead9a6; --warn-ink:#8a6d2f;
+  --radius:13px; --shadow:0 1px 2px rgba(20,30,45,.04),0 6px 20px rgba(20,30,45,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,system-ui,sans-serif}
+.wrap{max-width:840px;margin:0 auto;padding:clamp(18px,4vw,40px) clamp(14px,3vw,26px) 80px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+header h1{font-size:clamp(23px,4.5vw,32px);margin:0;letter-spacing:-.02em;font-weight:800;text-wrap:balance}
+header .tagline{color:var(--ink2);font-size:clamp(14px,2.2vw,16px);margin:9px 0 0;text-wrap:pretty}
+.sub{color:var(--ink2);font-size:13px}
+.step{margin-top:28px}
+.steplabel{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:750;margin-bottom:11px}
+.num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:13px;font-weight:700;flex:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:clamp(15px,3vw,22px);box-shadow:var(--shadow)}
+.tabs{display:flex;gap:7px;margin-bottom:13px;flex-wrap:wrap}
+.tab{padding:10px 17px;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:10px;
+  font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .12s}
+.tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.tab:not(.active):hover{background:var(--brand-soft);color:var(--brand-d)}
+textarea,input[type=text],input[type=password]{width:100%;padding:12px;border:1px solid #cdd7e2;border-radius:10px;
+  font-family:inherit;font-size:15px;background:var(--card);color:var(--ink)}
+textarea{min-height:90px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:var(--brand)}
+input[type=password]{font-family:ui-monospace,Menlo,monospace;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+button{padding:10px 18px;border:0;border-radius:9px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:600}
+.go{background:var(--brand);color:#fff} .go:hover{background:var(--brand-d)} .go:disabled{opacity:.6;cursor:wait}
+.ghost{background:#eaeff5;color:#46546a;font-weight:500} .ghost:hover{background:#dfe6ef}
+select{padding:8px 10px;border:1px solid #cdd7e2;border-radius:8px;font-family:inherit;font-size:13px;background:var(--card);color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
+.sys{border:1px solid var(--line);border-radius:11px;padding:15px;background:var(--card2)}
+.sys h3{margin:0 0 3px;font-size:14px} .sys .tag{font-size:11px;color:var(--muted);margin-bottom:11px}
+.verdict{font-size:19px;font-weight:800;padding:10px;border-radius:9px;margin-bottom:11px;text-align:center}
+.v1{background:var(--sar-bg);color:var(--sar)} .v0{background:var(--not-bg);color:var(--not)}
+.vna{background:#eef1f4;color:var(--muted);font-size:14px;font-weight:600}
+.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--ink2)}
+.kv b{color:var(--ink);font-weight:600}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:8px 9px;text-align:right;border-bottom:1px solid #eef0f3}
-th:first-child,td:first-child{text-align:left} th{color:#6b7482;font-weight:600;font-size:12px}
-tr.best td{background:#f2faf5}
-.note{font-size:12px;color:#8a6d2f;background:#fff8ec;border:1px solid #e8d9b0;
-  border-radius:7px;padding:9px 11px;margin-top:10px}
-.warn{font-size:12px;color:#a02020;background:#fdecec;border:1px solid #e8b8b8;
-  border-radius:7px;padding:9px 11px;margin-top:10px}
-.gold{font-size:13px;padding:8px 11px;border-radius:7px;background:#eef4ff;
-  border:1px solid #c9d9f5;margin-top:12px}
-.pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12.5px;font-weight:700;
-  white-space:nowrap}
-.pill.v1{background:#fdecec;color:#a02020} .pill.v0{background:#eaf5ee;color:#1e5c3c}
-.pill.vna{background:#f0f1f3;color:#8a94a6;font-weight:500}
+th,td{padding:8px 9px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left} th{color:var(--ink2);font-weight:600;font-size:12px}
+tr.best td{background:var(--brand-soft)}
+.pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.pill.v1{background:var(--sar-bg);color:var(--sar)} .pill.v0{background:var(--not-bg);color:var(--not)}
+.pill.vna{background:#eef1f4;color:var(--muted);font-weight:600}
+.note{font-size:12.5px;color:var(--warn-ink);background:var(--warn-bg);border:1px solid var(--warn-line);
+  border-radius:9px;padding:10px 12px;margin-top:12px;line-height:1.6}
+.warn{font-size:12.5px;color:var(--sar);background:var(--sar-bg);border:1px solid #edc4c1;
+  border-radius:9px;padding:10px 12px;margin-top:10px;line-height:1.55}
+.ok{font-size:12.5px;color:var(--not);background:var(--not-bg);border:1px solid #bfe3ce;
+  border-radius:9px;padding:10px 12px;margin-top:10px}
+.gold{font-size:13px;padding:9px 12px;border-radius:9px;background:var(--brand-soft);border:1px solid #cbd9f3;margin-top:12px}
 .sp{display:inline-block;width:13px;height:13px;border:2px solid #fff;border-top-color:transparent;
   border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
-
-/* ---- multi-agent flow ---- */
-.flow{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:14px}
-.ag{border:1.6px solid #cfd6df;border-radius:10px;padding:14px;background:#fff;
-  width:100%;max-width:330px}
-.ag.on{border-color:#2f9e5e;background:#f4fbf7}
-.ag.off{border-style:dashed;background:#fafbfc;opacity:.72}
-.ag.kill{border-color:#c96a6a;background:#fdf5f5}
-.ag .who{font-size:13.5px;font-weight:700;margin-bottom:2px}
-.ag .job{font-size:11.5px;color:#6b7482;line-height:1.5;margin-bottom:10px}
-.ag .say{font-size:14px;font-weight:700;padding:8px 10px;border-radius:6px;background:#eef1f5;
-  color:#42505f;text-align:center;margin-bottom:8px}
-.ag.on .say{background:#e3f3ea;color:#1e5c3c} .ag.kill .say{background:#f8e4e4;color:#a02020}
-.ag.off .say{background:#f0f1f3;color:#98a1ad;font-weight:500;font-size:12.5px}
-.ag .meta{font-size:11.5px;color:#6b7482;display:flex;justify-content:space-between;padding:2px 0}
-.arw{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:10px 0;font-size:22px;color:#8a94a6;text-align:center}
-.arw small{font-size:10.5px;color:#8a94a6;display:block;text-align:center;line-height:1.3}
-.fin{margin-top:12px;padding:11px 14px;border-radius:8px;font-size:13.5px;font-weight:600;text-align:center}
-.fin.k{background:#fdecec;color:#a02020} .fin.p{background:#eaf5ee;color:#1e5c3c}
-.rule{font-size:12px;color:#5c5340;background:#fff8ec;border:1px solid #e8d9b0;
-  border-radius:7px;padding:10px 12px;margin-top:12px;line-height:1.65}
-
-/* ---- key panel ---- */
 .keyhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.keycard input{flex:1;min-width:260px;padding:9px 12px;border:1px solid #cfd6df;border-radius:7px;
-  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
-.keycard input:focus{outline:2px solid #2f6b47;outline-offset:-1px;border-color:#2f6b47}
-.ok{font-size:12px;color:#1e5c3c;background:#eaf5ee;border:1px solid #b8ddc6;
-  border-radius:7px;padding:9px 11px;margin-top:10px}
+details.about{margin-top:30px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+details.about>summary{cursor:pointer;padding:16px 20px;font-weight:700;font-size:15px;list-style:none}
+details.about>summary::-webkit-details-marker{display:none}
+details.about>summary::before{content:"\25B8  ";color:var(--brand)}
+details.about[open]>summary::before{content:"\25BE  "}
+.about-body{padding:2px 20px 20px}
+.about-body h3{font-size:15px;margin:16px 0 3px}
+.flow{display:flex;flex-direction:column;align-items:center;margin-top:8px}
+.ag{border:1.6px solid #cdd7e2;border-radius:11px;padding:14px;background:var(--card);width:100%;max-width:340px}
+.ag.on{border-color:#2f9e5e;background:var(--not-bg)} .ag.off{border-style:dashed;background:var(--card2);opacity:.72}
+.ag.kill{border-color:#c96a6a;background:var(--sar-bg)}
+.ag .who{font-size:13.5px;font-weight:700;margin-bottom:2px}
+.ag .job{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-bottom:10px}
+.ag .say{font-size:14px;font-weight:700;padding:8px 10px;border-radius:6px;background:#eef1f5;color:#42505f;text-align:center;margin-bottom:8px}
+.ag.on .say{background:#dff0e7;color:var(--not)} .ag.kill .say{background:#f8e4e4;color:var(--sar)}
+.ag.off .say{background:#eef1f4;color:var(--muted);font-weight:500;font-size:12.5px}
+.ag .meta{font-size:11.5px;color:var(--ink2);display:flex;justify-content:space-between;padding:2px 0}
+.arw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0;font-size:22px;color:var(--muted);text-align:center}
+.arw small{font-size:10.5px;color:var(--muted);line-height:1.3}
+.fin{margin-top:12px;padding:11px 14px;border-radius:9px;font-size:13.5px;font-weight:600;text-align:center}
+.fin.k{background:var(--sar-bg);color:var(--sar)} .fin.p{background:var(--not-bg);color:var(--not)}
+.rule{font-size:12px;color:#5c5340;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:9px;padding:10px 12px;margin-top:12px;line-height:1.65}
 </style></head><body><div class="wrap">
 
-<h1>ทดลอง &amp; เทียบระบบตรวจจับประชดภาษาไทย</h1>
-<div class="sub">เอเจนต์เดี่ยว vs Multi-agent vs WangchanBERTa — วัดคุณภาพ ค่าใช้จ่าย และเวลา พร้อมกัน</div>
+<header>
+  <h1>ตรวจจับประชดภาษาไทย 🎭</h1>
+  <p class="tagline">พิมพ์ข้อความ · อัปโหลดไฟล์ · หรือวางลิงก์ YouTube แล้วดูว่า “ประชด” หรือเปล่า</p>
+</header>
 
-<div class="card keycard" id="keycard">
-  <div class="keyhead">
-    <div>
-      <h3 style="margin:0 0 3px;font-size:15px">🔑 OpenAI API key</h3>
-      <div class="sub" style="margin:0">ระบบที่ใช้ LLM (① และ ②) ต้องมีคีย์ถึงจะรันได้ — WangchanBERTa ไม่ต้องใช้</div>
+<div class="step">
+  <div class="steplabel"><span class="num">1</span> ใส่กุญแจ OpenAI (ทำครั้งเดียว)</div>
+  <div class="card keycard" id="keycard">
+    <div class="keyhead">
+      <div class="sub" style="max-width:52ch">ระบบที่เป็น AI ต้องมี API key ถึงจะทำงาน — ส่วน WangchanBERTa (โมเดลฟรี) ใช้ได้เลยไม่ต้องใส่</div>
+      <span class="pill {{ 'v0' if has_key else 'vna' }}" id="keypill">{{ 'พร้อมใช้งาน · ' ~ masked if has_key else 'ยังไม่มีคีย์' }}</span>
     </div>
-    <span class="pill {{ 'v0' if has_key else 'vna' }}" id="keypill">
-      {{ 'พร้อมใช้งาน · ' ~ masked if has_key else 'ยังไม่มีคีย์' }}
-    </span>
-  </div>
-
-  <div class="row" id="keyform" {% if has_key %}style="display:none"{% endif %}>
-    <input type="password" id="k" placeholder="sk-..." autocomplete="off" spellcheck="false">
-    <button class="go" id="ksave" onclick="saveKey()">บันทึกคีย์</button>
-  </div>
-  <div class="row" id="keydone" {% if not has_key %}style="display:none"{% endif %}>
-    <button class="ghost" onclick="clearKey()">ลบคีย์ออก</button>
-    {% if from_env %}<span class="sub" style="margin:0">อ่านมาจาก environment variable <code>OPENAI_API_KEY</code></span>{% endif %}
-  </div>
-  <div id="kmsg"></div>
-
-  <div class="note" style="margin-top:12px">
-    คีย์ถูกเก็บไว้<b>ในหน่วยความจำของเซิร์ฟเวอร์เท่านั้น</b> — ไม่เขียนลงไฟล์ ไม่ใส่ใน cookie
-    ปิดเซิร์ฟเวอร์เมื่อไหร่ก็หายไป ต้องใส่ใหม่<br>
-    เว็บนี้เปิดที่ <code>127.0.0.1</code> (เครื่องตัวเองเท่านั้น) — <b>อย่า deploy ขึ้นเน็ตทั้งอย่างนี้</b>
-    เพราะใครก็ตามที่เข้าถึงหน้านี้ได้จะยิง API ด้วยคีย์ของคุณได้
+    <div class="row" id="keyform" {% if has_key %}style="display:none"{% endif %}>
+      <input type="password" id="k" placeholder="sk-..." autocomplete="off" spellcheck="false" style="flex:1;min-width:240px">
+      <button class="go" id="ksave" onclick="saveKey()">บันทึก</button>
+    </div>
+    <div class="row" id="keydone" {% if not has_key %}style="display:none"{% endif %}>
+      <button class="ghost" onclick="clearKey()">ลบคีย์ออก</button>
+      {% if from_env %}<span class="sub">อ่านมาจาก environment variable <code>OPENAI_API_KEY</code></span>{% endif %}
+    </div>
+    <div id="kmsg"></div>
+    <div class="note">🔒 คีย์เก็บในหน่วยความจำเซิร์ฟเวอร์เท่านั้น — ไม่เขียนลงไฟล์ ปิดเว็บแล้วหาย · เว็บนี้เปิดแค่บนเครื่องคุณ (127.0.0.1) อย่าเปิดออกอินเทอร์เน็ต</div>
   </div>
 </div>
 
-{% if not has_wcb %}<div class="warn"><b>ยังไม่มีโมเดล WangchanBERTa</b> — รัน <code>train_final_wcb.py</code> ก่อน</div>{% endif %}
+{% if not has_wcb %}<div class="warn" style="margin-top:14px"><b>ยังไม่มีโมเดล WangchanBERTa</b> — รัน <code>train_final_wcb.py</code> ก่อน (ระบบอื่นใช้ได้ปกติ)</div>{% endif %}
 
-<div class="card">
-  <textarea id="t" placeholder="พิมพ์ข้อความภาษาไทย เช่น: ขอบคุณมากนะคะที่ให้รอแค่ 2 ชั่วโมง บริการดีเยี่ยมจริงๆ"></textarea>
-  <div class="row">
-    <button class="go" id="go" onclick="run()">วิเคราะห์ด้วยทั้ง 3 ระบบ</button>
-    <button class="ghost" onclick="samp('1')">สุ่มตัวอย่าง “ประชด”</button>
-    <button class="ghost" onclick="samp('0')">สุ่มตัวอย่าง “ไม่ประชด”</button>
-    <button class="ghost" onclick="document.getElementById('t').value=''">ล้าง</button>
+<div class="step">
+  <div class="steplabel"><span class="num">2</span> เลือกวิธีใช้</div>
+  <div class="tabs">
+    <button class="tab active" id="tabbtn-single" onclick="showTab('single')">✍️ พิมพ์ทีละข้อความ</button>
+    <button class="tab" id="tabbtn-batch" onclick="showTab('batch')">📄 อัปโหลดไฟล์</button>
+    <button class="tab" id="tabbtn-yt" onclick="showTab('yt')">▶️ YouTube</button>
   </div>
-  <div id="goldbox"></div>
+
+  <div class="card tabpanel" id="tab-single">
+    <div class="sub" style="margin-bottom:11px">พิมพ์ข้อความไทย 1 ข้อ แล้วเทียบ 3 ระบบพร้อมกัน (AI เดี่ยว · AI สองชั้น · โมเดลฟรี)</div>
+    <textarea id="t" placeholder="เช่น: ขอบคุณมากนะคะที่ให้รอแค่ 2 ชั่วโมง บริการดีเยี่ยมจริงๆ"></textarea>
+    <div class="row">
+      <button class="go" id="go" onclick="run()">วิเคราะห์</button>
+      <button class="ghost" onclick="samp('1')">🎲 ตัวอย่างประชด</button>
+      <button class="ghost" onclick="samp('0')">🎲 ตัวอย่างไม่ประชด</button>
+      <button class="ghost" onclick="$('t').value='';$('out').innerHTML='';$('goldbox').innerHTML=''">ล้าง</button>
+    </div>
+    <div id="goldbox"></div>
+    <div id="out"></div>
+  </div>
+
+  <div class="card tabpanel" id="tab-batch" style="display:none">
+    <div class="sub" style="margin-bottom:10px">อัปโหลดไฟล์ CSV (มีคอลัมน์ <code>text</code>) หรือวางข้อความทีละบรรทัด → ได้ผลเป็นตาราง ดาวน์โหลดได้</div>
+    <div class="warn" style="margin-bottom:12px">⚠ โมเดลวัดผลไว้แค่ <b>รีวิวร้าน + ทวีตสั้น</b> (F1~0.72) — ข้อความโดเมนอื่นยังไม่ได้ทดสอบ ผลอาจเพี้ยน</div>
+    <div class="row" style="margin-top:0;margin-bottom:4px">
+      <label class="sub">ความละเอียด:
+        <select id="bop">
+          <option value="balanced">ปกติ — เร็ว/ถูก (gpt-4.1-mini)</option>
+          <option value="high_recall">จับให้ครบ — แม่นแต่แพงกว่า (gpt-4o)</option>
+        </select></label>
+      <label class="sub" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="brev"> ข้อก้ำกึ่งให้คนตัดสิน</label>
+    </div>
+    <textarea id="btext" placeholder="วางข้อความทีละบรรทัด — หรือเลือกไฟล์ด้านล่าง"></textarea>
+    <div class="row">
+      <button class="go" id="bgo" onclick="runBatch()">ตรวจทั้งหมด</button>
+      <input type="file" id="bfile" accept=".csv,.txt" style="font-size:13px;padding:0;border:0;background:none">
+      <span class="sub" id="bhint">สูงสุด 500 ข้อ/ครั้ง</span>
+    </div>
+    <div id="bout"></div>
+  </div>
+
+  <div class="card tabpanel" id="tab-yt" style="display:none">
+    <div class="sub" style="margin-bottom:10px">วางลิงก์คลิป → ดึงคอมเมนต์ไทย → โชว์เฉพาะคอมเมนต์ที่ระบบคิดว่า “ประชด”</div>
+    <div class="warn" style="margin-bottom:12px">⚠ <b>YouTube ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย)</div>
+    <div class="row" style="margin-top:0">
+      <input type="text" id="yurl" placeholder="https://www.youtube.com/watch?v=..." style="flex:1;min-width:230px">
+      <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
+    </div>
+    <div class="sub" id="yhint" style="margin-top:8px">ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่</div>
+    <div id="yout"></div>
+  </div>
 </div>
 
-<div id="out"></div>
-
-<div class="card">
-  <h2 style="margin:0 0 4px;font-size:17px">📄 ตรวจทั้งไฟล์ (batch) — ระบบพร้อมใช้จริง</h2>
-  <div class="sub" style="margin-bottom:12px">
-    อัปโหลด CSV (หรือวางข้อความทีละบรรทัด) → ใช้ <code>predict.py</code> ตัวเดียวกับ production
-    (เอเจนต์เดี่ยว + threshold, มี cache ยิงซ้ำฟรี)
-  </div>
-  <div class="warn" style="margin-bottom:12px">
-    ⚠ <b>วัดผลไว้แค่บนรีวิวร้าน (Wongnai) + ทวีตสั้น (Wisesight)</b> — F1 ~0.72 ·
-    ข้อความโดเมนอื่น (YouTube / ข่าว / ทางการ) <b>ยังไม่ได้ทดสอบ</b> ผลอาจเพี้ยน
-    (จะเช็คก่อนก็ได้: <code>eval_domain.py</code>)
-  </div>
-  <div class="row" style="margin-bottom:10px">
-    <label style="font-size:13px;color:#42505f">จุดทำงาน:
-      <select id="bop" style="padding:6px 8px;border:1px solid #cfd6df;border-radius:6px;font-family:inherit">
-        <option value="balanced">balanced — gpt-4.1-mini (ถูก)</option>
-        <option value="high_recall">high_recall — gpt-4o (จับครบ)</option>
-      </select>
-    </label>
-    <label style="font-size:13px;color:#42505f;display:inline-flex;align-items:center;gap:5px">
-      <input type="checkbox" id="brev"> ยกข้อก้ำกึ่งให้คนตัดสิน
-    </label>
-  </div>
-  <textarea id="btext" placeholder="วางข้อความทีละบรรทัด แล้วกดปุ่ม — หรือเลือกไฟล์ CSV ด้านล่าง"></textarea>
-  <div class="row">
-    <button class="go" id="bgo" onclick="runBatch()">ตรวจทั้งหมด</button>
-    <input type="file" id="bfile" accept=".csv,.txt" style="font-size:13px">
-    <span class="sub" id="bhint" style="margin:0">รองรับสูงสุด 500 ข้อ/ครั้ง</span>
-  </div>
-  <div id="bout"></div>
-</div>
-
-<div class="card">
-  <h2 style="margin:0 0 4px;font-size:17px">▶️ วางลิงก์ YouTube → หาคอมเมนต์ที่ประชด</h2>
-  <div class="sub" style="margin-bottom:10px">
-    วางลิงก์คลิป → ดึงคอมเมนต์ไทย → ระบบจับ แล้วโชว์เฉพาะ<b>ที่คิดว่าประชด</b>เป็นรายการ
-  </div>
-  <div class="warn" style="margin-bottom:12px">
-    ⚠ <b>YouTube เป็นโดเมนที่ยังไม่ได้ทดสอบ</b> — โมเดลวัดผลไว้แค่รีวิว/ทวีต ผลตรงนี้เป็น
-    <b>“การเดา”</b> อาจพลาดเยอะ (ดู <code>eval_domain.py</code> ถ้าอยากรู้แม่นจริงต้องให้คน label)
-  </div>
-  <div class="row">
-    <input type="text" id="yurl" placeholder="https://www.youtube.com/watch?v=..."
-      style="flex:1;min-width:260px;padding:9px 12px;border:1px solid #cfd6df;border-radius:7px;font-family:inherit">
-    <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
-  </div>
-  <div class="sub" id="yhint" style="margin:8px 0 0">ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่ (ดึง+ยิงทีละข้อ)</div>
-  <div id="yout"></div>
-</div>
-
-<div class="card">
-  <h2 style="margin:0 0 4px;font-size:17px">② Multi-agent ทำงานยังไง</h2>
-  <div class="sub" style="margin-bottom:4px">
-    เอเจนต์เดี่ยว (①) + เพิ่ม <b>ผู้ตรวจสอบ</b> อีกหนึ่งคน — แค่นั้น
-  </div>
+<details class="about">
+  <summary>ℹ️ ระบบทำงานยังไง + คะแนนจากงานวิจัย</summary>
+  <div class="about-body">
+    <h3>ระบบ “AI สองชั้น” ทำงานยังไง</h3>
+    <div class="sub" style="margin-bottom:4px">AI เดี่ยว + เพิ่ม <b>ผู้ตรวจสอบ</b> อีกหนึ่งคน — แค่นั้น</div>
   <div id="flow">
     <div class="flow">
       <div class="ag">
@@ -585,11 +589,8 @@ tr.best td{background:#f2faf5}
       <span style="color:#8a94a6">(รายละเอียด + สถิติ: RESULTS.md)</span>
     </div>
   </div>
-</div>
-
-<div class="card">
-  <h3 style="margin:0 0 3px;font-size:15px">คะแนนจริง วัดบนข้อมูล 127 ข้อ (เป็นประชดจริง 30 ข้อ)</h3>
-  <div class="sub" style="margin-bottom:12px">ทุกระบบวัดบนข้อมูลชุดเดียวกัน ด้วยโค้ดวัดผลตัวเดียวกัน</div>
+    <h3 style="margin-top:22px">คะแนนจริง วัดบนข้อมูล 127 ข้อ (ประชดจริง 30)</h3>
+    <div class="sub" style="margin-bottom:10px">ทุกระบบวัดบนข้อมูลชุดเดียวกัน ด้วยโค้ดวัดผลตัวเดียวกัน</div>
   <table>
     <tr><th>ระบบ</th><th>F1</th><th>precision</th><th>recall</th><th>TP</th><th>FP</th><th>FN</th>
         <th>LLM calls</th><th>ค่าใช้จ่าย</th></tr>
@@ -601,16 +602,15 @@ tr.best td{background:#f2faf5}
       <td>{{ r.calls }}</td><td>${{ "%.3f"|format(r.cost) }}</td>
     </tr>{% endfor %}
   </table>
-  <div class="note">
-    <b>อ่านตารางนี้ยังไง:</b> multi-agent v2 ได้ F1 สูงสุด แต่จ่ายแพงสุด (1.80× ของ baseline) ·
-    baseline จับประชดครบทุกข้อ (FN=0) แต่เหวี่ยงแหเกิน (FP 27) ·
-    WangchanBERTa ฟรีและไม่ต้องต่อเน็ต แต่ปล่อยประชดหลุด 9 ข้อ<br>
-    <b>อย่าดู accuracy</b> — ข้อมูลเอียง 76/24 เดาว่า “ไม่ประชด” ทุกข้อก็ได้ 0.764 แล้ว
+    <div class="note">multi-agent (สองชั้น) ได้ F1 สูงสุด แต่จ่ายแพงสุด · AI เดี่ยวจับประชดครบทุกข้อ (FN=0) แต่เหวี่ยงแหเกิน (FP 27) · WangchanBERTa ฟรีและออฟไลน์ แต่ปล่อยประชดหลุด 9 ข้อ · <b>อย่าดู accuracy</b> — ข้อมูลเอียง 76/24</div>
   </div>
-</div>
+</details>
 
 <script>
 const $=i=>document.getElementById(i);
+function showTab(t){['single','batch','yt'].forEach(function(n){
+  $('tab-'+n).style.display=(n===t?'block':'none');
+  $('tabbtn-'+n).classList.toggle('active',n===t);});}
 
 function keyUI(on,masked){
   $('keypill').className='pill '+(on?'v0':'vna');
@@ -730,7 +730,7 @@ async function run(){
       ${box('③ WangchanBERTa','โมเดลเล็กเทรนเอง · ฟรี · ออฟไลน์',d.wangchanberta,d.gold)}
     </div></div>`;
     drawFlow(d.multiagent);
-    document.getElementById('flow').scrollIntoView({behavior:'smooth',block:'nearest'});
+    var ab=document.querySelector('details.about'); if(ab) ab.open=true;
   }catch(e){ $('out').innerHTML='<div class="card warn">เรียก API ไม่สำเร็จ: '+e+'</div>' }
   $('go').disabled=false; $('go').textContent='วิเคราะห์ด้วยทั้ง 3 ระบบ';
 }
