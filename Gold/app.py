@@ -544,13 +544,13 @@ details.about[open]>summary::before{content:"\25BE  "}
   <div class="card tabpanel" id="tab-yt" style="display:none">
     <div class="sub" style="margin-bottom:10px">วางลิงก์ → ดึงคอมเมนต์ไทย → โชว์เฉพาะคอมเมนต์ที่ระบบคิดว่า “ประชด”</div>
     <div class="note" style="margin-top:0;margin-bottom:10px">
-      ดึงอัตโนมัติได้: <b>YouTube</b> (ชัวร์) · <b>Reddit</b> (บางที) ·
-      <b>Twitter/X · Instagram · TikTok</b> ดึงไม่ได้ (แพลตฟอร์มบังคับล็อกอิน/API เสียเงิน) →
-      ใช้แท็บ <b>“อัปโหลดไฟล์”</b> ก๊อปคอมเมนต์มาวางเอง ได้ทุกแพลตฟอร์ม
+      ดึงฟรีได้ (ไม่ต้องล็อกอิน): <b>YouTube</b> · <b>Pantip</b> (ฟอรัมไทย) · <b>Reddit</b> ·
+      แพลตฟอร์มอื่น (Twitter/X, Instagram, TikTok, Facebook) เข้าถึงคอมเมนต์ฟรีไม่ได้ →
+      ก๊อปมาวางในแท็บ <b>“อัปโหลดไฟล์”</b> ได้ทุกที่
     </div>
     <div class="warn" style="margin-bottom:12px">คำเตือน: <b>โซเชียลเป็นโดเมนที่ยังไม่ได้ทดสอบ</b> — ผลเป็นการเดา มักจับพลาด (คำชมจริงถูกจับเป็นประชดได้บ่อย) กด “ตัดสินผิด” เพื่อสอนได้</div>
     <div class="row" style="margin-top:0">
-      <input type="text" id="yurl" placeholder="วางลิงก์ YouTube หรือ Reddit ..." style="flex:1;min-width:230px">
+      <input type="text" id="yurl" placeholder="วางลิงก์ YouTube / Pantip / Reddit ..." style="flex:1;min-width:230px">
       <button class="go" id="ygo" onclick="runYT()">ดึง + วิเคราะห์</button>
     </div>
     <div class="sub" id="yhint" style="margin-top:8px">ดึงสูงสุด ~80 คอมเมนต์ · ใช้เวลาสักครู่</div>
