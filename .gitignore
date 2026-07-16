@@ -25,3 +25,8 @@ gold_pre_expand.csv
 
 # runtime cache สำหรับ predict.py (regenerable)
 Gold/.predict_cache.json
+
+# คอมเมนต์ YouTube ที่ดึงมา (ข้อมูลคนอื่น + regenerable) — ไม่ push
+Gold/yt_*_raw.txt
+Gold/yt_*_labeled.csv
+Gold/yt_raw.txt
