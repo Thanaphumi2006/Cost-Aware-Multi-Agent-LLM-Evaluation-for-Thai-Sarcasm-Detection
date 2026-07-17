@@ -29,13 +29,13 @@ intervals, not a single lucky run.
 
 ## Try it yourself
 
-There is a playful web demo (Thai doodle style) where you can paste a sentence or a social-media link and see whether
-the model thinks it is sarcasm, pick which "helper" model to use, and correct it when it is wrong.
+**[Try the live demo](https://claude.ai/code/artifact/275babb6-2caf-48cd-bf66-9e7f5b44eeb7)** &nbsp;(no install, click and play)
 
-<!-- DEMO LINK: once you host Gold/app.py (the /app page) on a free tier, put the link here -->
-**Live demo:** _add your hosted link here_ &nbsp;·&nbsp; or run it locally (see [Run it](#run-it) below)
+It runs on real, pre-computed model predictions in a playful Thai doodle style. Pick an example sentence and see
+whether the cheap single model and the pricier two-agent system agree, including a case where they do not, which is the
+whole point of the project in one click.
 
-The demo lets you:
+The full interactive app (`python Gold/app.py`, see [Run it](#run-it)) goes further. You can:
 
 - **Paste Thai text or a link** (YouTube, Pantip, Reddit) and get a clear sarcasm / not-sarcasm verdict with a
   confidence bar.
