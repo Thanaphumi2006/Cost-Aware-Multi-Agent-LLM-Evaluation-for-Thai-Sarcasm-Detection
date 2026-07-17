@@ -27,23 +27,18 @@ This repo is the whole story: eleven experiments, proper statistics, a deployabl
 Every claim here is backed by a paired bootstrap (5,000 resamples) and McNemar's test, reported with confidence
 intervals, not a single lucky run.
 
-## Try it yourself
+## The interactive app
 
-**[Try the live demo](https://thanaphumi-thai-sarcasm-demo.static.hf.space)** &nbsp;(hosted, no install, click and play)
-
-It runs on real, pre-computed model predictions in a playful Thai doodle style. Pick an example sentence and see
-whether the cheap single model and the pricier two-agent system agree, including a case where they do not, which is the
-whole point of the project in one click.
-
-The full interactive app (`python Gold/app.py`, see [Run it](#run-it)) goes further. You can:
+Run it locally with `python Gold/app.py` (see [Run it](#run-it)) and open the doodle-styled page at
+`http://127.0.0.1:5000/app`. You can:
 
 - **Paste Thai text or a link** (YouTube, Pantip, Reddit) and get a clear sarcasm / not-sarcasm verdict with a
   confidence bar.
 - **Pick a helper model,** each drawn as a little character: a fast cheap one, a thorough expensive one, a two-agent
   team (with an animated workflow), and the free offline model.
-- **Teach it when it is wrong.** Press "wrong" on a result and the correction sticks: it is saved on the server, shared
-  with everyone using it, and used to get similar cases right next time. (This is in-context learning from examples,
-  not retraining the model, and the interface says so honestly.)
+- **Teach it when it is wrong.** Press "wrong" on a result and the correction sticks: it is saved, and used to get
+  similar cases right next time. (This is in-context learning from examples, not retraining the model, and the
+  interface says so honestly.)
 
 ## The finding, in one table
 

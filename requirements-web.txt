@@ -1,6 +1,0 @@
-flask
-openai
-pandas
-numpy
-scikit-learn
-yt-dlp
