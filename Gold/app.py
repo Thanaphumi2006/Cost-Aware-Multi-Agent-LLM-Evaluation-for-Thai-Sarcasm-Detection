@@ -122,7 +122,8 @@ def run_multiagent(text):
 
     steps = []
     t0 = time.perf_counter()
-    det, i1, o1 = multiagent._ask(c, multiagent.DETECT_SYS, multiagent.DETECT_SCHEMA, "label", text)
+    det_sys = multiagent.DETECT_SYS + _corrections_block(text)   # สอน multi-agent ด้วยที่คนแก้ (few-shot)
+    det, i1, o1 = multiagent._ask(c, det_sys, multiagent.DETECT_SCHEMA, "label", text)
     d_ms = round((time.perf_counter() - t0) * 1000)
     steps.append({
         "role": "ด่าน 1 · พนักงานคัดกรอง (detector)",
@@ -274,6 +275,19 @@ def _dec(pred):
     return "sarcasm" if pred == "1" else ("not_sarcasm" if pred == "0" else "error")
 
 
+def _corrections_block(text):
+    """few-shot ตัวอย่างที่คนแก้ ที่เกี่ยวกับข้อความนี้ -- เอาไปต่อท้าย prompt ของ LLM ทุกตัว"""
+    import predict
+    corr = predict.load_corrections()
+    return predict._shots_block(predict._relevant(corr, text)) if corr else ""
+
+
+def _corr_map():
+    """dict {ข้อความ: ป้ายที่คนแก้} สำหรับ override แบบตรงตัว (ใช้ได้กับทุกโมเดล รวม WangchanBERTa)"""
+    import predict
+    return {c["text"]: c["label"] for c in predict.load_corrections()}
+
+
 def _classify(model, text, review=False):
     """ตรวจ 1 ข้อความด้วยระบบที่เลือก -> row มาตรฐาน (multiagent แถม steps ไว้ให้ animate)"""
     if model == "multiagent":
@@ -322,11 +336,17 @@ def api_batch():
         return jsonify({"error": gerr}), 429
 
     rows = []
+    corr = _corr_map()
     for t in texts:
-        try:
-            r = _classify(model, t, review)
-        except Exception as e:
-            r = {"text": t, "label": None, "prob": None, "decision": f"error: {type(e).__name__}"}
+        if t in corr:                                  # เคยแก้ข้อนี้ตรงตัว -> ใช้ป้ายคน (ทุกโมเดล)
+            lab = corr[t]
+            r = {"text": t, "label": lab, "prob": 1.0 if lab == "1" else 0.0,
+                 "decision": _dec(lab), "from_correction": True}
+        else:
+            try:
+                r = _classify(model, t, review)
+            except Exception as e:
+                r = {"text": t, "label": None, "prob": None, "decision": f"error: {type(e).__name__}"}
         rows.append({**r, "in_gold": t in GOLD_TEXTS, "gold": GOLD_TEXTS.get(t)})
     summ = {
         "n": len(rows),
@@ -373,7 +393,13 @@ def api_youtube():
         return jsonify({"error": gerr}), 429
 
     rows = []
+    corr = _corr_map()
     for c in comments:
+        if c in corr:                                  # เคยแก้ข้อนี้ตรงตัว -> ใช้ป้ายคน (ทุกโมเดล)
+            lab = corr[c]
+            rows.append({"text": c, "label": lab, "prob": 1.0 if lab == "1" else 0.0,
+                         "decision": _dec(lab), "from_correction": True})
+            continue
         try:
             rows.append(_classify(model, c))
         except Exception:
@@ -1114,6 +1140,11 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
   border:2.2px solid var(--ink);border-radius:12px 7px 12px 7px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
 .wrongbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
 .learned{font-family:var(--body);color:var(--not);font-weight:700;font-size:13.5px}
+.fbtns{display:inline-flex;gap:6px}
+.fbtn{font-family:var(--body);font-weight:700;font-size:12px;padding:5px 13px;border:2.2px solid var(--ink);
+  border-radius:11px 6px 11px 6px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
+.fbtn.yes{background:var(--not-bg);color:var(--not)} .fbtn.no{background:var(--sar-bg);color:var(--sar)}
+.fbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
 .warn{font-family:var(--body);font-size:14px;color:#8a3320;background:var(--sar-bg);border:2.4px solid var(--sar);
   border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--sar)}
 .ok{font-family:var(--body);font-size:14px;color:var(--not);background:var(--not-bg);border:2.4px solid var(--not);
@@ -1389,7 +1420,7 @@ async function analyze(){
         body:JSON.stringify({url:lines[0],limit:80,op:_op})});
       const d=await r.json();
       if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
-      else { _rows=d.rows; _page=1; renderList(); }
+      else { _rows=d.rows; _page=1; _labels={}; _lastChanged=-1; renderList(); }
     } else {
       const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({texts:lines,op:_op})});
@@ -1418,6 +1449,38 @@ async function markWrong(i,btn){
     else { btn.disabled=false; btn.textContent='ตัดสินผิด'; }
   }catch(e){ btn.disabled=false; btn.textContent='ตัดสินผิด'; }
 }
+// ---- link feedback: ถูก/ผิด -> เก็บ label + วัด F1 + วิเคราะห์ใหม่ ----
+let _labels={}, _lastChanged=-1;
+async function markFeedback(i,agree){
+  const r=_rows[i]; const m=r.decision==='sarcasm'?'1':'0';
+  const t=agree?m:(m==='1'?'0':'1');
+  _labels[r.text]={m:m,t:t}; r.fb=agree?'agree':'wrong';
+  renderList();
+  try{ await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:r.text,label:t})}); }catch(e){}
+}
+function linkF1(){
+  const L=Object.values(_labels); if(!L.length)return null;
+  let tp=0,fp=0,fn=0,ok=0;
+  L.forEach(x=>{const mp=x.m==='1',tt=x.t==='1';
+    if(mp&&tt)tp++; if(mp&&!tt)fp++; if(!mp&&tt)fn++; if(mp===tt)ok++;});
+  const f1=(2*tp+fp+fn)?(2*tp/(2*tp+fp+fn)):1;
+  return {n:L.length,ok:ok,f1:f1};
+}
+async function reanalyzeLink(){
+  const texts=_rows.map(r=>r.text);
+  const old={}; _rows.forEach(r=>old[r.text]=r.decision);
+  $('out').innerHTML='<div class="ok"><span class="sp" style="border-color:#38a05d;border-top-color:transparent"></span>วิเคราะห์ใหม่ด้วยสิ่งที่คุณสอน...</div>';
+  try{
+    const rr=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({texts:texts,model:_op})});
+    const d=await rr.json();
+    if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; return; }
+    _rows=d.rows.map(x=>({...x, fb:_labels[x.text]?( _labels[x.text].t===(x.decision==='sarcasm'?'1':'0')?'agree':'wrong'):undefined}));
+    let ch=0; _rows.forEach(r=>{ if(old[r.text]!==undefined && old[r.text]!==r.decision) ch++; });
+    _lastChanged=ch; _page=1; renderList();
+  }catch(e){ $('out').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>'; }
+}
 let _isList=false;
 function renderCards(){
   _isList=false;
@@ -1444,22 +1507,33 @@ function renderList(){
   const slice=_rows.slice((_page-1)*PP,_page*PP);
   const items=slice.map(r=>{
     const i=_rows.indexOf(r); const v=verdictBits(r);
-    const learned=r.corrected?'<span class="learned">จำแล้ว</span>'
-      :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
+    let fb;
+    if(r.fb==='agree') fb='<span class="learned">คุณ: ถูกแล้ว</span>';
+    else if(r.fb==='wrong') fb='<span class="learned" style="color:var(--sar)">คุณ: ตัดสินผิด</span>';
+    else fb=`<span class="fbtns"><button class="fbtn yes" onclick="markFeedback(${i},true)">ถูก</button>`
+      +`<button class="fbtn no" onclick="markFeedback(${i},false)">ผิด</button></span>`;
     return `<div class="result" style="background:${v.sar?'var(--sar-bg)':'#fff'}">
       <div class="txt" style="margin:0">${esc(r.text)}</div>
       ${miniflow(r.steps)}
       <div class="rowline"><span class="pill ${v.cls}">${v.word}</span>
-        ${v.pct==null?'':`<span class="conf" style="margin:0">มั่นใจ ${v.pct}%</span>`}${learned}</div>
+        ${v.pct==null?'':`<span class="conf" style="margin:0">มั่นใจ ${v.pct}%</span>`}${fb}</div>
     </div>`;
   }).join('');
   const pager = _rows.length>PP?`<div class="pagerow">
     <button ${_page<=1?'disabled':''} onclick="_page--;renderList()">ก่อนหน้า</button>
     <span class="conf">หน้า ${_page}/${pages}</span>
     <button ${_page>=pages?'disabled':''} onclick="_page++;renderList()">ถัดไป</button></div>`:'';
-  $('out').innerHTML=`<div class="ok" style="background:var(--brand-soft);color:var(--ink);border-color:#cbd9f3">
+  const f=linkF1();
+  const f1box = f?`<div class="ok" style="text-align:center">
+    คุณตรวจแล้ว <b>${f.n}</b> ข้อ · โมเดลถูก <b>${f.ok}/${f.n}</b> · <b>F1 = ${f.f1.toFixed(2)}</b>
+    <div style="font-size:12px;color:var(--ink2);margin-top:4px">กด "ถูก/ผิด" ที่แต่ละข้อเพื่อวัดคะแนน แล้วสอนโมเดลไปในตัว</div></div>`:'';
+  const changed = _lastChanged>=0?`<div class="ok" style="background:var(--not-bg);border-color:var(--not);text-align:center">
+    วิเคราะห์ใหม่แล้ว เปลี่ยนคำตัดสินไป <b>${_lastChanged}</b> ข้อ หลังเรียนจากที่คุณสอน</div>`:'';
+  const relearn = Object.keys(_labels).length?`<button class="go" style="margin-top:12px;width:100%" onclick="reanalyzeLink()">วิเคราะห์ใหม่ด้วยสิ่งที่คุณสอน (${Object.keys(_labels).length} ข้อ)</button>`:'';
+  $('out').innerHTML=`<div class="ok" style="background:var(--brand-soft);color:var(--ink);border-color:#cbd9f3;text-align:center">
     ดึงมา ${_rows.length} คอมเมนต์ · ที่คิดว่าประชด ${s} ข้อ</div>
-    <div class="list">${items}</div>${pager}`;
+    ${changed}${f1box}
+    <div class="list">${items}</div>${pager}${relearn}`;
 }
 function toggleResearch(btn){
   const on=$('research').classList.toggle('show');
