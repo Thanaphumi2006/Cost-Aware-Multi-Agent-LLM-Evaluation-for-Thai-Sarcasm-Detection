@@ -16,6 +16,7 @@
 """
 import os
 import sys
+import threading
 import time
 
 import pandas as pd
@@ -233,6 +234,36 @@ def detector(op):
     return _detectors[key]
 
 
+# ---------- guardrails: กันคนอื่นเผาคีย์เจ้าของ ตอน deploy ให้คนอื่นใช้ ----------
+# ปรับได้ด้วย env: PUBLIC_DAILY_LIMIT (ข้อ/วัน รวมทุกคน), PUBLIC_IP_HOURLY_LIMIT (ข้อ/ชม./ไอพี)
+# เครื่องตัวเอง (127.0.0.1) ไม่ติดลิมิต -> เจ้าของใช้ได้ไม่จำกัด ลิมิตมีผลเฉพาะผู้ใช้รีโมต
+DAILY_CAP = int(os.environ.get("PUBLIC_DAILY_LIMIT", "2000"))
+IP_HOUR_CAP = int(os.environ.get("PUBLIC_IP_HOURLY_LIMIT", "200"))
+_usage_lock = threading.Lock()
+_usage = {"day": "", "day_count": 0, "ip_hour": {}}
+
+
+def _guard(n_items, ip):
+    """เช็ค+นับโควตา คืน error message ถ้าเกิน ไม่งั้น None (localhost ไม่จำกัด)"""
+    if ip in ("127.0.0.1", "::1", "localhost", None):
+        return None
+    n_items = max(int(n_items or 1), 1)
+    day = time.strftime("%Y-%m-%d")
+    hour = int(time.time() // 3600)
+    with _usage_lock:
+        if _usage["day"] != day:
+            _usage.update(day=day, day_count=0, ip_hour={})
+        if _usage["day_count"] + n_items > DAILY_CAP:
+            return f"วันนี้เต็มโควตารวมแล้ว ({DAILY_CAP} ข้อ/วัน) ลองใหม่พรุ่งนี้นะ"
+        key = (ip, hour)
+        used = _usage["ip_hour"].get(key, 0)
+        if used + n_items > IP_HOUR_CAP:
+            return f"คุณใช้เยอะไปในชั่วโมงนี้ ({IP_HOUR_CAP} ข้อ/ชม.) พักแป๊บแล้วค่อยลองใหม่"
+        _usage["day_count"] += n_items
+        _usage["ip_hour"][key] = used + n_items
+    return None
+
+
 # ระบบที่หน้า /app เลือกได้ (แต่ละตัวมีมาสคอต)
 MODELS_PUBLIC = ("balanced", "high_recall", "multiagent", "wangchanberta")
 MODEL_LABEL = {"balanced": "gpt-4.1-mini", "high_recall": "gpt-4o",
@@ -286,6 +317,9 @@ def api_batch():
     err = _need_check(model)
     if err:
         return jsonify({"error": err}), 400
+    gerr = _guard(len(texts) * (2 if model == "multiagent" else 1), request.remote_addr)
+    if gerr:
+        return jsonify({"error": gerr}), 429
 
     rows = []
     for t in texts:
@@ -334,6 +368,9 @@ def api_youtube():
         return jsonify({"error": f"ดึงไม่สำเร็จ: {type(e).__name__}"}), 502
     if not comments:
         return jsonify({"error": f"ไม่พบคอมเมนต์ภาษาไทยจาก {plat} (อาจปิดคอมเมนต์ หรือคอมเมนต์ไม่ใช่ไทย)"}), 404
+    gerr = _guard(len(comments) * (2 if model == "multiagent" else 1), request.remote_addr)
+    if gerr:
+        return jsonify({"error": gerr}), 429
 
     rows = []
     for c in comments:
@@ -1344,6 +1381,8 @@ if __name__ == "__main__":
     print("เว็บทดลอง 3 ระบบตรวจจับประชด")
     print(f"  OPENAI_API_KEY : {'พบ' if os.environ.get('OPENAI_API_KEY') else 'ไม่พบ (LLM จะรันไม่ได้)'}")
     print(f"  WangchanBERTa  : {'พร้อม' if has_wcb() else 'ยังไม่ได้เทรน (รัน train_final_wcb.py)'}")
-    print("  เปิด http://127.0.0.1:5000")
+    print(f"  โควตาผู้ใช้รีโมต : {IP_HOUR_CAP} ข้อ/ชม./ไอพี · {DAILY_CAP} ข้อ/วันรวม (127.0.0.1 ไม่จำกัด)")
+    print(f"                   ปรับได้: PUBLIC_IP_HOURLY_LIMIT, PUBLIC_DAILY_LIMIT")
+    print("  หน้า dev http://127.0.0.1:5000/  ·  หน้าผู้ใช้ http://127.0.0.1:5000/app")
     print("=" * 60)
     app.run(debug=False, port=5000)
