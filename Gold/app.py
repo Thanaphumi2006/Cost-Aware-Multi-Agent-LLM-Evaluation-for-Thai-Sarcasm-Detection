@@ -1130,6 +1130,24 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
 .foot{font-family:var(--body);text-align:center;color:var(--ink2);font-size:13px;margin-top:36px}
 .note{font-family:var(--body);font-size:13.5px;color:var(--ink2);text-align:center;margin-top:18px;
   max-width:40ch;margin-left:auto;margin-right:auto}
+/* ---- research panel (toggle) ---- */
+.rbtn{display:block;margin:28px auto 0;background:#fff}
+.research{display:none;margin-top:16px;padding:clamp(18px,4vw,26px)}
+.research.show{display:block}
+.rh{font-family:var(--disp);font-size:20px;color:var(--ink);margin:20px 0 5px}
+.rh:first-child{margin-top:0}
+.rp{font-family:var(--body);font-size:14px;color:var(--ink);text-wrap:pretty}
+.rtable{width:100%;border-collapse:collapse;font-family:var(--body);font-size:13.5px;margin-top:4px}
+.rtable th,.rtable td{padding:8px 9px;border-bottom:2px dashed var(--ink);text-align:right}
+.rtable th:first-child,.rtable td:first-child{text-align:left}
+.rtable th{font-family:var(--disp);font-size:15px;color:var(--ink)}
+.rtable tr.hi td{background:var(--yellow)}
+.rlist{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:10px}
+.rlist li{font-family:var(--body);font-size:14px;padding-left:23px;position:relative;color:var(--ink);text-wrap:pretty}
+.rlist li::before{content:"";position:absolute;left:2px;top:8px;width:9px;height:9px;border-radius:50%;
+  background:var(--blue);border:2px solid var(--ink)}
+.rlist.warn-list li::before{background:var(--sar)}
+.rsrc{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:18px;text-align:center}
 </style></head><body><div class="wrap">
 
 <div class="head">
@@ -1224,6 +1242,43 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
 </div>
 
 <p class="note">ผลลัพธ์เป็น “การเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย เห็นว่าผิดก็กด “ตัดสินผิด” ช่วยให้มันเก่งขึ้นได้</p>
+<button class="rbtn" onclick="toggleResearch(this)">ดูเบื้องหลังงานวิจัย</button>
+<div class="research box" id="research">
+  <div class="rh">โปรเจกต์นี้ศึกษาอะไร</div>
+  <div class="rp">คำถาม: ใช้ AI หลายตัวช่วยกัน (multi-agent) คุ้มกว่า AI ตัวเดียวไหม สำหรับงานตรวจจับประชดภาษาไทย
+    วัด 4 อย่างพร้อมกัน คือ ความแม่น (F1), ราคา, เวลา, และจำนวนครั้งที่เรียก AI บนข้อมูลชุดเดียวกัน 127 ข้อ
+    (เป็นประชดจริง 30 ข้อ) เทียบด้วยสถิติแบบ paired bootstrap และ McNemar</div>
+
+  <div class="rh">คะแนนแต่ละระบบ</div>
+  <table class="rtable">
+    <tr><th>ระบบ</th><th>F1</th><th>ราคา</th></tr>
+    <tr><td>AI เดี่ยว</td><td>0.690</td><td>$0.094</td></tr>
+    <tr class="hi"><td>AI เดี่ยว + ปรับเกณฑ์</td><td>0.725</td><td>$0.094</td></tr>
+    <tr><td>AI 2 ตัว (คู่หูสองตรวจ)</td><td>0.744</td><td>$0.169</td></tr>
+    <tr><td>Debate (3 ตัว)</td><td>0.694</td><td>$0.695</td></tr>
+    <tr><td>WangchanBERTa (น้องหุ่นไทย)</td><td>0.620</td><td>ฟรี</td></tr>
+  </table>
+
+  <div class="rh">สิ่งที่พบ</div>
+  <ul class="rlist">
+    <li>AI 2 ตัวได้ F1 สูงสุด (0.744) แต่ก็แพงสุด (1.8 เท่าของ AI เดี่ยว)</li>
+    <li>แต่พอให้ AI เดี่ยว "อ่านความมั่นใจของตัวเอง" แล้วปรับเกณฑ์ ได้ 0.725 ฟรี โดยไม่เรียก AI เพิ่ม
+      พอเทียบแบบยุติธรรมแล้ว <b>ไม่มีระบบไหนชนะ AI เดี่ยวอย่างมีนัยสำคัญ</b></li>
+    <li>สิ่งที่ทำให้ราคาต่างกันจริงคือ "เลือกโมเดล" ไม่ใช่ "จำนวน AI" โมเดลถูก (น้องแมวไว) เสมอกับเรือธง (คุณนกฮูก)
+      แต่ถูกกว่า <b>11 เท่า</b></li>
+    <li>เพดานความแม่นอยู่ที่ "ข้อมูลน้อย" (ประชดแค่ 30 ข้อ) ไม่ใช่ที่วิธีการ</li>
+  </ul>
+
+  <div class="rh">ข้อควรระวัง</div>
+  <ul class="rlist warn-list">
+    <li>อย่าดู accuracy: ข้อมูลเอียง 76/24 เดาว่า "ไม่ประชด" ทุกข้อก็ได้ 0.76 แล้ว</li>
+    <li>ประชดในชุดข้อมูลบางส่วนถูก AI ช่วยขุดมา ทำให้ recall อาจสูงเกินจริง</li>
+    <li>วัดผลบนรีวิวร้าน + ทวีตเท่านั้น โดเมนอื่น (YouTube, ข่าว) ยังไม่ได้ทดสอบ</li>
+  </ul>
+
+  <div class="rsrc">รายละเอียดเต็ม พร้อมช่วงความเชื่อมั่นและสถิติ อยู่ใน Gold/RESULTS.md (finding 1 ถึง 11)</div>
+</div>
+
 <div class="foot">~ ตรวจจับประชดภาษาไทย ~</div>
 
 <script>
@@ -1369,6 +1424,11 @@ function renderList(){
   $('out').innerHTML=`<div class="ok" style="background:var(--brand-soft);color:var(--ink);border-color:#cbd9f3">
     ดึงมา ${_rows.length} คอมเมนต์ · ที่คิดว่าประชด ${s} ข้อ</div>
     <div class="list">${items}</div>${pager}`;
+}
+function toggleResearch(btn){
+  const on=$('research').classList.toggle('show');
+  btn.textContent = on ? 'ซ่อนงานวิจัย' : 'ดูเบื้องหลังงานวิจัย';
+  if(on) $('research').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 $('inp').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')analyze()});
 </script>
