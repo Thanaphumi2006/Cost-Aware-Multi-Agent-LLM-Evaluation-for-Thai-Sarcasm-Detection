@@ -1148,6 +1148,27 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
   background:var(--blue);border:2px solid var(--ink)}
 .rlist.warn-list li::before{background:var(--sar)}
 .rsrc{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:18px;text-align:center}
+/* visual bars */
+.bars{margin-top:6px}
+.brow{display:flex;align-items:center;gap:9px;margin-top:10px}
+.bname{flex:0 0 40%;font-family:var(--body);font-size:12.5px;text-align:right;line-height:1.15}
+.btrack{flex:1;height:21px;background:#fff;border:2.4px solid var(--ink);border-radius:11px 6px 11px 6px;overflow:hidden}
+.bfill{height:100%;border-right:2.4px solid var(--ink)}
+.bval{flex:0 0 auto;font-family:var(--disp);font-size:14px;min-width:40px;text-align:left}
+.bscale{font-family:var(--body);font-size:11px;color:var(--muted,#93a0b0);text-align:right;margin-top:6px}
+/* versus hero */
+.vs{display:flex;align-items:stretch;gap:9px;margin-top:8px}
+.vscard{flex:1;background:#fff;border:2.6px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
+  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;padding:14px 8px;text-align:center}
+.vscard.win{background:var(--yellow)}
+.vmasc{width:46px;height:46px}
+.vsname{font-family:var(--disp);font-size:15px;margin-top:2px;line-height:1.1}
+.vsf1{font-family:var(--disp);font-size:24px;margin-top:5px}
+.vscost{font-family:var(--body);font-size:12px;color:var(--ink2);margin-top:2px}
+.vscard.win .vscost{color:#8a6d1a;font-weight:700}
+.vsmid{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;padding:0 2px}
+.vseq{font-family:var(--disp);font-size:28px;color:var(--ink);line-height:1}
+.vseqt{font-family:var(--body);font-size:10.5px;color:var(--ink2);max-width:58px;line-height:1.2;margin-top:2px}
 </style></head><body><div class="wrap">
 
 <div class="head">
@@ -1249,24 +1270,39 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
     วัด 4 อย่างพร้อมกัน คือ ความแม่น (F1), ราคา, เวลา, และจำนวนครั้งที่เรียก AI บนข้อมูลชุดเดียวกัน 127 ข้อ
     (เป็นประชดจริง 30 ข้อ) เทียบด้วยสถิติแบบ paired bootstrap และ McNemar</div>
 
-  <div class="rh">คะแนนแต่ละระบบ</div>
-  <table class="rtable">
-    <tr><th>ระบบ</th><th>F1</th><th>ราคา</th></tr>
-    <tr><td>AI เดี่ยว</td><td>0.690</td><td>$0.094</td></tr>
-    <tr class="hi"><td>AI เดี่ยว + ปรับเกณฑ์</td><td>0.725</td><td>$0.094</td></tr>
-    <tr><td>AI 2 ตัว (คู่หูสองตรวจ)</td><td>0.744</td><td>$0.169</td></tr>
-    <tr><td>Debate (3 ตัว)</td><td>0.694</td><td>$0.695</td></tr>
-    <tr><td>WangchanBERTa (น้องหุ่นไทย)</td><td>0.620</td><td>ฟรี</td></tr>
-  </table>
+  <div class="rh">หัวใจของงานวิจัย</div>
+  <div class="rp" style="margin-bottom:8px">AI ตัวเดียวที่ถูกกว่า ทำได้พอๆ กับ AI 2 ตัวที่แพงกว่า</div>
+  <div class="vs">
+    <div class="vscard win">
+      <svg class="vmasc" viewBox="0 0 72 72"><path d="M20 22 L15 7 L31 18 Z" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/><path d="M52 22 L57 7 L41 18 Z" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/><circle cx="36" cy="39" r="21" fill="#ffd1a8" stroke="#34302a" stroke-width="2.6"/><circle cx="28" cy="37" r="2.7" fill="#34302a"/><circle cx="44" cy="37" r="2.7" fill="#34302a"/><path d="M32 45 Q36 49 40 45" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <div class="vsname">น้องแมวไว</div>
+      <div class="vsf1">0.727</div>
+      <div class="vscost">$0.015 ถูกกว่า 11 เท่า</div>
+    </div>
+    <div class="vsmid"><div class="vseq">&asymp;</div><div class="vseqt">คุณภาพพอกัน</div></div>
+    <div class="vscard">
+      <svg class="vmasc" viewBox="0 0 72 72"><circle cx="26" cy="36" r="14" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4"/><circle cx="22" cy="34" r="2.2" fill="#34302a"/><circle cx="30" cy="34" r="2.2" fill="#34302a"/><path d="M22 41 Q26 44 30 41" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/><circle cx="47" cy="36" r="14" fill="#a8e0c0" stroke="#34302a" stroke-width="2.4"/><circle cx="43" cy="34" r="2.2" fill="#34302a"/><circle cx="51" cy="34" r="2.2" fill="#34302a"/><path d="M43 41 Q47 44 51 41" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="vsname">AI 2 ตัว</div>
+      <div class="vsf1">0.744</div>
+      <div class="vscost">$0.169</div>
+    </div>
+  </div>
 
-  <div class="rh">สิ่งที่พบ</div>
+  <div class="rh">คะแนนความแม่น (F1) ของแต่ละระบบ</div>
+  <div class="bars">
+    <div class="brow"><div class="bname">WangchanBERTa (ฟรี)</div><div class="btrack"><div class="bfill" style="width:30%;background:#cfe3f5"></div></div><div class="bval">0.62</div></div>
+    <div class="brow"><div class="bname">AI เดี่ยว</div><div class="btrack"><div class="bfill" style="width:61%;background:#ffd1a8"></div></div><div class="bval">0.69</div></div>
+    <div class="brow"><div class="bname">Debate (3 ตัว)</div><div class="btrack"><div class="bfill" style="width:63%;background:#f4b6ab"></div></div><div class="bval">0.69</div></div>
+    <div class="brow"><div class="bname">AI เดี่ยว + ปรับเกณฑ์</div><div class="btrack"><div class="bfill" style="width:76%;background:#ffd84d"></div></div><div class="bval">0.73</div></div>
+    <div class="brow"><div class="bname">AI 2 ตัว (คู่หูสองตรวจ)</div><div class="btrack"><div class="bfill" style="width:84%;background:#a8e0c0"></div></div><div class="bval">0.74</div></div>
+    <div class="bscale">ยิ่งแท่งยาว ยิ่งแม่น (แต่ต่างกันน้อยมาก เพราะข้อมูลมีแค่ 127 ข้อ)</div>
+  </div>
+
+  <div class="rh">สรุปสั้นๆ</div>
   <ul class="rlist">
-    <li>AI 2 ตัวได้ F1 สูงสุด (0.744) แต่ก็แพงสุด (1.8 เท่าของ AI เดี่ยว)</li>
-    <li>แต่พอให้ AI เดี่ยว "อ่านความมั่นใจของตัวเอง" แล้วปรับเกณฑ์ ได้ 0.725 ฟรี โดยไม่เรียก AI เพิ่ม
-      พอเทียบแบบยุติธรรมแล้ว <b>ไม่มีระบบไหนชนะ AI เดี่ยวอย่างมีนัยสำคัญ</b></li>
-    <li>สิ่งที่ทำให้ราคาต่างกันจริงคือ "เลือกโมเดล" ไม่ใช่ "จำนวน AI" โมเดลถูก (น้องแมวไว) เสมอกับเรือธง (คุณนกฮูก)
-      แต่ถูกกว่า <b>11 เท่า</b></li>
-    <li>เพดานความแม่นอยู่ที่ "ข้อมูลน้อย" (ประชดแค่ 30 ข้อ) ไม่ใช่ที่วิธีการ</li>
+    <li><b>เพิ่ม AI ไม่ได้ช่วยชัดเจน</b> AI 2-3 ตัวแพงกว่าหลายเท่า แต่ไม่ได้ชนะ AI เดี่ยวอย่างมีนัยสำคัญ</li>
+    <li><b>ตัวที่สำคัญคือ "เลือกโมเดล"</b> ไม่ใช่ "จำนวน AI" โมเดลถูกทำได้พอๆ กับโมเดลแพง</li>
+    <li><b>เพดานอยู่ที่ข้อมูล</b> ประชดมีแค่ 30 ข้อ เลยยังฟันธงกันไม่ได้เต็มที่</li>
   </ul>
 
   <div class="rh">ข้อควรระวัง</div>
