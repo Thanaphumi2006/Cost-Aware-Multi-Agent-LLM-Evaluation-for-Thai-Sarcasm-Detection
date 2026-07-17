@@ -6,19 +6,31 @@ The pre-computed doodle demo is deployed as a **free static Hugging Face Space**
 **https://thanaphumi-thai-sarcasm-demo.static.hf.space** (this is the link in the README). It uses real,
 pre-computed model predictions on example sentences. No install, no key, free forever.
 
-## Hosting the FULL live app (type anything) is no longer free
+## Hosting the FULL live app (type anything), free, on Render
 
-Heads up: Hugging Face now requires a **PRO subscription (about $9/month)** to host Docker or Gradio Spaces. Only
-static Spaces are free. So the fully interactive `/app` (live typing, all four models, corrections) needs paid hosting.
-The files below are ready if you choose to pay for one of these:
+The fully interactive `/app` needs a Python server (it calls the OpenAI API), so it cannot be a static page. Hugging
+Face now charges for Docker/Gradio Spaces (PRO, about $9/month), so the best **free** option is **Render**, which runs
+the `Dockerfile` in this repo.
 
-- **Hugging Face PRO** ($9/mo): use the `Dockerfile` here, create a Docker Space, follow the steps below.
-- **Render / Railway / Fly.io**: these have their own free or cheap tiers that run a Dockerfile; the same `Dockerfile`
-  works. Create a web service from this repo, set `OPENAI_API_KEY` as an env var, done.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection)
 
-The repo has everything needed for any of these: `Dockerfile`, `requirements-web.txt`, `.dockerignore`. It runs three
-of the four models (the 401 MB WangchanBERTa is skipped to stay light), the key stays a secret, and the built-in rate
-limits protect it.
+Steps:
+
+1. Make a free account at https://render.com (sign in with GitHub is easiest).
+2. Click the button above, or in Render: New, then Blueprint, and connect this GitHub repo. Render reads `render.yaml`
+   and `Dockerfile` automatically.
+3. When asked, set the secret `OPENAI_API_KEY` to a fresh `sk-...` key.
+4. Deploy. In a few minutes you get a URL like `https://thai-sarcasm-demo.onrender.com`. The live app is at that URL
+   plus `/app`.
+5. Put that `/app` URL in the README demo line.
+
+Notes: the free tier sleeps after 15 minutes idle and takes about 30 to 60 seconds to wake on the next visit. Your key
+pays for visitors' usage, but the built-in rate limits (200 items/hour per IP, 2000/day) protect it. Three of the four
+models work; the 401 MB WangchanBERTa is skipped to stay light.
+
+The repo has everything needed: `Dockerfile`, `requirements-web.txt`, `.dockerignore`, `render.yaml`.
+
+### Alternative: Hugging Face PRO ($9/month)
 
 ## Steps (Hugging Face Docker Space, needs PRO)
 
