@@ -459,6 +459,13 @@ def api_key_clear():
     return jsonify({"ok": True})
 
 
+@app.route("/api/stats")
+def api_stats():
+    """จำนวนที่โมเดลเรียนจากทุกคนรวมกัน (เก็บถาวรในไฟล์เดียวบนเซิร์ฟเวอร์ -> แชร์ทุกคน)"""
+    import predict
+    return jsonify({"corrections": len(predict.load_corrections())})
+
+
 @app.route("/api/sample")
 def api_sample():
     lab = request.args.get("label")
@@ -1063,6 +1070,10 @@ h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:c
 .squiggle{display:block;width:min(300px,72%);height:20px;margin:2px auto 0}
 .tag{font-family:var(--body);color:var(--ink2);text-align:center;margin:14px auto 0;max-width:34ch;
   font-size:clamp(15px,3.4vw,18px)}
+.shared{font-family:var(--body);font-size:13px;color:var(--ink);text-align:center;margin:12px auto 0;
+  max-width:fit-content;background:var(--yellow);border:2.2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+  border-radius:14px 8px 14px 8px;padding:6px 14px;display:none}
+.shared.on{display:block}
 .spark{position:absolute;pointer-events:none}
 .head{position:relative}
 .pick-title{font-family:var(--disp);font-size:clamp(19px,4.5vw,23px);text-align:center;color:var(--ink);margin-top:34px}
@@ -1208,6 +1219,7 @@ button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
   <h1>ประชดหรือเปล่า?</h1>
   <svg class="squiggle" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 Q 38 3 74 12 T 148 12 T 222 12 T 297 10" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round"/></svg>
   <p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วมาดูกันว่า “ประชด” ไหม</p>
+  <div class="shared" id="shared"></div>
 </div>
 
 {% if not has_key %}
@@ -1445,7 +1457,7 @@ async function markWrong(i,btn){
   try{
     const resp=await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:r.text,label:correct})});
-    if((await resp.json()).ok){ r.corrected=true; (_isList?renderList:renderCards)(); }
+    if((await resp.json()).ok){ r.corrected=true; (_isList?renderList:renderCards)(); loadStats(); }
     else { btn.disabled=false; btn.textContent='ตัดสินผิด'; }
   }catch(e){ btn.disabled=false; btn.textContent='ตัดสินผิด'; }
 }
@@ -1457,7 +1469,7 @@ async function markFeedback(i,agree){
   _labels[r.text]={m:m,t:t}; r.fb=agree?'agree':'wrong';
   renderList();
   try{ await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({text:r.text,label:t})}); }catch(e){}
+    body:JSON.stringify({text:r.text,label:t})}); loadStats(); }catch(e){}
 }
 function linkF1(){
   const L=Object.values(_labels); if(!L.length)return null;
@@ -1540,6 +1552,15 @@ function toggleResearch(btn){
   btn.textContent = on ? 'ซ่อนงานวิจัย' : 'ดูเบื้องหลังงานวิจัย';
   if(on) $('research').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+async function loadStats(){
+  try{
+    const d=await(await fetch('/api/stats')).json();
+    const el=$('shared');
+    if(d.corrections>0){ el.textContent='โมเดลนี้เรียนจากทุกคนไปแล้ว '+d.corrections+' ครั้ง (จำถาวร แชร์ทุกคน)'; el.classList.add('on'); }
+    else el.classList.remove('on');
+  }catch(e){}
+}
+loadStats();
 $('inp').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')analyze()});
 </script>
 </div></body></html>
