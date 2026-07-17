@@ -29,7 +29,7 @@ intervals, not a single lucky run.
 
 ## Try it yourself
 
-**[Try the live demo](https://claude.ai/code/artifact/275babb6-2caf-48cd-bf66-9e7f5b44eeb7)** &nbsp;(no install, click and play)
+**[Try the live demo](https://thanaphumi-thai-sarcasm-demo.static.hf.space)** &nbsp;(hosted, no install, click and play)
 
 It runs on real, pre-computed model predictions in a playful Thai doodle style. Pick an example sentence and see
 whether the cheap single model and the pricier two-agent system agree, including a case where they do not, which is the

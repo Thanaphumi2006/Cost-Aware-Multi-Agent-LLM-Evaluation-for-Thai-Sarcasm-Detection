@@ -1,12 +1,28 @@
-# Deploy the live demo (free, no-install link)
+# Deploy the live demo
 
-This turns the `/app` page into a public URL anyone can click, using Hugging Face Spaces (free). It runs three of the
-four models (the free WangchanBERTa is skipped to keep it light). Your OpenAI key stays a secret and is protected by
-the built-in rate limits, so a shared link cannot drain it.
+## What is already live (free)
 
-The repo already has everything needed: `Dockerfile`, `requirements-web.txt`, `.dockerignore`.
+The pre-computed doodle demo is deployed as a **free static Hugging Face Space**:
+**https://thanaphumi-thai-sarcasm-demo.static.hf.space** (this is the link in the README). It uses real,
+pre-computed model predictions on example sentences. No install, no key, free forever.
 
-## Steps (about 10 minutes)
+## Hosting the FULL live app (type anything) is no longer free
+
+Heads up: Hugging Face now requires a **PRO subscription (about $9/month)** to host Docker or Gradio Spaces. Only
+static Spaces are free. So the fully interactive `/app` (live typing, all four models, corrections) needs paid hosting.
+The files below are ready if you choose to pay for one of these:
+
+- **Hugging Face PRO** ($9/mo): use the `Dockerfile` here, create a Docker Space, follow the steps below.
+- **Render / Railway / Fly.io**: these have their own free or cheap tiers that run a Dockerfile; the same `Dockerfile`
+  works. Create a web service from this repo, set `OPENAI_API_KEY` as an env var, done.
+
+The repo has everything needed for any of these: `Dockerfile`, `requirements-web.txt`, `.dockerignore`. It runs three
+of the four models (the 401 MB WangchanBERTa is skipped to stay light), the key stays a secret, and the built-in rate
+limits protect it.
+
+## Steps (Hugging Face Docker Space, needs PRO)
+
+
 
 1. **Make a free account** at https://huggingface.co if you do not have one.
 
