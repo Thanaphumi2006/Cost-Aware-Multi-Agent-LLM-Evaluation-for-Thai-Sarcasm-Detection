@@ -36,3 +36,7 @@ Gold/.predict_corrections.json
 
 # ไฟล์เทรน fine-tune (gold+corrections, regenerable)
 Gold/ft_train.jsonl
+
+# คอมเมนต์โดเมนที่ดึงมา validate (ข้อมูลสาธารณะคนอื่น + regenerable)
+Gold/domain_*_raw.txt
+Gold/domain_*_labeled.csv

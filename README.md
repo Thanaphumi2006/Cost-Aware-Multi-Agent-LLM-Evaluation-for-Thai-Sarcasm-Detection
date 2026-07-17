@@ -90,9 +90,11 @@ This is the part I care about most, and the part that makes the result more than
   some of those positives were mined with GPT-4o, which likely inflates its recall. The bias hits every system
   equally, so the comparison stays fair, but the absolute numbers should be read with care (details in
   [`Gold/PROVENANCE.md`](Gold/PROVENANCE.md)).
-- **It is only validated on restaurant reviews and tweets.** On other domains (YouTube, news) the model over-flags
-  sincere praise as sarcasm. That is exactly why the demo has a "correct it" button and shows a warning. To trust it
-  on a new domain, label a sample and run `eval_domain.py`.
+- **It does not transfer cleanly to other domains.** I validated this: on a hand-labeled sample of 55 Pantip comments,
+  precision fell from 0.68 to 0.40, because the model flags genuine praise as sarcasm (9 false positives), while recall
+  stayed high. So outside reviews and tweets it cries wolf on sincere praise. Use it on similar content, or label a
+  sample of your target domain and re-tune (the web app's "correct it" button does this). Full write-up: finding 12 in
+  `Gold/RESULTS.md`.
 
 ## Run it
 
