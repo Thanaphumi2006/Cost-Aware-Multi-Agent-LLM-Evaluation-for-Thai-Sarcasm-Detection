@@ -9,8 +9,9 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-<!-- SCREENSHOT: open the results dashboard artifact, capture the hero + the "forest plot" chart, save as docs/dashboard.png -->
-![Results dashboard](docs/dashboard.png)
+> _Screenshot goes here: the results dashboard. Add `docs/dashboard.png` and uncomment the line below
+> (see `docs/README-screenshots.md`)._
+<!-- ![Results dashboard](docs/dashboard.png) -->
 
 ## The 60-second version
 
@@ -38,8 +39,8 @@ the model thinks it is sarcasm, pick which "helper" model to use, and correct it
 <!-- DEMO LINK: once you host Gold/app.py (the /app page) on a free tier, put the link here -->
 **Live demo:** _add your hosted link here_ &nbsp;·&nbsp; or run it locally (see [Run it](#run-it) below)
 
-<!-- SCREENSHOT: run `python Gold/app.py`, open http://127.0.0.1:5000/app, capture the page with the four mascot models, save as docs/app.png -->
-![Doodle web demo](docs/app.png)
+> _Screenshot goes here: the doodle demo page. Add `docs/app.png` and uncomment the line below._
+<!-- ![Doodle web demo](docs/app.png) -->
 
 The demo lets you:
 
@@ -107,11 +108,22 @@ This is the part I care about most, and the part that makes the result more than
 
 ## Run it
 
-```bash
-pip install openai pandas numpy scikit-learn flask yt-dlp   # add torch transformers for the free model
-export OPENAI_API_KEY=sk-...
+Use a virtual environment. Your system `python` may be a different one (for example Anaconda) where Flask does not
+work, which is the usual reason the web demo will not start.
 
-python Gold/app.py           # web demo at http://127.0.0.1:5000  (user page: /app)
+```bash
+python3 -m venv .venv              # first time only
+source .venv/bin/activate          # do this in every new terminal (Windows: .venv\Scripts\activate)
+pip install openai pandas numpy scikit-learn flask yt-dlp   # add torch transformers for the free model
+
+export OPENAI_API_KEY=sk-...       # Windows: set OPENAI_API_KEY=sk-...
+
+python Gold/app.py                 # web demo at http://127.0.0.1:5000  (user page: /app)
+```
+
+Once the demo is running, other commands (in the same activated terminal):
+
+```bash
 python Gold/predict.py "ขอบคุณที่ให้รอ 2 ชั่วโมง บริการดีจริงๆ"   # command-line, one sentence
 python Gold/predict.py --csv reviews.csv --out scored.csv          # a whole file
 ```
