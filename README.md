@@ -9,10 +9,6 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-> _Screenshot goes here: the results dashboard. Add `docs/dashboard.png` and uncomment the line below
-> (see `docs/README-screenshots.md`)._
-<!-- ![Results dashboard](docs/dashboard.png) -->
-
 ## The 60-second version
 
 - I put five systems on the same 127 examples and measured four things at once, not just accuracy: **quality (F1),
@@ -38,9 +34,6 @@ the model thinks it is sarcasm, pick which "helper" model to use, and correct it
 
 <!-- DEMO LINK: once you host Gold/app.py (the /app page) on a free tier, put the link here -->
 **Live demo:** _add your hosted link here_ &nbsp;·&nbsp; or run it locally (see [Run it](#run-it) below)
-
-> _Screenshot goes here: the doodle demo page. Add `docs/app.png` and uncomment the line below._
-<!-- ![Doodle web demo](docs/app.png) -->
 
 The demo lets you:
 
