@@ -37,6 +37,11 @@ LIMIT = None
 SLEEP_SEC = 0.2
 SAVE_EVERY = 10
 MAX_RETRY = 4
+# opt-in: ใช้โมเดล "ถูกกว่า" เป็นด่านคัดกรอง (detector) ส่วน verifier ยังเป็นตัวหลัก
+#   ค่าว่าง = ใช้ MODELS[PROVIDER] ทั้งสองด่านเหมือนเดิม (ผลเก่า reproduce ได้)
+#   ตั้งทดลอง:  SCREENER_MODEL=gpt-4o-mini python multiagent.py
+# หมายเหตุต้นทุน: PRICE_PER_MTOK เป็นราคาของ verifier -- ถ้า screener ถูกกว่า ต้นทุนจริงจะ "ต่ำกว่า" ที่พิมพ์
+SCREENER_MODEL = os.getenv("SCREENER_MODEL") or None
 # =============================================
 
 for s in (sys.stdout, sys.stderr):
@@ -47,7 +52,9 @@ for s in (sys.stdout, sys.stderr):
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GOLD_CSV = os.path.join(HERE, "gold.csv")
-PRED_CSV = os.path.join(HERE, f"multiagent_preds_{PROVIDER}_{VARIANT}.csv")
+# ถ้าใช้ screener คนละตัว ต่อ tag ในชื่อไฟล์ กัน overwrite ผล conservative ของเดิม
+_SCREEN_TAG = f"_screen-{SCREENER_MODEL}" if SCREENER_MODEL else ""
+PRED_CSV = os.path.join(HERE, f"multiagent_preds_{PROVIDER}_{VARIANT}{_SCREEN_TAG}.csv")
 BASE_PRED = os.path.join(HERE, f"baseline_preds_{PROVIDER}.csv")  # ไว้เทียบ
 
 # ---- ด่าน 1: detector -- prompt เรียบๆ ตัวเดียวกับ baseline (คุมให้ recall เท่าเดิม) ----
@@ -103,11 +110,13 @@ def _make_client():
         sys.exit(f"สร้าง client ไม่ได้: {type(e).__name__}: {e}{hint}")
 
 
-def _ask(client, system, schema, key, text):
-    """เรียก LLM 1 ครั้ง คืน (value, in_tok, out_tok) ; value=None ถ้าพัง"""
+def _ask(client, system, schema, key, text, model=None):
+    """เรียก LLM 1 ครั้ง คืน (value, in_tok, out_tok) ; value=None ถ้าพัง
+    model=None -> ใช้ MODELS[PROVIDER] (เดิม) ; ใส่ชื่อโมเดลเพื่อทับเฉพาะ call นี้ (เช่น screener ถูกๆ)"""
+    mdl = model or MODELS[PROVIDER]
     if PROVIDER == "claude":
         r = client.messages.create(
-            model=MODELS["claude"], max_tokens=256, system=system,
+            model=mdl, max_tokens=256, system=system,
             output_config={"format": {"type": "json_schema", "schema": schema}},
             messages=[{"role": "user", "content": f"ข้อความ: {text}"}],
         )
@@ -115,7 +124,7 @@ def _ask(client, system, schema, key, text):
         in_tok, out_tok = r.usage.input_tokens, r.usage.output_tokens
     else:
         r = client.chat.completions.create(
-            model=MODELS["gpt"], max_tokens=20,
+            model=mdl, max_tokens=20,
             response_format={"type": "json_object"},
             messages=[{"role": "system", "content": system},
                       {"role": "user", "content": f"ข้อความ: {text}"}],
@@ -134,7 +143,7 @@ def run_pipeline(client, text):
     t0 = time.perf_counter()
     in_tok = out_tok = calls = 0
     try:
-        det, i, o = _ask(client, DETECT_SYS, DETECT_SCHEMA, "label", text)
+        det, i, o = _ask(client, DETECT_SYS, DETECT_SCHEMA, "label", text, model=SCREENER_MODEL)
         in_tok += i; out_tok += o; calls += 1
         if det is None:
             raise ValueError("detector ตอบเพี้ยน")

@@ -1,0 +1,2 @@
+model,F1,precision,recall,pred_pos
+qwen2.5-7b,0.444,0.667,0.333,15

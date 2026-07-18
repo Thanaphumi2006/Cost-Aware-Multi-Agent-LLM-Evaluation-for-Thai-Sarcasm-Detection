@@ -1,0 +1,32 @@
+# lm-evaluation-harness custom task: Thai sarcasm (ประชด) detection on the gold set
+# ประเมินโมเดล "เปิด" (Typhoon/SeaLLM/OpenThaiGPT/Qwen/Llama) บน gold 127 ข้อ ด้วยต้นทุน API = $0
+#
+# แบบ multiple_choice: โมเดลให้ loglikelihood ของ "ใช่/ไม่ใช่" -> เลือกอันมากกว่า
+#   (แนวเดียวกับวิธี logprob-threshold ของ GPT ในโปรเจกต์ แต่ไม่ต้อง generate -> เร็ว/ทำซ้ำได้ทุกโมเดล)
+#
+# รันจากโฟลเดอร์ Gold/ (เพื่อให้ data_files: gold.csv หาไฟล์เจอ):
+#   lm_eval --model hf --model_args pretrained=<thai-model> \
+#           --include_path lm_eval --tasks thai_sarcasm --num_fewshot 0 \
+#           --log_samples --output_path lm_eval_out
+# แล้วคิด F1/precision/recall + เขียน CSV ให้ตรงฟอร์แมตโปรเจกต์ด้วย:
+#   python lm_eval/score_lm_eval.py --samples lm_eval_out --out <model>_lmeval_pred.csv
+task: thai_sarcasm
+dataset_path: csv
+dataset_kwargs:
+  data_files:
+    test: gold.csv
+test_split: test
+output_type: multiple_choice
+process_docs: !function utils.process_docs
+doc_to_text: !function utils.doc_to_text
+doc_to_choice: ["ไม่ใช่", "ใช่"]      # index 0 = ไม่ประชด, index 1 = ประชด
+doc_to_target: gold                    # int 0/1 (เติมโดย process_docs)
+target_delimiter: " "
+metric_list:
+  # acc = ตัวเลขเร็วๆ จาก harness เอง; F1/precision/recall (positive class) คิดจาก score_lm_eval.py
+  # (จงใจไม่ผูก F1 ไว้ใน YAML เพราะ metric API ต่างกันตามเวอร์ชัน harness -- ใช้สคริปต์เป็น source of truth)
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+metadata:
+  version: 1.0

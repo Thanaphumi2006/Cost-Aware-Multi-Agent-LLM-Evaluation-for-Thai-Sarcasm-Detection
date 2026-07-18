@@ -40,3 +40,23 @@ Gold/ft_train.jsonl
 # คอมเมนต์โดเมนที่ดึงมา validate (ข้อมูลสาธารณะคนอื่น + regenerable)
 Gold/domain_*_raw.txt
 Gold/domain_*_labeled.csv
+
+# ไฟล์ batch ที่ batch_eval.py สร้าง (regenerable)
+*.batch.jsonl
+
+# ---- distillation / open-model eval (regenerable + scraped third-party text) ----
+Gold/pool*.csv
+Gold/silver*.csv
+Gold/*_lmeval_pred.csv
+Gold/wcb_distill_oof.csv
+Gold/lm_eval_out/
+Gold/lm_eval/__pycache__/
+
+# OS cruft
+.DS_Store
+
+# harness run outputs (per-model dirs, regenerable)
+Gold/lm_eval_out*/
+# teacher/eval prediction dumps (regenerable via batch_eval.py)
+Gold/gold_pred.csv
+Gold/harvest_pred.csv
