@@ -1,76 +1,67 @@
-# Handoff — continue the open-model eval on the RTX 3060 Ti box
+# Handoff — open-model eval on the RTX 3060 Ti box  ✅ DONE (2026-07-18)
 
-This file lets you move the work to the NVIDIA machine and give a fresh Claude full context.
+The task this file described is **complete**. All four open models ran on the 127-item gold set
+at $0 API cost, twice each (bare prompt + chat template). Results are in `Gold/RESULTS.md`
+finding 13, which was **rewritten** — the original version had a wrong baseline and an unfair
+protocol. Keep reading only if you need to re-run or extend this.
 
-## What this is
-Cost-aware LLM evaluation for Thai sarcasm (ประชด) detection. The deployed bot is a single
-gpt-4.1-mini call + a tuned logprob threshold (F1 ~0.72). Findings 1-13 are in `Gold/RESULTS.md`.
+## What was found
+- GPT bot (gpt-4.1-mini + threshold) **0.727** beats every open model, P ≥ 99.4%.
+- Best open models: Qwen2.5-7B and SeaLLM-7B, both **0.576** (chat template + leave-fold-out).
+- The gap is **+0.152**, not the +0.251 originally reported — ~40% of the old gap was
+  measurement error, not capability. See finding 13 for the three causes.
+- Thai-specialized models gave **no advantage** over general Qwen.
 
-## The ONE task for the 3060 Ti box
-Benchmark open Thai LLMs on the 127-item gold set at $0 API cost, to finish **finding 13**
-(the open-model frontier). So far only Qwen2.5-7B ran (F1 0.444, loses to the GPT bot,
-significant: +0.251 [+0.05,+0.46], P=99.3%). Still needed: the Thai-specialized models
-(Typhoon, SeaLLM, OpenThaiGPT). The Mac (M1/M2, no CUDA) cannot run them; this box can.
-
-## Step 1 — get the files (clean, no secrets travel)
-On the 3060 Ti machine (Windows/Linux with the NVIDIA GPU):
+## Environment that actually works on Windows (3 fixes the old version got wrong)
 ```
-git clone https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection.git
-cd Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection
-git checkout cost-experiments-open-models
+python -m venv C:\ve                # 1. SHORT PATH — see below
+C:\ve\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cu128
+C:\ve\Scripts\python -m pip install "lm-eval==0.4.12" "transformers<5" accelerate datasets bitsandbytes pandas
 ```
-You do NOT need an OpenAI key here — open models run locally.
-You do NOT need `wcb_model/` or the scraped data — the open-model eval only needs `Gold/gold.csv`.
+1. **Venv must live at a short path.** `lm-eval` ships deeply nested task YAMLs
+   (`arabic_leaderboard_*`) whose paths exceed Windows' 260-char `MAX_PATH` when the venv sits
+   inside this repo folder. pip fails with `OSError: [Errno 2] No such file or directory`.
+   `C:\ve` fixes it without admin. (Enabling `LongPathsEnabled` would too, but needs admin.)
+2. **`--index-url .../cu128` is required.** Plain `pip install torch` gives a CPU-only wheel on
+   Windows, and then `load_in_4bit` + `--device cuda` cannot work at all.
+3. **`transformers<5` is mandatory.** transformers 5.x removed the `load_in_4bit` passthrough
+   (`TypeError: Qwen2ForCausalLM.__init__() got an unexpected keyword argument 'load_in_4bit'`).
+   lm-eval 0.4.12 still passes it, and the CLI cannot construct a `BitsAndBytesConfig`.
+   `pandas` is also needed — `score_lm_eval.py` imports it but the old install line omitted it.
 
-## Step 2 — install (in a fresh venv on that box)
+Verify with: `C:\ve\Scripts\python -c "import torch;print(torch.cuda.is_available())"` → `True`
+
+## Models and licenses
+All four models were **already in the HF cache** (`~/.cache/huggingface/hub`, ~58 GB total) and a
+token file already existed, so no license clicking or downloading was needed. If starting on a
+fresh box, accept the gated licenses for `scb10x/llama-3-typhoon-v1.5-8b-instruct`,
+`SeaLLMs/SeaLLM-7B-v2.5`, `openthaigpt/openthaigpt-1.0.0-7b-chat`, then `huggingface-cli login`.
+(Note: `huggingface_hub` 0.36 uses `huggingface-cli login`; only 1.x renames it to `hf auth login`.)
+
+## Running it (from `Gold/`)
 ```
-python -m venv .venv
-.venv\Scripts\activate            # Windows   (Linux/Mac: source .venv/bin/activate)
-pip install "lm-eval==0.4.12" accelerate datasets bitsandbytes torch
+C:\ve\Scripts\lm_eval --model hf --model_args pretrained=<repo>,load_in_4bit=True ^
+  --device cuda --batch_size 1 --include_path lm_eval --tasks thai_sarcasm ^
+  --num_fewshot 0 --apply_chat_template --log_samples --output_path out_<name>_chat
+C:\ve\Scripts\python lm_eval\score_lm_eval.py --samples out_<name>_chat --out <name>_chat_pred.csv
 ```
-`bitsandbytes` + `--device cuda` only works on the NVIDIA GPU (that is why it failed on the Mac).
+- **`--batch_size 1`.** A 7B at 4-bit peaks at ~7959/8192 MiB on this card; 8B has no headroom.
+- **`--apply_chat_template` matters a lot.** Without it these instruct models lose calibration
+  badly (Typhoon flagged 114/127, OpenThaiGPT 126/127, vs 30 true positives).
+- **OpenThaiGPT has no `chat_template`** in its tokenizer and errors out. Build a tokenizer copy
+  carrying the Llama-2 `[INST]` template and pass `tokenizer=<path>` in `--model_args`.
+- Runtime ~4 min/model once weights are warm in the OS cache; the first cold load took ~85 min.
 
-## Step 3 — accept the gated model licenses (once)
-Open each page while logged into huggingface.co and click "Agree/Access":
-- https://huggingface.co/scb10x/llama-3-typhoon-v1.5-8b-instruct
-- https://huggingface.co/SeaLLMs/SeaLLM-7B-v2.5
-- https://huggingface.co/openthaigpt/openthaigpt-1.0.0-7b-chat
-Then: `huggingface-cli login` (paste a token from huggingface.co/settings/tokens).
-Qwen is open and needs none of this.
+## Comparing to the GPT bot — use the same protocol on BOTH sides
+The original finding 13 compared *threshold-tuned GPT* against *raw-argmax open models*. Don't.
+Apply the project's leave-fold-out protocol (`gpt_threshold.py:150-157`, StratifiedKFold 5,
+shuffle, seed 42) to the open model's `pred_prob` too, then paired-bootstrap.
 
-## Step 4 — run (8 GB card: 4-bit is required)
-```
-cd Gold
-lm_eval --model hf --model_args pretrained=Qwen/Qwen2.5-7B-Instruct,load_in_4bit=True ^
-  --device cuda --batch_size 4 --include_path lm_eval --tasks thai_sarcasm ^
-  --num_fewshot 0 --log_samples --output_path out_qwen7b
-python lm_eval/score_lm_eval.py --samples out_qwen7b --out qwen7b_pred.csv
-```
-Repeat with `pretrained=scb10x/llama-3-typhoon-v1.5-8b-instruct`, `SeaLLMs/SeaLLM-7B-v2.5`,
-`openthaigpt/openthaigpt-1.0.0-7b-chat` (change `--output_path` and `--out` each time).
-(`^` = Windows line-continuation; on Linux use `\`. Or run the notebook `Gold/lm_eval/thai_sarcasm_colab.ipynb`.)
-If "CUDA out of memory": drop `--batch_size` to 1.
+**Join prediction CSVs by POSITION, not text.** `score_lm_eval.py:80` rewrites newlines to
+spaces, so a text join silently drops every multi-line item (65/127 matched). All files derive
+from `gold.csv` in order; assert the label sequences match, then index positionally.
 
-## Step 5 — bring results back
-Each run writes `<model>_pred.csv` (same format as `predict.py`: text,label,pred_prob,pred_label,pred_decision).
-Commit + push them, or copy them back to the Mac, so the paired bootstrap vs the GPT bot can be run.
-
----
-
-## Paste THIS into a fresh Claude on the 3060 Ti box (context handoff)
-
-> I'm continuing a project: cost-aware LLM evaluation for Thai sarcasm detection. The repo is
-> already cloned (branch `cost-experiments-open-models`) and `HANDOFF.md` at the root explains it.
-> Deployed bot = single gpt-4.1-mini + tuned logprob threshold (F1 ~0.72). Findings are in
-> `Gold/RESULTS.md`; the newest is finding 13, the "$0 open-model frontier": Qwen2.5-7B scored
-> F1 0.444 and lost significantly to the GPT bot. My job on THIS machine (RTX 3060 Ti, 8 GB, CUDA)
-> is to run the Thai-specialized open models (Typhoon, SeaLLM, OpenThaiGPT) that the Mac couldn't,
-> using the lm-evaluation-harness task in `Gold/lm_eval/` (task name `thai_sarcasm`) on the
-> 127-item `Gold/gold.csv`, with `load_in_4bit=True --device cuda`. Help me get those models
-> running (bitsandbytes/CUDA, gated-license logins, OOM at 8 GB), then produce per-model
-> prediction CSVs in the project format so I can compare them to the GPT bot. Read `HANDOFF.md`
-> and `Gold/lm_eval/README.md` first, then walk me through step 4.
-
-## Back on the Mac, when the CSVs return
-A fresh Claude (or the same project) can run the paired bootstrap + McNemar of each Thai model
-vs the GPT bot (`gold_pred.csv`) and update finding 13 in `Gold/RESULTS.md`.
+## Files produced
+`Gold/<model>_pred.csv` (bare prompt) and `Gold/<model>_chat_pred.csv` (chat template) for
+`qwen7b`, `typhoon`, `seallm`, `openthaigpt` — schema `text,label,pred_prob,pred_label,pred_decision`,
+the same as `predict.py`, so `compare_systems.py` / bootstrap / McNemar work across all systems.

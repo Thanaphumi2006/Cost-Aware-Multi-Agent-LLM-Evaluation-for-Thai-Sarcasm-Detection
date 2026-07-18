@@ -1,0 +1,139 @@
+{
+  "results": {
+    "thai_sarcasm": {
+      "name": "thai_sarcasm",
+      "alias": "thai_sarcasm",
+      "sample_len": 127,
+      "acc,none": 0.31496062992125984,
+      "acc_stderr,none": 0.041380966363168785
+    }
+  },
+  "group_subtasks": {},
+  "configs": {
+    "thai_sarcasm": {
+      "task": "thai_sarcasm",
+      "dataset_path": "csv",
+      "dataset_kwargs": {
+        "data_files": {
+          "test": "gold.csv"
+        }
+      },
+      "test_split": "test",
+      "process_docs": "def process_docs(dataset: datasets.Dataset) -> datasets.Dataset:\n    def _add_gold(doc):\n        doc[\"gold\"] = 1 if str(doc.get(\"label\", \"\")).strip() in (\"1\", \"1.0\") else 0\n        doc[\"text\"] = str(doc.get(\"text\", \"\")).strip()\n        return doc\n    return dataset.map(_add_gold)\n",
+      "doc_to_text": "def doc_to_text(doc) -> str:\n    return f\"{RUBRIC}\\n\\nข้อความ: {doc['text']}\\nเป็นการประชดหรือไม่? คำตอบ:\"\n",
+      "doc_to_target": "gold",
+      "unsafe_code": false,
+      "doc_to_choice": [
+        "ไม่ใช่",
+        "ใช่"
+      ],
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": "<function process_docs at 0x00000112E14DC180>",
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "<function doc_to_text at 0x00000112E14DC040>",
+        "doc_to_choice": [
+          "ไม่ใช่",
+          "ใช่"
+        ],
+        "doc_to_target": "gold",
+        "gen_prefix": null,
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "acc",
+          "aggregation": "mean",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "multiple_choice",
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 1.0,
+        "pretrained": "scb10x/llama-3-typhoon-v1.5-8b-instruct",
+        "load_in_4bit": true,
+        "config_source": "lm_eval\\thai_sarcasm.yaml"
+      }
+    }
+  },
+  "versions": {
+    "thai_sarcasm": 1.0
+  },
+  "n-shot": {
+    "thai_sarcasm": 0
+  },
+  "higher_is_better": {
+    "thai_sarcasm": {
+      "acc": true
+    }
+  },
+  "n-samples": {
+    "thai_sarcasm": {
+      "original": 127,
+      "effective": 127
+    }
+  },
+  "config": {
+    "model": "hf",
+    "model_args": {
+      "pretrained": "scb10x/llama-3-typhoon-v1.5-8b-instruct",
+      "load_in_4bit": true
+    },
+    "model_num_parameters": 8030261248,
+    "model_dtype": "torch.bfloat16",
+    "model_revision": "main",
+    "model_sha": "4c94d29c3c445f5ac324ead7d0a3e34b92fc42c9",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": "cuda",
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": {},
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": "1825b50",
+  "date": 1784379872.0358117,
+  "pretty_env_info": "PyTorch version: 2.11.0+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Microsoft Windows 11 Home (10.0.26200 64-bit)\nGCC version: Could not collect\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: N/A\n\nPython version: 3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)] (64-bit runtime)\nPython platform: Windows-10-10.0.26200-SP0\nIs CUDA available: True\nCUDA runtime version: Could not collect\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: GPU 0: NVIDIA GeForce RTX 3060 Ti\nNvidia driver version: Could not collect\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\nCaching allocator config: N/A\n\nCPU:\nName: 13th Gen Intel(R) Core(TM) i5-13400F\nManufacturer: GenuineIntel\nFamily: 205\nArchitecture: 9\nProcessorType: 3\nDeviceID: CPU0\nCurrentClockSpeed: 2500\nMaxClockSpeed: 2500\nL2CacheSize: 9728\nL2CacheSpeed: None\nRevision: None\n\nVersions of relevant libraries:\n[pip3] numpy==2.4.6\n[pip3] torch==2.11.0+cu128\n[conda] Could not collect",
+  "transformers_version": "4.57.6",
+  "lm_eval_version": "0.4.12",
+  "upper_git_hash": "1825b5039c97b6d5029600eea224c23da2b0451d",
+  "tokenizer_pad_token": [
+    "<|end_of_text|>",
+    "128001"
+  ],
+  "tokenizer_eos_token": [
+    "<|end_of_text|>",
+    "128001"
+  ],
+  "tokenizer_bos_token": [
+    "<|begin_of_text|>",
+    "128000"
+  ],
+  "eot_token_id": 128001,
+  "max_length": 8192,
+  "task_hashes": {
+    "thai_sarcasm": "e4dc2eb684c3ff9026b75c695ea318c29066a58bfc4175ff0ea6aaa322a595db"
+  },
+  "model_source": "hf",
+  "model_name": "scb10x/llama-3-typhoon-v1.5-8b-instruct",
+  "model_name_sanitized": "scb10x__llama-3-typhoon-v1.5-8b-instruct",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": null,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "total_evaluation_time_seconds": "221.64183599999888"
+}
