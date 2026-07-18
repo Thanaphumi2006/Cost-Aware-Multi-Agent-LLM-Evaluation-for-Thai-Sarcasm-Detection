@@ -1,0 +1,139 @@
+{
+  "results": {
+    "thai_sarcasm": {
+      "name": "thai_sarcasm",
+      "alias": "thai_sarcasm",
+      "sample_len": 127,
+      "acc,none": 0.8267716535433071,
+      "acc_stderr,none": 0.033714521203845466
+    }
+  },
+  "group_subtasks": {},
+  "configs": {
+    "thai_sarcasm": {
+      "task": "thai_sarcasm",
+      "dataset_path": "csv",
+      "dataset_kwargs": {
+        "data_files": {
+          "test": "gold.csv"
+        }
+      },
+      "test_split": "test",
+      "process_docs": "def process_docs(dataset: datasets.Dataset) -> datasets.Dataset:\n    def _add_gold(doc):\n        doc[\"gold\"] = 1 if str(doc.get(\"label\", \"\")).strip() in (\"1\", \"1.0\") else 0\n        doc[\"text\"] = str(doc.get(\"text\", \"\")).strip()\n        return doc\n    return dataset.map(_add_gold)\n",
+      "doc_to_text": "def doc_to_text(doc) -> str:\n    return f\"{RUBRIC}\\n\\nข้อความ: {doc['text']}\\nเป็นการประชดหรือไม่? คำตอบ:\"\n",
+      "doc_to_target": "gold",
+      "unsafe_code": false,
+      "doc_to_choice": [
+        "ไม่ใช่",
+        "ใช่"
+      ],
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": "<function process_docs at 0x0000012BCAA40D60>",
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "<function doc_to_text at 0x0000012BCAA40B80>",
+        "doc_to_choice": [
+          "ไม่ใช่",
+          "ใช่"
+        ],
+        "doc_to_target": "gold",
+        "gen_prefix": null,
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "acc",
+          "aggregation": "mean",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "multiple_choice",
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 1.0,
+        "pretrained": "Qwen/Qwen2.5-7B-Instruct",
+        "load_in_4bit": true,
+        "config_source": "lm_eval\\thai_sarcasm.yaml"
+      }
+    }
+  },
+  "versions": {
+    "thai_sarcasm": 1.0
+  },
+  "n-shot": {
+    "thai_sarcasm": 0
+  },
+  "higher_is_better": {
+    "thai_sarcasm": {
+      "acc": true
+    }
+  },
+  "n-samples": {
+    "thai_sarcasm": {
+      "original": 127,
+      "effective": 127
+    }
+  },
+  "config": {
+    "model": "hf",
+    "model_args": {
+      "pretrained": "Qwen/Qwen2.5-7B-Instruct",
+      "load_in_4bit": true
+    },
+    "model_num_parameters": 7615616512,
+    "model_dtype": "torch.bfloat16",
+    "model_revision": "main",
+    "model_sha": "a09a35458c702b33eeacc393d103063234e8bc28",
+    "batch_size": "1",
+    "batch_sizes": [],
+    "device": "cuda",
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": {},
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": "1825b50",
+  "date": 1784385329.6246707,
+  "pretty_env_info": "PyTorch version: 2.11.0+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Microsoft Windows 11 Home (10.0.26200 64-bit)\nGCC version: Could not collect\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: N/A\n\nPython version: 3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)] (64-bit runtime)\nPython platform: Windows-10-10.0.26200-SP0\nIs CUDA available: True\nCUDA runtime version: Could not collect\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: GPU 0: NVIDIA GeForce RTX 3060 Ti\nNvidia driver version: Could not collect\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\nCaching allocator config: N/A\n\nCPU:\nName: 13th Gen Intel(R) Core(TM) i5-13400F\nManufacturer: GenuineIntel\nFamily: 205\nArchitecture: 9\nProcessorType: 3\nDeviceID: CPU0\nCurrentClockSpeed: 2500\nMaxClockSpeed: 2500\nL2CacheSize: 9728\nL2CacheSpeed: None\nRevision: None\n\nVersions of relevant libraries:\n[pip3] numpy==2.4.6\n[pip3] torch==2.11.0+cu128\n[conda] Could not collect",
+  "transformers_version": "4.57.6",
+  "lm_eval_version": "0.4.12",
+  "upper_git_hash": "1825b5039c97b6d5029600eea224c23da2b0451d",
+  "tokenizer_pad_token": [
+    "<|endoftext|>",
+    "151643"
+  ],
+  "tokenizer_eos_token": [
+    "<|im_end|>",
+    "151645"
+  ],
+  "tokenizer_bos_token": [
+    null,
+    "None"
+  ],
+  "eot_token_id": 151645,
+  "max_length": 32768,
+  "task_hashes": {
+    "thai_sarcasm": "7f8808d56677f5334e2010fcccb07a5dec09f99069150149ae3ef87daac9969a"
+  },
+  "model_source": "hf",
+  "model_name": "Qwen/Qwen2.5-7B-Instruct",
+  "model_name_sanitized": "Qwen__Qwen2.5-7B-Instruct",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": true,
+  "chat_template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- messages[0]['content'] }}\n    {%- else %}\n        {{- 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}\n    {%- endif %}\n    {{- \"\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call><|im_end|>\\n\" }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}\n    {%- else %}\n        {{- '<|im_start|>system\\nYou are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) or (message.role == \"assistant\" and not message.tool_calls) %}\n        {{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {{- '<|im_start|>' + message.role }}\n        {%- if message.content %}\n            {{- '\\n' + message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {{- '\\n<tool_call>\\n{\"name\": \"' }}\n            {{- tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n{%- endif %}\n",
+  "chat_template_sha": "cd8e9439f0570856fd70470bf8889ebd8b5d1107207f67a5efb46e342330527f",
+  "total_evaluation_time_seconds": "880.5578744999984"
+}
