@@ -2,7 +2,9 @@ cff-version: 1.2.0
 message: "If you use this work or the Thai sarcasm gold set, please cite it as below."
 title: "Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection"
 authors:
-  - name: "Thanaphumi (Thanaphumi2006)"
+  - family-names: "Kunuthai"
+    given-names: "Thanaphumi"
+    alias: "Thanaphumi2006"
 type: software
 repository-code: "https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection"
 license: MIT
