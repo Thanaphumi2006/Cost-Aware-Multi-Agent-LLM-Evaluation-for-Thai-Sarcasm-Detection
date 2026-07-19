@@ -1,0 +1,14 @@
+# Core: research pipeline + web demo (see "Run it" in README.md)
+openai>=1.40
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+flask>=3.0
+yt-dlp>=2024.8.6
+
+# Optional — only for the free local model (WangchanBERTa):
+# torch
+# transformers
+
+# Optional — only for the Hugging Face Space demo (space/):
+# gradio>=4.40,<5

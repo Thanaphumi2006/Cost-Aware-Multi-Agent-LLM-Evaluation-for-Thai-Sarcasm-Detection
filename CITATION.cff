@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this work or the Thai sarcasm gold set, please cite it as below."
+title: "Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection"
+authors:
+  - name: "Thanaphumi (Thanaphumi2006)"
+type: software
+repository-code: "https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection"
+license: MIT
+date-released: 2026-07-19
+version: "1.0.0"
+abstract: >-
+  An empirical study of whether multi-agent LLM systems justify their cost on
+  Thai sarcasm detection. Five systems (single agent, two-agent pipeline,
+  three-agent debate, four-agent hybrid, and a free local model) are compared
+  on a 127-item human-labeled gold set with paired bootstrap and McNemar's
+  test, measuring F1, cost, latency, and API calls. Main finding: a single
+  cheap model reading its own confidence statistically ties multi-agent
+  systems costing up to 11x more.
+keywords:
+  - thai-nlp
+  - sarcasm-detection
+  - llm-evaluation
+  - multi-agent-systems
+  - cost-aware-ml

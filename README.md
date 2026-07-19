@@ -9,8 +9,11 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-📊 **New here? Open [`overview.html`](overview.html) in a browser** — a one-minute visual summary of what
+📊 **New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** — a one-minute visual summary of what
 the system does and how each method scored, written for readers without an ML background.
+(Same page as [`overview.html`](overview.html) if you prefer to open it locally.)
+
+▶ **[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)** — paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
 
 ## The 60-second version
 
@@ -39,8 +42,8 @@ intervals, not a single lucky run.
 
 Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
 
-▶ **To run it: download [`app.html`](app.html) and open it in any browser.** One file, no install, no
-server, works offline. Nothing you type leaves your machine.
+▶ **To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
+server, works offline either way. Nothing you type leaves your machine.
 
 It has no model and no server-side dependency — it's regex plus a little arithmetic — so a plain page
 is the honest shape for it: no quota to hit, no cold start, nothing to keep paying for. A Gradio

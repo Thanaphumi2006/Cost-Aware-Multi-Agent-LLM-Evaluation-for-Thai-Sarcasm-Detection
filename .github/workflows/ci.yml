@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify-port:
+    name: app.html ↔ Python parity (verify_port)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install space demo dependency
+        run: pip install "gradio>=4.40,<5" "huggingface_hub<1"
+
+      - name: Verify browser build matches Python (12 sentences)
+        run: python space/verify_port.py
+
+  gold-sanity:
+    name: gold.csv sanity check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pandas
+        run: pip install pandas
+
+      - name: Check gold set integrity
+        run: |
+          python - <<'EOF'
+          import pandas as pd
+          df = pd.read_csv("Gold/gold.csv")
+          assert "text" in df.columns and "label" in df.columns, f"missing columns: {list(df.columns)}"
+          assert df["label"].isin([0, 1]).all(), "labels must be 0/1 only"
+          assert df["text"].notna().all() and (df["text"].str.strip() != "").all(), "empty texts found"
+          assert not df["text"].duplicated().any(), "duplicate texts found"
+          n, pos = len(df), int(df["label"].sum())
+          print(f"gold.csv OK: {n} items, {pos} sarcastic / {n-pos} not")
+          EOF
