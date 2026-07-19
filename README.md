@@ -30,19 +30,34 @@ the system does and how each method scored, written for readers without an ML ba
 Every claim here is backed by a paired bootstrap (5,000 resamples) and McNemar's test, reported with confidence
 intervals, not a single lucky run.
 
-## Try it live (no install)
+## The detector
 
-🌀 **[Open the demo](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**
-&nbsp;·&nbsp; or open [`app.html`](app.html) from a local clone — it works offline, straight from disk
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/app-dark.png">
+  <img alt="Thai sarcasm detector: the sentence 'บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555' is judged น่าจะประชด (likely sarcastic, score +1.42), with a table showing the two cues found — 555 at 2.46x and elongated letters at 1.69x — and why each one points that way." src="docs/app-light.png">
+</picture>
 
-Paste Thai text and get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
-Runs **entirely in your browser**: no server, no API key, no data leaves your machine.
+Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
 
-Why static rather than a hosted app: this detector has no model and no server-side dependency —
-it's regex plus a little arithmetic — so a page is the honest shape for it. No quota to hit, no cold
-start, nothing to keep paying for. (A Gradio version for Hugging Face Spaces lives in [`space/`](space/),
-but the free CPU quota blocked it.) `space/verify_port.py` checks the browser build gives byte-identical
-verdicts to the Python one — currently **12/12**.
+▶ **To run it: download [`app.html`](app.html) and open it in any browser.** One file, no install, no
+server, works offline. Nothing you type leaves your machine.
+
+It has no model and no server-side dependency — it's regex plus a little arithmetic — so a plain page
+is the honest shape for it: no quota to hit, no cold start, nothing to keep paying for. A Gradio
+version for Hugging Face Spaces lives in [`space/`](space/) (blocked by the free CPU quota), and
+[`space/verify_port.py`](space/verify_port.py) checks the browser build returns identical verdicts to
+the Python one — currently **12/12**.
+
+<details>
+<summary>📊 <b>One-minute visual summary of the whole project</b> (click to expand)</summary>
+<br>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/overview-dark.png">
+  <img alt="Project overview: paying for only 4 sentences in 10 gave 95% of the quality of paying for all 10. The whole system is an if-statement. Bar chart comparing methods: asking OpenAI every time 0.727, this project 0.690 at a quarter the price, small Thai model 0.620, checking for '555' 0.590, big free AI models 0.576." src="docs/overview-light.png">
+</picture>
+<br><br>
+Source: <a href="overview.html">overview.html</a> — open it locally for the live version.
+</details>
 
 Two deliberate differences from the local app. It runs on **lexical cues only**: a fine-tuned
 WangchanBERTa was trained and then cut, because it scored **5/10 on unseen sentences versus 8/10 for
