@@ -32,10 +32,17 @@ intervals, not a single lucky run.
 
 ## Try it live (no install)
 
-🌀 **[huggingface.co/spaces/Thanaphumi/NLP_Project](https://huggingface.co/spaces/Thanaphumi/NLP_Project)**
+🌀 **[Open the demo](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**
+&nbsp;·&nbsp; or open [`app.html`](app.html) from a local clone — it works offline, straight from disk
 
 Paste Thai text and get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
-Free to use, no API key, nothing to install. Source in [`space/`](space/).
+Runs **entirely in your browser**: no server, no API key, no data leaves your machine.
+
+Why static rather than a hosted app: this detector has no model and no server-side dependency —
+it's regex plus a little arithmetic — so a page is the honest shape for it. No quota to hit, no cold
+start, nothing to keep paying for. (A Gradio version for Hugging Face Spaces lives in [`space/`](space/),
+but the free CPU quota blocked it.) `space/verify_port.py` checks the browser build gives byte-identical
+verdicts to the Python one — currently **12/12**.
 
 Two deliberate differences from the local app. It runs on **lexical cues only**: a fine-tuned
 WangchanBERTa was trained and then cut, because it scored **5/10 on unseen sentences versus 8/10 for
