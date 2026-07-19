@@ -44,7 +44,7 @@ Or paste a **YouTube / Pantip / Reddit link**: with the local helper running (`p
 which fetches what browsers cannot due to CORS), the page pulls the thread's comments and scores
 them all — free, cue-only, nothing sent to any server.
 
-![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo.gif)
+![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo-typing.gif)
 
 **To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
 server, works offline either way. Nothing you type leaves your machine.
