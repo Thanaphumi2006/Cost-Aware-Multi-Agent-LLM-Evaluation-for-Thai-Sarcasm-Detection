@@ -1,0 +1,74 @@
+{
+  "n": 127,
+  "encoder": "intfloat/multilingual-e5-large",
+  "backend": "in-memory dict",
+  "max_pairwise_sim": 0.9422023892402649,
+  "results": [
+    {
+      "threshold": 0.99,
+      "hits": 0,
+      "misses": 127,
+      "hit_rate": 0.0,
+      "llm_calls_saved": 0,
+      "cost_saved_usd": 0.0,
+      "wrong_served": 0,
+      "wrong_rate_of_hits": null,
+      "max_sim_seen": null
+    },
+    {
+      "threshold": 0.97,
+      "hits": 0,
+      "misses": 127,
+      "hit_rate": 0.0,
+      "llm_calls_saved": 0,
+      "cost_saved_usd": 0.0,
+      "wrong_served": 0,
+      "wrong_rate_of_hits": null,
+      "max_sim_seen": null
+    },
+    {
+      "threshold": 0.95,
+      "hits": 0,
+      "misses": 127,
+      "hit_rate": 0.0,
+      "llm_calls_saved": 0,
+      "cost_saved_usd": 0.0,
+      "wrong_served": 0,
+      "wrong_rate_of_hits": null,
+      "max_sim_seen": null
+    },
+    {
+      "threshold": 0.93,
+      "hits": 12,
+      "misses": 115,
+      "hit_rate": 0.09448818897637795,
+      "llm_calls_saved": 12,
+      "cost_saved_usd": 0.012570000000000001,
+      "wrong_served": 1,
+      "wrong_rate_of_hits": 0.08333333333333333,
+      "max_sim_seen": 0.9422024488449097
+    },
+    {
+      "threshold": 0.9,
+      "hits": 37,
+      "misses": 90,
+      "hit_rate": 0.29133858267716534,
+      "llm_calls_saved": 37,
+      "cost_saved_usd": 0.0387575,
+      "wrong_served": 2,
+      "wrong_rate_of_hits": 0.05405405405405406,
+      "max_sim_seen": 0.9336380362510681
+    },
+    {
+      "threshold": 0.85,
+      "hits": 97,
+      "misses": 30,
+      "hit_rate": 0.7637795275590551,
+      "llm_calls_saved": 97,
+      "cost_saved_usd": 0.1016075,
+      "wrong_served": 13,
+      "wrong_rate_of_hits": 0.13402061855670103,
+      "max_sim_seen": 0.919155478477478
+    }
+  ]
+}

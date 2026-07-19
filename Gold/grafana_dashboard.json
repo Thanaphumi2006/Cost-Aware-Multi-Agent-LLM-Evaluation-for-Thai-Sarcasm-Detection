@@ -1,0 +1,125 @@
+{
+  "title": "Thai Sarcasm — Cost-Aware Router",
+  "uid": "thai-sarcasm-cost",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["llm", "cost-aware", "thai-sarcasm"],
+  "time": {"from": "now-15m", "to": "now"},
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Escalation ratio (สัดส่วนที่ต้องจ่ายเงิน)",
+      "description": "สัดส่วน request ที่ router ตัดสินเองไม่ได้ ต้องส่งให้ LLM. ต่ำ = ประหยัด. router.py วัดไว้ว่าที่ ~21% ได้ 55% ของกำไร F1 ที่ GPT ล้วนให้",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0, "max": 1,
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 0.3},
+            {"color": "red", "value": 0.6}
+          ]}
+        }
+      },
+      "targets": [{"expr": "sarcasm_escalation_ratio", "legendFormat": "escalated", "refId": "A"}]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cost ($/นาที)",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 0.5},
+            {"color": "red", "value": 2}
+          ]}
+        }
+      },
+      "targets": [{"expr": "sarcasm_cost_usd_per_minute", "legendFormat": "$/min", "refId": "A"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Throughput (rps)",
+      "description": "ถ้าต่ำกว่าเป้ามาก แปลว่า concurrency เป็นคอขวด (ดู loadtest.py sweep)",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}},
+      "targets": [{"expr": "sarcasm_throughput_rps", "legendFormat": "rps", "refId": "A"}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errors",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 1}
+          ]}
+        }
+      },
+      "targets": [{"expr": "sarcasm_errors_total", "legendFormat": "errors", "refId": "A"}]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Latency percentiles (รวมทุกเส้นทาง)",
+      "description": "p50 ต่ำมากเพราะ request ส่วนใหญ่จบที่ router ในเครื่อง (~26ms) ไม่แตะ LLM. หางบนคือข้อที่ escalate",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2, "fillOpacity": 8}}},
+      "targets": [
+        {"expr": "sarcasm_latency_seconds{quantile=\"0.5\"}", "legendFormat": "p50", "refId": "A"},
+        {"expr": "sarcasm_latency_seconds{quantile=\"0.95\"}", "legendFormat": "p95", "refId": "B"},
+        {"expr": "sarcasm_latency_seconds{quantile=\"0.99\"}", "legendFormat": "p99", "refId": "C"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Latency แยกตามเส้นทาง: auto (ฟรี) vs escalated (จ่าย)",
+      "description": "ช่องว่างระหว่างสองเส้นคือ 'ราคาของความไม่แน่ใจ' — ~26ms vs ~750ms",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2, "fillOpacity": 8}}},
+      "targets": [
+        {"expr": "sarcasm_route_latency_seconds{route=\"auto\",quantile=\"0.5\"}", "legendFormat": "auto p50 (ฟรี)", "refId": "A"},
+        {"expr": "sarcasm_route_latency_seconds{route=\"escalated\",quantile=\"0.5\"}", "legendFormat": "escalated p50 (LLM)", "refId": "B"}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Request แยกตามเส้นทาง",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 2, "fillOpacity": 20, "stacking": {"mode": "normal"}}}},
+      "targets": [
+        {"expr": "sarcasm_route_requests_total{route=\"auto\"}", "legendFormat": "auto (0 calls)", "refId": "A"},
+        {"expr": "sarcasm_route_requests_total{route=\"escalated\"}", "legendFormat": "escalated (1 call)", "refId": "B"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "ต้นทุนสะสม + LLM calls",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+      "fieldConfig": {"defaults": {"custom": {"lineWidth": 2, "fillOpacity": 8}}},
+      "overrides": [
+        {"matcher": {"id": "byName", "options": "cost (USD)"},
+         "properties": [{"id": "unit", "value": "currencyUSD"}, {"id": "decimals", "value": 4}]}
+      ],
+      "targets": [
+        {"expr": "sarcasm_cost_usd_total", "legendFormat": "cost (USD)", "refId": "A"},
+        {"expr": "sarcasm_llm_calls_total", "legendFormat": "LLM calls", "refId": "B"}
+      ]
+    }
+  ]
+}

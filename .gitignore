@@ -60,3 +60,7 @@ Gold/lm_eval_out*/
 # teacher/eval prediction dumps (regenerable via batch_eval.py)
 Gold/gold_pred.csv
 Gold/harvest_pred.csv
+
+# load test: ผลดิบต่อ request + Prometheus export (ทับใหม่ทุกรอบ regenerate ได้)
+Gold/metrics.prom
+Gold/loadtest_requests.csv
