@@ -64,3 +64,7 @@ Gold/harvest_pred.csv
 # load test: ผลดิบต่อ request + Prometheus export (ทับใหม่ทุกรอบ regenerate ได้)
 Gold/metrics.prom
 Gold/loadtest_requests.csv
+
+# โมเดล fine-tune (405 MB) -- เกินลิมิต 100 MB ของ GitHub
+space/wcb_model/
+Gold/train.log
