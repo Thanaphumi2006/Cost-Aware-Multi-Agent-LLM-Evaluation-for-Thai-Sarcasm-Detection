@@ -15,6 +15,8 @@ the system does and how each method scored, written for readers without an ML ba
 
 ▶ **[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)** — paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
 
+📄 **Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
+
 ## The 60-second version
 
 - I put five systems on the same 127 examples and measured four things at once, not just accuracy: **quality (F1),
@@ -41,6 +43,8 @@ intervals, not a single lucky run.
 </picture>
 
 Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
+
+![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo.gif)
 
 ▶ **To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
 server, works offline either way. Nothing you type leaves your machine.
