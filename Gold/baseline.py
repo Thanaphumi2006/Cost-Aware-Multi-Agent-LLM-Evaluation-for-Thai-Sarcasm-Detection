@@ -49,8 +49,11 @@ for s in (sys.stdout, sys.stderr):
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GOLD_CSV = os.path.join(HERE, "gold.csv")
-PRED_CSV = os.path.join(HERE, f"baseline_preds_{PROVIDER}.csv")
+# override ได้ด้วย env: GOLD_CSV=ชุดอื่น EVAL_DIR=โฟลเดอร์ผลลัพธ์แยก (กันทับผลชุดเดิม)
+EVAL_DIR = os.environ.get("EVAL_DIR", HERE)
+os.makedirs(EVAL_DIR, exist_ok=True)
+GOLD_CSV = os.environ.get("GOLD_CSV", os.path.join(HERE, "gold.csv"))
+PRED_CSV = os.path.join(EVAL_DIR, f"baseline_preds_{PROVIDER}.csv")
 
 # prompt เรียบๆ ตั้งใจ -- เส้นฐานที่ยุติธรรม บอกแค่นิยาม ไม่ยัดกฎย่อยเหมือนตอน pre-label
 SYSTEM = """ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่

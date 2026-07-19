@@ -51,11 +51,13 @@ for s in (sys.stdout, sys.stderr):
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GOLD_CSV = os.path.join(HERE, "gold.csv")
+EVAL_DIR = os.environ.get("EVAL_DIR", HERE)
+os.makedirs(EVAL_DIR, exist_ok=True)
+GOLD_CSV = os.environ.get("GOLD_CSV", os.path.join(HERE, "gold.csv"))
 # ถ้าใช้ screener คนละตัว ต่อ tag ในชื่อไฟล์ กัน overwrite ผล conservative ของเดิม
 _SCREEN_TAG = f"_screen-{SCREENER_MODEL}" if SCREENER_MODEL else ""
-PRED_CSV = os.path.join(HERE, f"multiagent_preds_{PROVIDER}_{VARIANT}{_SCREEN_TAG}.csv")
-BASE_PRED = os.path.join(HERE, f"baseline_preds_{PROVIDER}.csv")  # ไว้เทียบ
+PRED_CSV = os.path.join(EVAL_DIR, f"multiagent_preds_{PROVIDER}_{VARIANT}{_SCREEN_TAG}.csv")
+BASE_PRED = os.path.join(EVAL_DIR, f"baseline_preds_{PROVIDER}.csv")  # ไว้เทียบ
 
 # ---- ด่าน 1: detector -- prompt เรียบๆ ตัวเดียวกับ baseline (คุมให้ recall เท่าเดิม) ----
 DETECT_SYS = """ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่

@@ -110,7 +110,14 @@ range stays inside a 0.05 F1 band, with the best score belonging to one of the c
 (gpt-4.1-mini, F1 0.727, $0.015) is statistically tied with the flagship two-agent pipeline (gpt-4o, F1 0.744, $0.169)
 at **one eleventh of the cost.**
 
-Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 11).
+Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 19).
+
+**Replicated at 2.4x the data (finding 19).** The gold set was later expanded to 302 items (67 sarcastic,
+labeled blind via `Gold/label_ui.py`) and the core systems re-run: the multi-agent edge stays inside the
+noise (+0.017, 95% CI [−0.013, +0.047]) with a confidence interval three times tighter than the original
+study — at 2.55x the cost. Absolute scores on that set are lower by design (its negatives are
+pre-selected look-alikes, a hard set), which surfaced a bonus finding: hard negatives collapse precision
+for every architecture equally — adding agents does not fix it.
 
 ## Why I trust these numbers (and you can too)
 

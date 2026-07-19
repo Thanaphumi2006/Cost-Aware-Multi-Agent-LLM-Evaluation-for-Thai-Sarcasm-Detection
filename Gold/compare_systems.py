@@ -35,14 +35,15 @@ def load(path):
     return d.set_index("text")
 
 
-base = load(os.path.join(HERE, "baseline_preds_gpt.csv"))
+EVAL_DIR = os.environ.get("EVAL_DIR", HERE)  # ชี้โฟลเดอร์ผลชุดอื่น (เช่น v2_results) ได้
+base = load(os.path.join(EVAL_DIR, "baseline_preds_gpt.csv"))
 variants = {}
-for p in sorted(glob.glob(os.path.join(HERE, "multiagent_preds_gpt*.csv"))):
+for p in sorted(glob.glob(os.path.join(EVAL_DIR, "multiagent_preds_gpt*.csv"))):
     name = os.path.basename(p).replace("multiagent_preds_gpt", "").replace(".csv", "").strip("_") or "v?"
     variants[name] = load(p)
 
 # ระบบ ③ WangchanBERTa (out-of-fold preds ครบ 127 ข้อ -> เทียบ paired ได้เหมือนกัน)
-wcb = os.path.join(HERE, "wangchanberta_preds.csv")
+wcb = os.path.join(EVAL_DIR, "wangchanberta_preds.csv")
 if os.path.exists(wcb):
     variants["wangchanberta"] = load(wcb)
 

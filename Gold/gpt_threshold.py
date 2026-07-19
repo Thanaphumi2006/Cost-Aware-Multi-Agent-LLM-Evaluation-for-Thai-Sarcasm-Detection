@@ -36,10 +36,13 @@ from baseline import PRICE_PER_MTOK, metrics
 
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
-GOLD_CSV = os.path.join(HERE, "gold.csv")
-PROB_CSV = os.path.join(HERE, "gpt_screener_probs.csv")
+# override ได้ด้วย env เดียวกับ baseline.py: GOLD_CSV + EVAL_DIR
+EVAL_DIR = os.environ.get("EVAL_DIR", HERE)
+os.makedirs(EVAL_DIR, exist_ok=True)
+GOLD_CSV = os.environ.get("GOLD_CSV", os.path.join(HERE, "gold.csv"))
+PROB_CSV = os.path.join(EVAL_DIR, "gpt_screener_probs.csv")
 # ชื่อนี้ compare_systems.py (glob multiagent_preds_gpt*.csv) จะเก็บไปเทียบ bootstrap/McNemar ให้เอง
-OUT_CSV = os.path.join(HERE, "multiagent_preds_gpt_threshold.csv")
+OUT_CSV = os.path.join(EVAL_DIR, "multiagent_preds_gpt_threshold.csv")
 IN_P, OUT_P = PRICE_PER_MTOK["gpt"]
 N_FOLDS, SEED = 5, 42
 
