@@ -358,6 +358,48 @@ def api_batch():
     return jsonify({"rows": rows, "summary": summ})
 
 
+# ให้หน้าเว็บ static (GitHub Pages / เปิดไฟล์ตรง) เรียกตัวช่วยบนเครื่องนี้ได้
+# เปิด CORS เฉพาะ endpoint นี้ endpoint เดียว -- แค่ "ดึงคอมเมนต์" ไม่แตะคีย์/โมเดลเลย
+_FETCH_ORIGINS = {"https://thanaphumi2006.github.io", "null"}
+
+
+@app.after_request
+def _fetch_cors(resp):
+    if request.path == "/api/fetch_comments":
+        origin = request.headers.get("Origin", "")
+        if origin in _FETCH_ORIGINS or origin.startswith("http://127.0.0.1") or origin.startswith("http://localhost"):
+            resp.headers["Access-Control-Allow-Origin"] = origin
+            resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+
+@app.route("/api/fetch_comments", methods=["POST", "OPTIONS"])
+def api_fetch_comments():
+    """ดึงคอมเมนต์จากลิงก์ให้หน้าเว็บ static (ไม่จำแนก ไม่ใช้คีย์ -- ฝั่งเบราว์เซอร์ให้คะแนนเอง)
+    มีไว้เพราะเบราว์เซอร์โดน YouTube/Pantip/Reddit บล็อก CORS ดึงตรงไม่ได้"""
+    if request.method == "OPTIONS":
+        return "", 204
+    body = request.json or {}
+    url = str(body.get("url", "")).strip()
+    limit = min(int(body.get("limit", 60)), 200)
+    if not url.startswith("http"):
+        return jsonify({"error": "ใส่ลิงก์ให้ถูก (ขึ้นต้น http)"}), 400
+    try:
+        import fetch_social as fs
+    except ImportError:
+        return jsonify({"error": "ยังไม่ได้ติดตั้ง yt-dlp (pip install yt-dlp)"}), 500
+    try:
+        comments, plat = fs.fetch_any(url, limit)
+    except fs.UnsupportedError:
+        return jsonify({"error": "แพลตฟอร์มนี้ดึงอัตโนมัติไม่ได้ (ต้องล็อกอิน/เสียเงิน API)"}), 422
+    except Exception as e:
+        return jsonify({"error": f"ดึงไม่สำเร็จ: {type(e).__name__}"}), 502
+    if not comments:
+        return jsonify({"error": "ไม่พบคอมเมนต์ภาษาไทยจากลิงก์นี้"}), 404
+    return jsonify({"comments": comments, "platform": plat})
+
+
 @app.route("/api/youtube", methods=["POST"])
 def api_youtube():
     """วางลิงก์ YouTube -> ดึงคอมเมนต์ไทย -> จับประชด -> คืนรายการ (โชว์เฉพาะที่ประชด)

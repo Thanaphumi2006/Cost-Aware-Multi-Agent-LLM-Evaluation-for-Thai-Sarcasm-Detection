@@ -6,243 +6,147 @@
 <title>ตรวจจับประชดภาษาไทย · Thai Sarcasm Detector</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --paper:#FBF7EE; --surface:#FFFFFF; --surface-2:#F3EDDE; --rule:#2E2A23;
-    --ink:#2E2A23; --text:#2E2A23; --mute:#6E6657;
-    --free:#1E8A6E; --free-bg:#DDF0E5;
-    --paid:#C4622A; --paid-bg:#FAE6D4;
-    --unk:#6E6657;  --unk-bg:#F3EDDE;
-    --shadow:3px 4px 0 rgba(46,42,35,.16);
+/* โทนเดียวกับหน้า doodle ของแอปเต็ม (Gold/app.py PUBLIC_PAGE) */
+:root{
+  --paper:#fbf4e4; --card:#fffdf7; --ink:#34302a; --ink2:#6b6357; --dot:#ece0c6;
+  --blue:#4a86e8; --yellow:#ffd84d; --yellow-d:#f2c33a;
+  --sar:#e2593f; --sar-bg:#ffe7e1; --not:#38a05d; --not-bg:#e3f4e9;
+  --disp:'Itim','Comic Sans MS',cursive; --body:'Mali','Comic Sans MS',cursive;
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font-family:var(--body);line-height:1.6;-webkit-font-smoothing:antialiased;
+  background-color:var(--paper);
+  background-image:radial-gradient(var(--dot) 1.6px,transparent 1.6px);background-size:24px 24px}
+.wrap{max-width:660px;margin:0 auto;padding:clamp(26px,7vw,58px) clamp(16px,4vw,24px) 90px}
 
-    --display:"Mali", "Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
-    --body:"Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
-    --mono:"Itim", ui-monospace, Menlo, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --paper:#23211C; --surface:#2C2A24; --surface-2:#35322A; --rule:#E8E2D2;
-      --ink:#E8E2D2; --text:#E8E2D2; --mute:#A99F8C;
-      --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62; --paid-bg:#42301F;
-      --unk:#A99F8C; --unk-bg:#35322A;
-      --shadow:3px 4px 0 rgba(0,0,0,.35);
-    }
-  }
-  :root[data-theme="light"] {
-    --paper:#FBF7EE; --surface:#FFFFFF; --surface-2:#F3EDDE; --rule:#2E2A23;
-    --ink:#2E2A23; --text:#2E2A23; --mute:#6E6657;
-    --free:#1E8A6E; --free-bg:#DDF0E5; --paid:#C4622A; --paid-bg:#FAE6D4;
-    --unk:#6E6657; --unk-bg:#F3EDDE; --shadow:3px 4px 0 rgba(46,42,35,.16);
-  }
-  :root[data-theme="dark"] {
-    --paper:#23211C; --surface:#2C2A24; --surface-2:#35322A; --rule:#E8E2D2;
-    --ink:#E8E2D2; --text:#E8E2D2; --mute:#A99F8C;
-    --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62; --paid-bg:#42301F;
-    --unk:#A99F8C; --unk-bg:#35322A; --shadow:3px 4px 0 rgba(0,0,0,.35);
-  }
+/* ---- doodle primitives ---- */
+.box{background:var(--card);border:2.6px solid var(--ink);
+  border-radius:255px 14px 225px 16px/16px 225px 15px 255px;
+  box-shadow:5px 5px 0 var(--ink)}
+.box.alt{border-radius:14px 235px 16px 225px/220px 15px 235px 16px}
 
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--paper); color:var(--text);
-    font-family:var(--body); font-size:17.5px; line-height:1.65;
-    -webkit-font-smoothing:antialiased;
-    background-image:radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
-    background-size:22px 22px;
-  }
-  .wrap {
-    max-width:56rem; margin:0 auto; padding:clamp(1.25rem,4.5vw,2.75rem);
-    display:flex; flex-direction:column; gap:clamp(1.75rem,4vw,2.5rem);
-  }
-  h1 { font-family:var(--display); font-weight:700; font-size:clamp(1.7rem,4.6vw,2.35rem);
-       margin:0; line-height:1.25; display:flex; align-items:center; gap:0.6rem; }
-  h1 .squig { display:block; }
-  h2 { font-family:var(--display); font-weight:600; font-size:1.2rem; margin:0; }
-  p { margin:0; }
-  .sub { color:var(--mute); font-size:1.02rem; }
+.head{position:relative;text-align:center}
+.spark{position:absolute;pointer-events:none}
+h1{font-family:var(--disp);font-size:clamp(34px,9vw,54px);margin:0;line-height:1.08;letter-spacing:.5px}
+.squiggle{display:block;width:min(300px,72%);height:20px;margin:2px auto 0}
+.tag{color:var(--ink2);margin:14px auto 0;max-width:36ch;font-size:clamp(15px,3.4vw,17px)}
+.freebadge{font-size:13px;color:var(--ink);margin:12px auto 0;max-width:fit-content;
+  background:var(--yellow);border:2.2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+  border-radius:14px 8px 14px 8px;padding:6px 14px}
 
-  /* ---- doodle building blocks ---- */
-  .wob, .panel, details, .chip, textarea, .tagline {
-    border:2px solid var(--rule);
-    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
-  }
-  .wob-b { border-radius:15px 225px 15px 255px / 255px 15px 225px 15px; }
-  .chip:nth-child(3n) { border-radius:225px 18px 255px 12px / 12px 255px 18px 225px; }
+.panel{padding:clamp(20px,4.5vw,28px);margin-top:26px}
+label{font-family:var(--disp);font-size:18px}
+textarea{width:100%;padding:15px;font-family:var(--body);font-size:16px;margin-top:10px;
+  color:var(--ink);background:#fffef9;border:2.4px dashed var(--ink);
+  border-radius:18px 10px 20px 10px/10px 20px 10px 18px;min-height:110px;resize:vertical}
+textarea:focus{outline:none;border-style:solid;border-color:var(--blue);box-shadow:3px 3px 0 var(--blue)}
+.hint{font-size:13.5px;color:var(--ink2);margin:9px 4px 0}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:14px}
+button{font-family:var(--disp);cursor:pointer;border:2.6px solid var(--ink);color:var(--ink);
+  padding:11px 22px;font-size:18px;border-radius:16px 9px 18px 9px/9px 18px 9px 16px;
+  box-shadow:3px 3px 0 var(--ink);transition:transform .05s,box-shadow .05s;background:#fff}
+button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.go{background:var(--yellow);flex:1;min-width:140px}
+.go:hover{background:var(--yellow-d)}
+.go:disabled{opacity:.6;cursor:wait}
 
-  /* masking-tape strips: the thing that makes cards feel stuck on, not generated */
-  .tape { position:relative; }
-  .tape::before {
-    content:""; position:absolute; top:-13px; left:50%; width:92px; height:26px;
-    transform:translateX(-50%) rotate(-2.5deg);
-    background:color-mix(in srgb, var(--paid) 16%, var(--paper));
-    border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
-    opacity:.9; pointer-events:none;
-  }
-  .tape.tilt-r::before { transform:translateX(-50%) rotate(1.8deg); left:26%; }
-  details.tape::before { left:12%; width:74px; transform:translateX(-50%) rotate(3deg); }
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{font-family:var(--body);font-size:13px;padding:6px 12px;background:#fff;
+  border:2.2px solid var(--ink);border-radius:12px 7px 12px 7px;box-shadow:2px 2px 0 var(--ink);
+  cursor:pointer;text-align:left}
+.chip:hover{background:var(--yellow)}
+.chip:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
 
-  /* hand-marker scribble under small headings */
-  h2 { align-self:flex-start; }
-  h2::after {
-    content:""; display:block; height:7px; width:100%; margin-top:1px;
-    background:var(--free); transform:rotate(-0.6deg);
-    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
-    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
-  }
+/* ---- ผลลัพธ์ ---- */
+.result{margin-top:16px;padding:18px 20px}
+.verdict{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-size:26px}
+.dot{width:16px;height:16px;border-radius:50%;border:2.4px solid var(--ink);flex:none;background:#fff}
+.sar .dot{background:var(--sar)} .notx .dot{background:var(--not)} .unk .dot{background:var(--dot)}
+.sar .verdict{color:var(--sar)} .notx .verdict{color:var(--not)} .unk .verdict{color:var(--ink2)}
+.note{font-size:14px;color:var(--ink2);margin-top:8px}
+.meter{height:12px;border-radius:8px;background:#fff;border:2.2px solid var(--ink);overflow:hidden;margin-top:14px}
+.meter>span{display:block;height:100%;border-right:2.2px solid var(--ink)}
+.sar .meter>span{background:var(--sar)} .notx .meter>span{background:var(--not)}
+.conf{font-size:13px;color:var(--ink2);margin-top:7px}
+h2{font-family:var(--disp);font-size:19px;margin:16px 0 4px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:8px 9px;text-align:left;border-bottom:2px dashed var(--ink);vertical-align:top}
+th{font-family:var(--disp);font-size:14px}
+tbody tr:last-child td{border-bottom:none}
+.cue{font-family:var(--disp);font-size:15px;white-space:nowrap}
+.dir-up{color:var(--sar);font-weight:700;white-space:nowrap}
+.dir-dn{color:var(--not);font-weight:700;white-space:nowrap}
+.why{color:var(--ink2)}
 
-  .ic { width:1.15em; height:1.15em; flex:0 0 auto; stroke:currentColor; fill:none;
-        stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
-  .ic.big { width:2.2rem; height:2.2rem; stroke-width:2.6; }
+/* ---- ผลจากลิงก์ (หลายคอมเมนต์) ---- */
+.sumline{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.pill{font-family:var(--disp);display:inline-block;padding:5px 14px;font-size:15px;border:2.4px solid var(--ink);
+  border-radius:16px 8px 16px 8px/8px 16px 8px 16px;box-shadow:2px 2px 0 var(--ink);background:#fff}
+.pill.sar{background:var(--sar-bg);color:var(--sar)}
+.pill.notx{background:var(--not-bg);color:var(--not)}
+.pill.unk{color:var(--ink2)}
+.citem{margin-top:12px;padding:13px 16px;background:var(--card);border:2.4px solid var(--ink);
+  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;box-shadow:3px 3px 0 var(--ink)}
+.citem:nth-child(odd){transform:rotate(.4deg)}
+.citem:nth-child(even){transform:rotate(-.45deg);border-radius:10px 22px 10px 20px/20px 10px 22px 10px}
+.citem .ctxt{font-size:14.5px;margin-top:6px;overflow-wrap:anywhere}
+.citem .cwhy{font-size:12.5px;color:var(--ink2);margin-top:4px}
 
-  .tagline {
-    display:inline-flex; align-items:center; gap:0.5rem; align-self:flex-start;
-    font-family:var(--display); font-weight:600; font-size:0.8rem; letter-spacing:0.02em;
-    background:var(--free-bg); color:var(--free); border-color:var(--free);
-    padding:0.25rem 0.8rem; transform:rotate(-1.2deg); box-shadow:var(--shadow);
-  }
+.warnbox{font-size:14px;color:#8a3320;background:var(--sar-bg);border:2.4px solid var(--sar);
+  border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--sar)}
+.sp{display:inline-block;width:15px;height:15px;border:2.4px solid var(--ink);border-top-color:transparent;
+  border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes s{to{transform:rotate(360deg)}}
 
-  .grid { display:grid; grid-template-columns:1fr; gap:1.4rem; }
-  @media (min-width:820px) { .grid { grid-template-columns:1fr 1fr; align-items:start; } }
+details{margin-top:26px;padding:16px 20px}
+summary{cursor:pointer;font-family:var(--disp);font-size:18px;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"\25B8  ";color:var(--blue)}
+details[open] summary::before{content:"\25BE  "}
+details ul{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:9px}
+details li{font-size:14px;color:var(--ink);padding-left:23px;position:relative}
+details li::before{content:"";position:absolute;left:2px;top:9px;width:9px;height:9px;border-radius:50%;
+  background:var(--blue);border:2px solid var(--ink)}
+details li strong{color:var(--ink)}
 
-  .panel { background:var(--surface); padding:1.25rem 1.35rem;
-           display:flex; flex-direction:column; gap:0.9rem; box-shadow:var(--shadow); }
-  .panel.tilt-l { transform:rotate(-0.35deg); }
-  .panel.tilt-r { transform:rotate(0.3deg); }
-
-  textarea {
-    width:100%; min-height:9.5rem; resize:vertical; padding:0.85rem 0.95rem;
-    font-family:var(--body); font-size:1.05rem; line-height:1.6;
-    background:var(--paper); color:var(--text);
-  }
-  textarea:focus-visible { outline:3px dashed var(--free); outline-offset:2px; }
-
-  .chips { display:flex; flex-wrap:wrap; gap:0.55rem; }
-  .chip {
-    font:inherit; font-size:0.86rem; cursor:pointer; text-align:left;
-    background:var(--surface-2); color:var(--text); padding:0.3rem 0.8rem;
-    box-shadow:2px 2px 0 rgba(46,42,35,.14); transition:transform .08s ease;
-  }
-  .chip:nth-child(odd) { transform:rotate(-0.8deg); }
-  .chip:nth-child(even) { transform:rotate(0.7deg); }
-  .chip:hover { border-color:var(--free); color:var(--free); transform:rotate(0deg) translateY(-2px); }
-  .chip:focus-visible { outline:3px dashed var(--free); outline-offset:2px; }
-
-  .verdict { display:flex; align-items:center; gap:0.7rem; }
-  .vtext { font-family:var(--display); font-size:1.55rem; font-weight:700; }
-  .v-sarc .vtext, .v-sarc .ic.big { color:var(--paid); }
-  .v-gen  .vtext, .v-gen  .ic.big { color:var(--free); }
-  .v-unk  .vtext, .v-unk  .ic.big { color:var(--unk); }
-  .note { font-size:0.95rem; color:var(--mute); }
-  .empty { display:flex; align-items:center; gap:0.7rem; color:var(--mute); }
-  .empty .ic { width:1.6rem; height:1.6rem; }
-
-  .meter { height:14px; background:var(--surface-2); border:2px solid var(--rule);
-           border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; overflow:hidden; }
-  .meter span { display:block; height:100%; transition:width .25s ease;
-    background:repeating-linear-gradient(-55deg, currentColor 0 6px, transparent 6px 11px); }
-  .v-sarc .meter span { color:var(--paid); }
-  .v-gen  .meter span { color:var(--free); }
-  .v-unk  .meter span { color:var(--unk); }
-  .score { font-size:0.85rem; color:var(--mute); font-variant-numeric:tabular-nums; }
-
-  table { border-collapse:collapse; width:100%; font-size:0.9rem; }
-  th, td { text-align:left; padding:0.5rem 0.6rem; vertical-align:top;
-           border-bottom:2px dashed color-mix(in srgb, var(--rule) 45%, transparent); }
-  thead th { font-family:var(--display); font-weight:600; font-size:0.78rem;
-             letter-spacing:0.06em; color:var(--mute); }
-  tbody tr:last-child td { border-bottom:none; }
-  .cue { font-family:var(--display); font-weight:700; }
-  .dir-up { color:var(--paid); font-size:0.85rem; white-space:nowrap; }
-  .dir-dn { color:var(--free); font-size:0.85rem; white-space:nowrap; }
-  .why { color:var(--mute); }
-
-  details { background:var(--surface); padding:1rem 1.25rem; box-shadow:var(--shadow);
-            transform:rotate(-0.2deg); }
-  summary { cursor:pointer; font-family:var(--display); font-weight:600;
-            display:flex; align-items:center; gap:0.55rem; }
-  summary::-webkit-details-marker { display:none; }
-  details[open] summary { margin-bottom:0.7rem; }
-  details ul { margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:0.5rem; }
-  details li { font-size:0.92rem; color:var(--mute); line-height:1.55; }
-  details li strong { color:var(--text); }
-
-  .squiggle { width:100%; height:14px; color:var(--rule); opacity:.7; }
-  footer { padding-top:0.4rem; font-size:0.88rem; color:var(--mute); }
-  a { color:var(--free); text-decoration-style:wavy; text-decoration-thickness:1.5px; text-underline-offset:3px; }
-  @media (prefers-reduced-motion:reduce) { .meter span, .chip { transition:none; } }
+.foot{text-align:center;color:var(--ink2);font-size:13px;margin-top:36px}
+a{color:var(--blue)}
+@media (prefers-reduced-motion:reduce){.sp{animation:none}}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <!-- hand-drawn icon set (stroke doodles, no emoji) -->
-    <g id="d-spiral">
-      <path d="M12.2 12.4 c0.2 -1.4 1.9 -1.8 2.8 -0.8 c1.3 1.3 0.4 3.6 -1.4 4.2 c-2.6 0.9 -5.1 -1.1 -5.3 -3.8 c-0.3 -3.4 2.8 -6 6.1 -5.8 c4 0.2 6.7 3.8 6.2 7.7 c-0.5 4.4 -4.7 7.3 -9 6.6 C7 19.8 4 15.7 4.8 11.2"/>
-    </g>
-    <g id="d-bubble">
-      <path d="M4.5 6.2 C4.3 4.9 5.3 4 6.6 4 h10.9 c1.3 0 2.3 0.9 2.2 2.2 l-0.3 7.2 c0 1.2 -1 2 -2.2 2 H10.5 l-3.6 3.8 0.3 -3.8 H6.4 c-1.2 0 -2.1 -0.8 -2.1 -2 z"/>
-      <path d="M8.2 8.4 h7.6 M8.4 11.2 h5.2"/>
-    </g>
-    <g id="d-think">
-      <path d="M9 4.6 C13 3.2 18 5 18.7 9.2 c0.7 4 -2 7.6 -6.2 8.1 C8.3 17.8 5 15.3 4.8 11.4 4.7 8.4 6.3 5.8 9 4.6 z"/>
-      <path d="M9.4 10.1 c0 -1.6 2.3 -2.1 3.1 -0.8 0.7 1.1 -0.3 1.9 -1.2 2.4 -0.5 0.3 -0.7 0.7 -0.7 1.3 M10.7 15.8 l0.1 0.1"/>
-    </g>
-    <g id="d-arrow-l">
-      <path d="M19.5 12.2 C14.5 11.6 9.8 11.8 5.6 12.1 M9.2 8 c-1.6 1.5 -3 2.8 -4.3 4.1 1.5 1.3 2.9 2.6 4.1 4.1"/>
-    </g>
-    <g id="d-warn">
-      <path d="M11.2 4.4 c0.5 -0.9 1.3 -0.9 1.8 0 l7 12.6 c0.5 0.9 0 1.9 -1 1.9 H5.2 c-1 0 -1.5 -1 -1 -1.9 z"/>
-      <path d="M12 9 l0.1 4.6 M12.1 16.2 l0.1 0.1"/>
-    </g>
-    <g id="d-pencil">
-      <path d="M5 19 l0.9 -3.6 L16.4 4.9 c0.8 -0.8 2 -0.8 2.7 0 0.8 0.8 0.8 2 0 2.7 L8.6 18.1 z M14.8 6.6 l2.6 2.6"/>
-    </g>
-  </defs>
-</svg>
-
 <div class="wrap">
 
-  <header style="display:flex;flex-direction:column;gap:0.8rem">
-    <span class="tagline">
-      <svg class="ic" viewBox="0 0 24 24"><use href="#d-bubble"/></svg>
-      ฟรี 100% · ทำงานในเบราว์เซอร์ · ไม่ส่งข้อมูลออกไปไหน
-    </span>
-    <h1>
-      <svg class="ic big" viewBox="0 0 24 24" style="color:var(--free)"><use href="#d-spiral"/></svg>
-      ตรวจจับประชดภาษาไทย
-    </h1>
-    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M4 8 q14 -8 28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0"
-            fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-    </svg>
-    <p class="sub">
-      พิมพ์ข้อความภาษาไทย ระบบจะบอกว่า <strong>ประชด / ไม่ประชด / บอกไม่ได้</strong>
-      พร้อมแสดงเหตุผลว่าดูจากสัญญาณอะไร
-    </p>
-  </header>
-
-  <div class="grid">
-    <div class="panel tilt-l tape">
-      <label for="inp" style="font-family:var(--display);font-weight:600;display:flex;align-items:center;gap:0.5rem">
-        <svg class="ic" viewBox="0 0 24 24"><use href="#d-pencil"/></svg> ข้อความภาษาไทย
-      </label>
-      <textarea id="inp" class="wob-b" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555"
-                autocomplete="off" spellcheck="false"></textarea>
-      <div>
-        <p style="font-size:0.88rem;color:var(--mute);margin-bottom:0.5rem">ลองตัวอย่าง:</p>
-        <div class="chips" id="chips"></div>
-      </div>
-    </div>
-
-    <div class="panel tilt-r tape" id="out">
-      <p class="empty"><svg class="ic" viewBox="0 0 24 24"><use href="#d-arrow-l"/></svg>
-      พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>
-    </div>
+  <div class="head">
+    <svg class="spark" style="left:4%;top:-8px;width:34px;height:34px" viewBox="0 0 40 40"><path d="M20 3 L23 16 L36 20 L23 24 L20 37 L17 24 L4 20 L17 16 Z" fill="none" stroke="#f2c33a" stroke-width="2.6" stroke-linejoin="round"/></svg>
+    <svg class="spark" style="right:6%;top:16px;width:26px;height:26px" viewBox="0 0 40 40"><path d="M20 5 L23 17 L35 20 L23 23 L20 35 L17 23 L5 20 L17 17 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/></svg>
+    <h1>ประชดหรือเปล่า?</h1>
+    <svg class="squiggle" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 Q 38 3 74 12 T 148 12 T 222 12 T 297 10" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round"/></svg>
+    <p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วมาดูกันว่า “ประชด” ไหม พร้อมเหตุผลทุกคำตอบ</p>
+    <div class="freebadge">ฟรี 100% · ทำงานในเบราว์เซอร์ · ข้อความที่พิมพ์ไม่ถูกส่งไปไหน</div>
   </div>
 
-  <details class="wob-b tape">
-    <summary><svg class="ic" viewBox="0 0 24 24" style="color:var(--paid)"><use href="#d-warn"/></svg>
-    อ่านก่อนเชื่อผลลัพธ์</summary>
+  <div class="box panel">
+    <label for="inp">ข้อความ หรือลิงก์</label>
+    <textarea id="inp" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555&#10;หรือวางลิงก์กระทู้ Reddit เช่น https://www.reddit.com/r/Thailand/comments/..."
+              autocomplete="off" spellcheck="false"></textarea>
+    <div class="hint">พิมพ์ข้อความ = ตรวจทันที · วางลิงก์ YouTube / Pantip / Reddit แล้วกด “ตรวจเลย!”
+      = ดึงคอมเมนต์มาตรวจให้ทั้งกระทู้ (ต้องเปิดตัวช่วยบนเครื่องก่อน: <code>python Gold/app.py</code>)</div>
+    <div class="actions">
+      <button class="go" id="go">ตรวจเลย!</button>
+    </div>
+    <div class="hint" style="margin-top:12px">ลองตัวอย่าง:</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="box alt result" id="out">
+    <p class="note" style="margin-top:0">พิมพ์ข้อความด้านบน ผลลัพธ์จะขึ้นตรงนี้ทันที</p>
+  </div>
+
+  <details class="box alt">
+    <summary>อ่านก่อนเชื่อผลลัพธ์</summary>
     <ul>
       <li><strong>ระบบนี้อ่านแค่ “สัญญาณผิวๆ” ไม่ได้เข้าใจภาษา</strong> — ประชดที่เขียนแนบเนียนโดยไม่มี
           <code>555</code> / สระยืด / <code>??</code> ระบบจะตอบว่า <strong>บอกไม่ได้</strong> ไม่ใช่ตอบว่าไม่ประชด</li>
@@ -253,21 +157,18 @@
       <li><strong>ทำไมไม่ใช้โมเดล AI?</strong> ลองแล้ว — fine-tune WangchanBERTa บนข้อมูลชุดนี้
           แล้ววัดได้ว่า <strong>แย่กว่า</strong>: บนประโยคใหม่โมเดลตอบ “ประชด” เกือบทุกอย่าง (ถูก 5/10 = เดาสุ่ม)
           ส่วน cue เชิงคำได้ <strong>8/10</strong> · 127 ประโยคน้อยเกินกว่าโมเดลจะเรียนรู้ประชดได้จริง</li>
+      <li><strong>ทำไมลิงก์ต้องมี “ตัวช่วย”?</strong> YouTube/Pantip/Reddit บล็อกไม่ให้หน้าเว็บอื่นดึงข้อมูล
+          ของพวกเขาตรงๆ (CORS) — ตัวช่วย <code>python Gold/app.py</code> รันบนเครื่องคุณเอง
+          ดึงคอมเมนต์ให้ แล้วหน้านี้ให้คะแนนเองแบบฟรี ข้อมูลไม่ออกจากเครื่อง</li>
     </ul>
   </details>
 
-  <footer>
-    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M4 9 q18 -9 34 -2 t30 3 t26 -4 t34 1 t28 -3 t30 4 t26 -2 t34 0 t28 2 t26 -3 t34 2 t26 -1"
-            fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-    <p style="margin-top:0.6rem">
-      ส่วนหนึ่งของงานวิจัย <em>Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection</em> —
-      ระบบเต็มส่งเฉพาะประโยคที่ <em>ไม่แน่ใจ</em> ไปให้ GPT ตัดสิน จ่ายราว 40% ของราคาเต็มแต่ได้คุณภาพราว 95%
-      · <a href="https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection">โค้ดและผลการทดลองทั้งหมด</a>
-      · <a href="overview.html">สรุปโปรเจกต์แบบเห็นภาพ</a>
-    </p>
-  </footer>
+  <p class="foot">
+    ส่วนหนึ่งของงานวิจัย <em>Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection</em><br>
+    ระบบเต็มส่งเฉพาะประโยคที่ <em>ไม่แน่ใจ</em> ไปให้ GPT ตัดสิน — จ่ายราว 40% ของราคาเต็ม ได้คุณภาพราว 95%<br>
+    <a href="https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection">โค้ดและผลการทดลองทั้งหมด</a>
+    · <a href="overview.html">สรุปโปรเจกต์แบบเห็นภาพ</a>
+  </p>
 </div>
 
 <script>
@@ -298,55 +199,139 @@ const EXAMPLES = [
 const esc = s => s.replace(/[&<>"']/g, m =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
-const icon = id =>
-  `<svg class="ic big" viewBox="0 0 24 24"><use href="#${id}"/></svg>`;
-
 const inp = document.getElementById("inp");
 const out = document.getElementById("out");
+const go  = document.getElementById("go");
+
+const isUrl = t => /^https?:\/\/\S+$/i.test(t.trim());
+
+function verdictOf(text) {
+  const hits = findCues(text);
+  const s = cueScore(hits);
+  if (hits.length === 0) return { cls: "unk", label: "บอกไม่ได้", s, hits };
+  return s > 0 ? { cls: "sar", label: "น่าจะประชด", s, hits }
+               : { cls: "notx", label: "น่าจะไม่ประชด", s, hits };
+}
 
 function render() {
   const text = inp.value.trim();
   if (!text) {
-    out.className = "panel tilt-r";
-    out.innerHTML = '<p class="empty"><svg class="ic" viewBox="0 0 24 24"><use href="#d-arrow-l"/></svg> พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>';
+    out.className = "box alt result";
+    out.innerHTML = '<p class="note" style="margin-top:0">พิมพ์ข้อความด้านบน ผลลัพธ์จะขึ้นตรงนี้ทันที</p>';
     return;
   }
-  const hits = findCues(text);
-  const s = cueScore(hits);
-
-  let cls, ic, label, note;
-  if (hits.length === 0) {
-    cls = "v-unk"; ic = icon("d-think"); label = "บอกไม่ได้";
-    note = "ไม่พบสัญญาณผิวๆ ที่ระบบรู้จักเลย ระบบนี้อ่านจาก cue เชิงคำเท่านั้น จึงตอบไม่ได้ว่าประโยคนี้ประชดหรือไม่ — <strong>และจะไม่เดาให้</strong>";
-  } else if (s > 0) {
-    cls = "v-sarc"; ic = icon("d-spiral"); label = "น่าจะประชด";
-    note = "พบสัญญาณที่มักปรากฏในข้อความประชด";
-  } else {
-    cls = "v-gen"; ic = icon("d-bubble"); label = "น่าจะไม่ประชด";
-    note = "พบสัญญาณที่มักปรากฏในข้อความปกติ (ไม่ประชด)";
+  if (isUrl(text)) {
+    out.className = "box alt result";
+    out.innerHTML = '<p class="note" style="margin-top:0">เจอลิงก์แล้ว — กดปุ่ม <strong>ตรวจเลย!</strong> เพื่อดึงคอมเมนต์มาตรวจ</p>';
+    return;
   }
+  const v = verdictOf(text);
+  const strength = Math.min(Math.abs(v.s) / 3, 1);
 
-  const strength = Math.min(Math.abs(s) / 3, 1);
-  let html = `<div class="verdict">${ic}<span class="vtext">${label}</span></div>
-              <p class="note">${note}</p>`;
+  let noteTxt;
+  if (v.cls === "unk") noteTxt = "ไม่พบสัญญาณผิวๆ ที่ระบบรู้จักเลย ระบบนี้อ่านจาก cue เชิงคำเท่านั้น จึงตอบไม่ได้ — <strong>และจะไม่เดาให้</strong>";
+  else if (v.cls === "sar") noteTxt = "พบสัญญาณที่มักปรากฏในข้อความประชด";
+  else noteTxt = "พบสัญญาณที่มักปรากฏในข้อความปกติ (ไม่ประชด)";
 
-  if (hits.length) {
+  let html = `<div class="verdict"><span class="dot"></span>${v.label}</div>
+              <p class="note">${noteTxt}</p>`;
+  if (v.hits.length) {
     html += `<div class="meter"><span style="width:${(strength * 100).toFixed(0)}%"></span></div>
-             <p class="score">ความแรงของสัญญาณ ${(strength * 100).toFixed(0)}% · คะแนนรวม ${s >= 0 ? "+" : ""}${s.toFixed(2)}</p>
+             <p class="conf">ความแรงของสัญญาณ ${(strength * 100).toFixed(0)}% · คะแนนรวม ${v.s >= 0 ? "+" : ""}${v.s.toFixed(2)}</p>
              <h2>สัญญาณที่พบ</h2>
              <table><thead><tr><th>cue</th><th>ทิศทาง</th><th>ทำไม</th></tr></thead><tbody>`;
-    for (const c of [...hits].sort((a, b) => b.lift - a.lift)) {
+    for (const c of [...v.hits].sort((a, b) => b.lift - a.lift)) {
       const dir = c.lift >= 1.5 ? `<span class="dir-up">↑↑ ประชด ${c.lift.toFixed(2)}×</span>`
                 : c.lift > 1.0  ? `<span class="dir-up">↑ ประชด ${c.lift.toFixed(2)}×</span>`
                                 : `<span class="dir-dn">↓ ไม่ประชด ${c.lift.toFixed(2)}×</span>`;
       html += `<tr><td class="cue">${esc(c.name)}</td><td>${dir}</td><td class="why">${esc(c.why)}</td></tr>`;
     }
     html += `</tbody></table>
-             <p class="score">“2.46×” = พบ cue นี้แล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย 2.46 เท่า (วัดจาก 127 ประโยค)</p>`;
+             <p class="conf">“2.46×” = พบ cue นี้แล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย 2.46 เท่า (วัดจาก 127 ประโยค)</p>`;
   }
-  out.className = "panel tilt-r " + cls;
+  out.className = "box alt result " + v.cls;
   out.innerHTML = html;
 }
+
+// ---- ดึงคอมเมนต์จากลิงก์ ผ่าน "ตัวช่วยบนเครื่อง" (Gold/app.py) ----
+// ทำไมต้องมีตัวช่วย: YouTube/Pantip/Reddit บล็อกไม่ให้เบราว์เซอร์ดึงข้ามเว็บ (CORS)
+// ตัวช่วยรันบนเครื่องคุณเอง ดึงคอมเมนต์ให้ แล้วหน้านี้ให้คะแนนเองแบบฟรี -- ไม่ใช้คีย์ ไม่ส่งข้อความไปไหน
+// ลองทั้งพอร์ตปกติ (5000) และพอร์ตสำรอง (5050 -- บน Mac ที่ AirPlay ยึด 5000 ไว้)
+const HELPERS = [
+  "http://127.0.0.1:5000/api/fetch_comments",
+  "http://127.0.0.1:5050/api/fetch_comments",
+];
+
+async function callHelper(raw) {
+  for (const helper of HELPERS) {
+    try {
+      const r = await fetch(helper, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: raw, limit: 60 }),
+      });
+      const data = await r.json().catch(() => null);
+      // AirPlay/โปรแกรมอื่นบนพอร์ตเดียวกันตอบ 404 ที่ไม่ใช่ JSON -> ลองพอร์ตถัดไป
+      if (data === null) continue;
+      return { r, data };
+    } catch { /* พอร์ตนี้ไม่มีตัวช่วย -> ลองพอร์ตถัดไป */ }
+  }
+  throw new Error("helper-offline");
+}
+
+async function analyzeLink(raw) {
+  out.className = "box alt result";
+  out.innerHTML = '<p class="note" style="margin-top:0"><span class="sp"></span>กำลังดึงคอมเมนต์ผ่านตัวช่วยบนเครื่อง…</p>';
+  go.disabled = true;
+  try {
+    const { r, data } = await callHelper(raw);
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    const bag = data.comments || [];
+    if (!bag.length) throw new Error("ไม่พบคอมเมนต์ในลิงก์นี้");
+
+    const results = bag.map(t => ({ t, v: verdictOf(t) }));
+    const n = { sar: 0, notx: 0, unk: 0 };
+    results.forEach(r2 => n[r2.v.cls]++);
+
+    let html = `<div class="verdict"><span class="dot"></span>ตรวจแล้ว ${results.length} คอมเมนต์ (${esc(data.platform || "ลิงก์")})</div>
+      <div class="sumline">
+        <span class="pill sar">ประชด ${n.sar}</span>
+        <span class="pill notx">ไม่ประชด ${n.notx}</span>
+        <span class="pill unk">บอกไม่ได้ ${n.unk}</span>
+      </div>
+      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง ไม่ใช้ AI</p><div>`;
+    results.sort((a, b) => b.v.s - a.v.s);
+    for (const { t, v } of results) {
+      const cueNames = v.hits.map(c => esc(c.name)).join(" · ");
+      html += `<div class="citem">
+        <span class="pill ${v.cls}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
+        <p class="ctxt">${esc(t.length > 220 ? t.slice(0, 219) + "…" : t)}</p>
+        ${cueNames ? `<p class="cwhy">cue ที่เจอ: ${cueNames}</p>` : ""}
+      </div>`;
+    }
+    html += "</div>";
+    out.className = "box alt result";
+    out.innerHTML = html;
+  } catch (e) {
+    out.className = "box alt result";
+    const msg = String(e.message || e);
+    out.innerHTML = msg === "helper-offline"
+      ? `<div class="warnbox" style="margin-top:0"><strong>ยังไม่ได้เปิดตัวช่วยบนเครื่อง</strong><br>
+         การดึงคอมเมนต์ต้องมีตัวช่วยเล็กๆ รันอยู่ (YouTube/Pantip/Reddit บล็อกไม่ให้เบราว์เซอร์ดึงตรง)<br>
+         เปิดเทอร์มินัลแล้วรัน: <code>python Gold/app.py</code> จากโฟลเดอร์โปรเจกต์ แล้วกดตรวจอีกครั้ง<br>
+         (บน Mac ถ้าขึ้นว่าพอร์ตไม่ว่าง ให้รัน <code>PORT=5050 python Gold/app.py</code> แทน)<br>
+         ตัวช่วยรันบนเครื่องคุณเอง — ข้อความและลิงก์ไม่ถูกส่งไปเซิร์ฟเวอร์ไหนทั้งนั้น</div>`
+      : `<div class="warnbox" style="margin-top:0">ดึงคอมเมนต์ไม่สำเร็จ: ${esc(msg)}</div>`;
+  } finally {
+    go.disabled = false;
+  }
+}
+
+go.addEventListener("click", () => {
+  const text = inp.value.trim();
+  if (isUrl(text)) analyzeLink(text);
+  else render();
+});
 
 const chips = document.getElementById("chips");
 EXAMPLES.forEach(ex => {

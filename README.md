@@ -37,12 +37,12 @@ intervals, not a single lucky run.
 
 ## The detector
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/app-dark.png">
-  <img alt="Thai sarcasm detector: the sentence 'บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555' is judged น่าจะประชด (likely sarcastic, score +1.42), with a table showing the two cues found — 555 at 2.46x and elongated letters at 1.69x — and why each one points that way." src="docs/app-light.png">
-</picture>
+<img alt="Thai sarcasm detector in hand-drawn doodle style: the sentence 'บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555' is judged น่าจะประชด (likely sarcastic), with a table showing the cues found — 555 at 2.46x and elongated letters at 1.69x — and why each one points that way." src="docs/app-light.png">
 
 Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
+Or paste a **YouTube / Pantip / Reddit link**: with the local helper running (`python Gold/app.py`,
+which fetches what browsers cannot due to CORS), the page pulls the thread's comments and scores
+them all — free, cue-only, nothing sent to any server.
 
 ![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo.gif)
 
