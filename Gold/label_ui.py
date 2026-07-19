@@ -172,6 +172,7 @@ color:#fff;border-radius:20px;padding:8px 20px;font-size:13px;opacity:0;transiti
     </div>
     <div class="bar"><i id="bar" style="width:0%"></i></div>
     <span class="stat" id="stat"></span>
+    <button class="ghost" id="quitbtn" onclick="quitApp()" title="ทุกอย่างเซฟอยู่แล้วทุกครั้งที่กด ปุ่มนี้ปิดเซิร์ฟเวอร์ให้เรียบร้อย">บันทึก &amp; ปิด</button>
   </div>
 
   <div class="card" id="main">
@@ -262,6 +263,11 @@ async function undo(){const s=await api('/api/undo',{queue:Q});
 async function nav(d){render(await api('/api/state?queue='+Q+'&index='+(IDX+d)));}
 async function doReveal(){if(REVEALED)return;const s=await api(`/api/hint?queue=${Q}&index=${IDX}`);
   $('reveal').textContent='LLM: '+s.hint;REVEALED=true;}
+async function quitApp(){
+  const s=await api('/api/quit',{});
+  document.body.innerHTML=`<div class="fin" style="padding-top:120px">✅ ${s.msg}<br>
+    <span style="font-size:14px;color:var(--mut)">ปิดแท็บนี้ได้เลย — เปิดใหม่เมื่อไหร่ก็ทำต่อจากเดิม</span></div>`;
+}
 
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'){
@@ -345,6 +351,18 @@ def run_server(port):
             df.at[idx, "note"] = old_note
         save_atomic(df, path)
         return jsonify(state(q, idx))
+
+    @app.post("/api/quit")
+    def api_quit():
+        """ปิดเซิร์ฟเวอร์จากหน้าเว็บ — ข้อมูลเซฟไปแล้วทุกครั้งที่กด จึงแค่สรุปแล้วดับเครื่อง"""
+        import threading
+
+        parts = []
+        for q in QUEUES:
+            p = progress(q)
+            parts.append(f"{q} {p['done']}/{p['total']} (ประชด {p['pos']})")
+        threading.Timer(0.6, os._exit, args=[0]).start()
+        return jsonify({"msg": "เซฟครบแล้ว · " + " · ".join(parts)})
 
     @app.get("/api/hint")
     def api_hint():
