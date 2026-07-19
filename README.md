@@ -30,10 +30,25 @@ the system does and how each method scored, written for readers without an ML ba
 Every claim here is backed by a paired bootstrap (5,000 resamples) and McNemar's test, reported with confidence
 intervals, not a single lucky run.
 
-## The interactive app
+## Try it live (no install)
+
+🌀 **[huggingface.co/spaces/Thanaphumi/NLP_Project](https://huggingface.co/spaces/Thanaphumi/NLP_Project)**
+
+Paste Thai text and get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
+Free to use, no API key, nothing to install. Source in [`space/`](space/).
+
+Two deliberate differences from the local app. It runs on **lexical cues only**: a fine-tuned
+WangchanBERTa was trained and then cut, because it scored **5/10 on unseen sentences versus 8/10 for
+the cues** — with 127 training examples it memorised the set instead of learning sarcasm
+(see [`space/README.md`](space/README.md) for the numbers). And it answers **"can't tell"** when no
+cue is present rather than guessing, since sarcasm without surface markers is real.
+
+## The interactive app (local, with GPT)
 
 Run it locally with `python Gold/app.py` (see [Run it](#run-it)) and open the doodle-styled page at
-`http://127.0.0.1:5000/app`. You can:
+`http://127.0.0.1:5000/app`. This is the full version *with* the paid GPT path — it binds to
+`127.0.0.1` on purpose, because an API-key box on a public URL is a way for strangers to spend your
+money. You can:
 
 - **Paste Thai text or a link** (YouTube, Pantip, Reddit) and get a clear sarcasm / not-sarcasm verdict with a
   confidence bar.
