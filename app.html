@@ -67,6 +67,28 @@
     border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
   }
   .wob-b { border-radius:15px 225px 15px 255px / 255px 15px 225px 15px; }
+  .chip:nth-child(3n) { border-radius:225px 18px 255px 12px / 12px 255px 18px 225px; }
+
+  /* masking-tape strips: the thing that makes cards feel stuck on, not generated */
+  .tape { position:relative; }
+  .tape::before {
+    content:""; position:absolute; top:-13px; left:50%; width:92px; height:26px;
+    transform:translateX(-50%) rotate(-2.5deg);
+    background:color-mix(in srgb, var(--paid) 16%, var(--paper));
+    border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    opacity:.9; pointer-events:none;
+  }
+  .tape.tilt-r::before { transform:translateX(-50%) rotate(1.8deg); left:26%; }
+  details.tape::before { left:12%; width:74px; transform:translateX(-50%) rotate(3deg); }
+
+  /* hand-marker scribble under small headings */
+  h2 { align-self:flex-start; }
+  h2::after {
+    content:""; display:block; height:7px; width:100%; margin-top:1px;
+    background:var(--free); transform:rotate(-0.6deg);
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+  }
 
   .ic { width:1.15em; height:1.15em; flex:0 0 auto; stroke:currentColor; fill:none;
         stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
@@ -200,7 +222,7 @@
   </header>
 
   <div class="grid">
-    <div class="panel tilt-l">
+    <div class="panel tilt-l tape">
       <label for="inp" style="font-family:var(--display);font-weight:600;display:flex;align-items:center;gap:0.5rem">
         <svg class="ic" viewBox="0 0 24 24"><use href="#d-pencil"/></svg> ข้อความภาษาไทย
       </label>
@@ -212,13 +234,13 @@
       </div>
     </div>
 
-    <div class="panel tilt-r" id="out">
+    <div class="panel tilt-r tape" id="out">
       <p class="empty"><svg class="ic" viewBox="0 0 24 24"><use href="#d-arrow-l"/></svg>
       พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>
     </div>
   </div>
 
-  <details class="wob-b">
+  <details class="wob-b tape">
     <summary><svg class="ic" viewBox="0 0 24 24" style="color:var(--paid)"><use href="#d-warn"/></svg>
     อ่านก่อนเชื่อผลลัพธ์</summary>
     <ul>
@@ -236,8 +258,8 @@
 
   <footer>
     <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M4 8 q14 -8 28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0"
-            fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M4 9 q18 -9 34 -2 t30 3 t26 -4 t34 1 t28 -3 t30 4 t26 -2 t34 0 t28 2 t26 -3 t34 2 t26 -1"
+            fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
     </svg>
     <p style="margin-top:0.6rem">
       ส่วนหนึ่งของงานวิจัย <em>Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection</em> —

@@ -9,13 +9,13 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-📊 **New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** — a one-minute visual summary of what
+**New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** — a one-minute visual summary of what
 the system does and how each method scored, written for readers without an ML background.
 (Same page as [`overview.html`](overview.html) if you prefer to open it locally.)
 
-▶ **[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)** — paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
+**[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)** — paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
 
-📄 **Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
+**Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
 
 ## The 60-second version
 
@@ -46,7 +46,7 @@ Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** �
 
 ![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo.gif)
 
-▶ **To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
+**To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
 server, works offline either way. Nothing you type leaves your machine.
 
 It has no model and no server-side dependency — it's regex plus a little arithmetic — so a plain page
@@ -56,7 +56,7 @@ version for Hugging Face Spaces lives in [`space/`](space/) (blocked by the free
 the Python one — currently **12/12**.
 
 <details>
-<summary>📊 <b>One-minute visual summary of the whole project</b> (click to expand)</summary>
+<summary><b>One-minute visual summary of the whole project</b> (click to expand)</summary>
 <br>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/overview-dark.png">

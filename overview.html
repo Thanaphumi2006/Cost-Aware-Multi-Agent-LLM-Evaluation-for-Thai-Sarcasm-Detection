@@ -4,105 +4,164 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sarcasm Detector — Simple Overview</title>
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper:#EDF1F0; --surface:#FFFFFF; --rule:#C7D2D0;
-    --text:#16292D; --mute:#52676A;
-    --free:#17877A; --free-bg:#D6EDE9;
-    --paid:#A9680F;
-    --code-bg:#10262A; --code-fg:#DCE7E6;
+    --paper:#FBF7EE; --surface:#FFFFFF; --rule:#2E2A23;
+    --ink:#2E2A23; --text:#2E2A23; --mute:#6E6657;
+    --free:#1E8A6E; --free-bg:#DDF0E5;
+    --paid:#C4622A;
+    --code-bg:#2C2A24; --code-fg:#E8E2D2;
+    --shadow:3px 4px 0 rgba(46,42,35,.16);
 
-    --display: Georgia, "Times New Roman", "Noto Serif Thai", serif;
-    --body: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --display:"Mali", "Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --body:"Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --mono:"Itim", ui-monospace, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --paper:#0D1B1E; --surface:#132528; --rule:#2A4247;
-      --text:#DCE7E6; --mute:#93A8AA;
-      --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --code-bg:#08171A;
+      --paper:#23211C; --surface:#2C2A24; --rule:#E8E2D2;
+      --ink:#E8E2D2; --text:#E8E2D2; --mute:#A99F8C;
+      --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62;
+      --code-bg:#1B1916; --code-fg:#E8E2D2;
+      --shadow:3px 4px 0 rgba(0,0,0,.35);
     }
   }
   :root[data-theme="light"] {
-    --paper:#EDF1F0; --surface:#FFFFFF; --rule:#C7D2D0; --text:#16292D; --mute:#52676A;
-    --free:#17877A; --free-bg:#D6EDE9; --paid:#A9680F; --code-bg:#10262A;
+    --paper:#FBF7EE; --surface:#FFFFFF; --rule:#2E2A23; --ink:#2E2A23; --text:#2E2A23;
+    --mute:#6E6657; --free:#1E8A6E; --free-bg:#DDF0E5; --paid:#C4622A;
+    --code-bg:#2C2A24; --code-fg:#E8E2D2; --shadow:3px 4px 0 rgba(46,42,35,.16);
   }
   :root[data-theme="dark"] {
-    --paper:#0D1B1E; --surface:#132528; --rule:#2A4247; --text:#DCE7E6; --mute:#93A8AA;
-    --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --code-bg:#08171A;
+    --paper:#23211C; --surface:#2C2A24; --rule:#E8E2D2; --ink:#E8E2D2; --text:#E8E2D2;
+    --mute:#A99F8C; --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62;
+    --code-bg:#1B1916; --code-fg:#E8E2D2; --shadow:3px 4px 0 rgba(0,0,0,.35);
   }
 
   * { box-sizing: border-box; }
   body {
     background: var(--paper); color: var(--text); font-family: var(--body);
     font-size: 18px; line-height: 1.72; margin: 0; -webkit-font-smoothing: antialiased;
+    background-image:radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
+    background-size:22px 22px;
   }
   .wrap {
     max-width: 40rem; margin: 0 auto;
     padding: clamp(1.5rem, 6vw, 3.5rem);
-    display: flex; flex-direction: column; gap: clamp(3rem, 8vw, 4.5rem);
+    display: flex; flex-direction: column; gap: clamp(2.6rem, 7vw, 4rem);
   }
 
-  h1, h2 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; line-height: 1.2; }
-  h1 { font-size: clamp(2rem, 6.5vw, 2.8rem); letter-spacing: -0.015em; }
-  h2 { font-size: clamp(1.3rem, 3.6vw, 1.6rem); }
+  h1, h2 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; line-height: 1.25; }
+  h1 { font-size: clamp(2rem, 6.5vw, 2.7rem); }
+  h2 { font-size: clamp(1.3rem, 3.6vw, 1.55rem); }
   p { margin: 0; }
   section { display: flex; flex-direction: column; gap: 1.25rem; }
   header { display: flex; flex-direction: column; gap: 1.2rem; }
 
-  .big { font-size: clamp(1.06rem, 2.5vw, 1.22rem); color: var(--mute); }
+  .wob {
+    border:2px solid var(--rule);
+    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+  .wob-b { border-radius:15px 225px 15px 255px / 255px 15px 225px 15px; }
+
+  /* masking-tape strips so cards feel stuck on the page */
+  .tape { position:relative; }
+  .tape::before {
+    content:""; position:absolute; top:-13px; left:50%; width:88px; height:25px;
+    transform:translateX(-50%) rotate(-2.5deg);
+    background:color-mix(in srgb, var(--paid) 16%, var(--paper));
+    border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    opacity:.9; pointer-events:none;
+  }
+  .tape.t-r::before { transform:translateX(-50%) rotate(2deg); left:22%; }
+
+  /* hand-marker scribble under headings */
+  h2 { align-self:flex-start; }
+  h2::after {
+    content:""; display:block; height:7px; width:100%; margin-top:1px;
+    background:var(--free); transform:rotate(-0.6deg);
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpath d='M2 7 q12 -6 24 -2 t22 -1 t26 2 t24 -3 t20 2' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+  }
+  .ic { width:1.1em; height:1.1em; flex:0 0 auto; stroke:currentColor; fill:none;
+        stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; vertical-align:-0.18em; }
+  .squiggle { width:100%; height:14px; color:var(--rule); opacity:.7; }
+
+  .big { font-size: clamp(1.06rem, 2.5vw, 1.2rem); color: var(--mute); }
   .big strong { color: var(--text); font-weight: 600; }
 
   .answer {
-    background: var(--free-bg); border-left: 4px solid var(--free);
-    padding: 1.25rem 1.45rem; font-size: 1.1rem;
+    background: var(--free-bg); border:2px solid var(--free);
+    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
+    box-shadow:var(--shadow); transform:rotate(-0.4deg);
+    padding: 1.2rem 1.45rem; font-size: 1.1rem;
   }
-  .answer strong { color: var(--free); }
+  .answer strong { color: var(--free); font-family:var(--display); }
 
   pre {
     background: var(--code-bg); color: var(--code-fg); margin: 0;
-    padding: 1.3rem 1.4rem; overflow-x: auto; border-radius: 4px;
-    font-family: var(--mono); font-size: 0.92rem; line-height: 1.85;
+    padding: 1.3rem 1.4rem; overflow-x: auto;
+    border:2px solid var(--rule);
+    border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;
+    box-shadow:var(--shadow); transform:rotate(0.25deg);
+    font-family: var(--mono); font-size: 0.95rem; line-height: 1.85;
   }
-  pre .c { color: #7FA8A2; }
-  pre .k { color: #E0A24C; }
-  pre .s { color: #8FD4C4; }
-  pre .n { color: #C9B6E8; }
+  pre .c { color: #9DB8A5; }
+  pre .k { color: #E8A95C; }
+  pre .s { color: #8FD4B4; }
+  pre .n { color: #CDB8E8; }
 
   .bars { display: flex; flex-direction: column; gap: 1.05rem; }
   .bar-row { display: flex; flex-direction: column; gap: 0.35rem; }
-  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 0.95rem; }
-  .bar-name strong { font-weight: 600; }
-  .bar-cost { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 0.97rem; }
+  .bar-name strong { font-weight: 700; font-family:var(--display); }
+  .bar-cost { font-family: var(--display); font-weight:600; font-size: 0.82rem; white-space: nowrap; }
   .bar-cost.paid { color: var(--paid); }
   .bar-cost.free { color: var(--free); }
-  .bar-track { background: var(--surface); border: 1px solid var(--rule); height: 32px; }
-  .bar-fill { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.55rem; }
-  .bar-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.84rem; font-weight: 600; color: #fff; }
-  .f-free .bar-fill { background: var(--free); }
-  .f-paid .bar-fill { background: var(--paid); }
-  .f-mix  .bar-fill { background: linear-gradient(90deg, var(--free), var(--paid)); }
-  .scale-note { font-size: 0.82rem; color: var(--mute); font-family: var(--mono); }
+  .bar-track { background: var(--surface); border:2px solid var(--rule); height: 34px;
+    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; overflow:hidden; }
+  .bar-row:nth-child(even) .bar-track { border-radius:15px 225px 15px 255px / 255px 15px 225px 15px; }
+  .bar-fill { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.6rem;
+    background:repeating-linear-gradient(-55deg, currentColor 0 7px, color-mix(in srgb, currentColor 78%, transparent) 7px 13px); }
+  .bar-val { font-family: var(--display); font-weight:700; font-variant-numeric: tabular-nums;
+    font-size: 0.86rem; color: #fff; text-shadow:0 1px 2px rgba(0,0,0,.35); }
+  .f-free .bar-fill { color: var(--free); }
+  .f-paid .bar-fill { color: var(--paid); }
+  .f-mix  .bar-fill { color: var(--free);
+    background:linear-gradient(90deg, var(--free), var(--paid)); }
+  .scale-note { font-size: 0.84rem; color: var(--mute); }
 
   .takeaway {
-    background: var(--surface); border: 1px solid var(--rule);
-    padding: 1.2rem 1.35rem; font-size: 0.97rem; color: var(--mute);
+    background: var(--surface); border:2px solid var(--rule);
+    border-radius:15px 225px 15px 255px / 255px 15px 225px 15px;
+    box-shadow:var(--shadow); transform:rotate(-0.25deg);
+    padding: 1.15rem 1.35rem; font-size: 0.98rem; color: var(--mute);
   }
   .takeaway strong { color: var(--text); font-weight: 600; }
 
-  footer {
-    border-top: 1px solid var(--rule); padding-top: 1.2rem;
-    font-size: 0.88rem; color: var(--mute);
-  }
+  footer { padding-top: 0.4rem; font-size: 0.9rem; color: var(--mute); }
   footer strong { color: var(--text); font-weight: 600; }
+  a { color: var(--free); text-decoration-style:wavy; text-decoration-thickness:1.5px; text-underline-offset:3px; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="d-spiral">
+      <path d="M12.2 12.4 c0.2 -1.4 1.9 -1.8 2.8 -0.8 c1.3 1.3 0.4 3.6 -1.4 4.2 c-2.6 0.9 -5.1 -1.1 -5.3 -3.8 c-0.3 -3.4 2.8 -6 6.1 -5.8 c4 0.2 6.7 3.8 6.2 7.7 c-0.5 4.4 -4.7 7.3 -9 6.6 C7 19.8 4 15.7 4.8 11.2"/>
+    </g>
+  </defs>
+</svg>
 <div class="wrap">
 
   <header>
     <h1>Only pay the AI when it's actually needed</h1>
+    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M4 8 q14 -8 28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0"
+            fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
     <p class="big">
       The program reads Thai restaurant reviews and decides: is this person being
       <strong>sarcastic</strong>? Someone writing “great service!” when they mean the opposite.
@@ -111,12 +170,13 @@
       Asking OpenAI costs money every single time. So — <strong>can a free program handle the easy
       ones, and only pay for the hard ones?</strong>
     </p>
-    <div class="answer">
+    <div class="answer tape">
       <strong>Yes.</strong> Paying for only 4 sentences out of 10 gave us 95% of the quality
       of paying for all 10. Paying for the other 6 barely helped at all.
     </div>
     <p style="font-size:1.02rem">
-      🌀 <a href="app.html" style="color:var(--free);font-weight:600">Try the free version</a>
+      <svg class="ic" viewBox="0 0 24 24" style="color:var(--free)"><use href="#d-spiral"/></svg>
+      <a href="app.html" style="font-weight:600">Try the free version</a>
       — paste Thai text, runs in your browser, no sign-up and no API key.
     </p>
   </header>
@@ -173,7 +233,7 @@ p = model.predict(text)
     </div>
     <p class="scale-note">bars start at 0.50, not 0, so the differences are visible</p>
 
-    <div class="takeaway">
+    <div class="takeaway tape t-r">
       <strong>The funny one:</strong> “555” is how Thai people type “hahaha”. Checking whether a
       sentence contains it — one line of code, no AI at all — <strong>beat every free AI model</strong>,
       including two built specially for Thai.
@@ -181,7 +241,11 @@ p = model.predict(text)
   </section>
 
   <footer>
-    <p><strong>Worth knowing:</strong> only 127 sentences were tested, and just 30 of them were
+    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M4 9 q18 -9 34 -2 t30 3 t26 -4 t34 1 t28 -3 t30 4 t26 -2 t34 0 t28 2 t26 -3 t34 2 t26 -1"
+            fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <p style="margin-top:0.8rem"><strong>Worth knowing:</strong> only 127 sentences were tested, and just 30 of them were
     sarcastic. That's a small test, so small differences between methods might only be luck.</p>
   </footer>
 
