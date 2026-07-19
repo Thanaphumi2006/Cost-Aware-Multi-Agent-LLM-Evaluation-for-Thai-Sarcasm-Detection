@@ -1,0 +1,10 @@
+{
+  "n": 30,
+  "wall_sec": 19.5,
+  "concurrency": 4,
+  "f1": 0.4,
+  "p50_latency_ms": 2100.0,
+  "p50_argue_ms": 1471.0,
+  "calls": 90,
+  "cost_usd": 0.1655
+}
