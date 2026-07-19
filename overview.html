@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sarcasm Detector — Simple Overview</title>
+
+<style>
+  :root {
+    --paper:#EDF1F0; --surface:#FFFFFF; --rule:#C7D2D0;
+    --text:#16292D; --mute:#52676A;
+    --free:#17877A; --free-bg:#D6EDE9;
+    --paid:#A9680F;
+    --code-bg:#10262A; --code-fg:#DCE7E6;
+
+    --display: Georgia, "Times New Roman", "Noto Serif Thai", serif;
+    --body: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0D1B1E; --surface:#132528; --rule:#2A4247;
+      --text:#DCE7E6; --mute:#93A8AA;
+      --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --code-bg:#08171A;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#EDF1F0; --surface:#FFFFFF; --rule:#C7D2D0; --text:#16292D; --mute:#52676A;
+    --free:#17877A; --free-bg:#D6EDE9; --paid:#A9680F; --code-bg:#10262A;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0D1B1E; --surface:#132528; --rule:#2A4247; --text:#DCE7E6; --mute:#93A8AA;
+    --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --code-bg:#08171A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--text); font-family: var(--body);
+    font-size: 18px; line-height: 1.72; margin: 0; -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 40rem; margin: 0 auto;
+    padding: clamp(1.5rem, 6vw, 3.5rem);
+    display: flex; flex-direction: column; gap: clamp(3rem, 8vw, 4.5rem);
+  }
+
+  h1, h2 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; line-height: 1.2; }
+  h1 { font-size: clamp(2rem, 6.5vw, 2.8rem); letter-spacing: -0.015em; }
+  h2 { font-size: clamp(1.3rem, 3.6vw, 1.6rem); }
+  p { margin: 0; }
+  section { display: flex; flex-direction: column; gap: 1.25rem; }
+  header { display: flex; flex-direction: column; gap: 1.2rem; }
+
+  .big { font-size: clamp(1.06rem, 2.5vw, 1.22rem); color: var(--mute); }
+  .big strong { color: var(--text); font-weight: 600; }
+
+  .answer {
+    background: var(--free-bg); border-left: 4px solid var(--free);
+    padding: 1.25rem 1.45rem; font-size: 1.1rem;
+  }
+  .answer strong { color: var(--free); }
+
+  pre {
+    background: var(--code-bg); color: var(--code-fg); margin: 0;
+    padding: 1.3rem 1.4rem; overflow-x: auto; border-radius: 4px;
+    font-family: var(--mono); font-size: 0.92rem; line-height: 1.85;
+  }
+  pre .c { color: #7FA8A2; }
+  pre .k { color: #E0A24C; }
+  pre .s { color: #8FD4C4; }
+  pre .n { color: #C9B6E8; }
+
+  .bars { display: flex; flex-direction: column; gap: 1.05rem; }
+  .bar-row { display: flex; flex-direction: column; gap: 0.35rem; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 0.95rem; }
+  .bar-name strong { font-weight: 600; }
+  .bar-cost { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; }
+  .bar-cost.paid { color: var(--paid); }
+  .bar-cost.free { color: var(--free); }
+  .bar-track { background: var(--surface); border: 1px solid var(--rule); height: 32px; }
+  .bar-fill { height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 0.55rem; }
+  .bar-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.84rem; font-weight: 600; color: #fff; }
+  .f-free .bar-fill { background: var(--free); }
+  .f-paid .bar-fill { background: var(--paid); }
+  .f-mix  .bar-fill { background: linear-gradient(90deg, var(--free), var(--paid)); }
+  .scale-note { font-size: 0.82rem; color: var(--mute); font-family: var(--mono); }
+
+  .takeaway {
+    background: var(--surface); border: 1px solid var(--rule);
+    padding: 1.2rem 1.35rem; font-size: 0.97rem; color: var(--mute);
+  }
+  .takeaway strong { color: var(--text); font-weight: 600; }
+
+  footer {
+    border-top: 1px solid var(--rule); padding-top: 1.2rem;
+    font-size: 0.88rem; color: var(--mute);
+  }
+  footer strong { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Only pay the AI when it's actually needed</h1>
+    <p class="big">
+      The program reads Thai restaurant reviews and decides: is this person being
+      <strong>sarcastic</strong>? Someone writing “great service!” when they mean the opposite.
+    </p>
+    <p class="big">
+      Asking OpenAI costs money every single time. So — <strong>can a free program handle the easy
+      ones, and only pay for the hard ones?</strong>
+    </p>
+    <div class="answer">
+      <strong>Yes.</strong> Paying for only 4 sentences out of 10 gave us 95% of the quality
+      of paying for all 10. Paying for the other 6 barely helped at all.
+    </div>
+  </header>
+
+  <section>
+    <h2>The whole idea is an if-statement</h2>
+    <p>A small free model reads the sentence and returns a number from 0 to 1 — how sarcastic it looks.</p>
+
+<pre><span class="c"># free, runs on your own laptop</span>
+p = model.predict(text)
+
+<span class="k">if</span> p &lt; <span class="n">0.35</span>:
+    answer = <span class="s">"not sarcastic"</span>   <span class="c"># sure → free</span>
+<span class="k">elif</span> p &gt; <span class="n">0.65</span>:
+    answer = <span class="s">"sarcastic"</span>       <span class="c"># sure → free</span>
+<span class="k">else</span>:
+    answer = ask_openai(text)   <span class="c"># not sure → pay</span></pre>
+
+    <p>
+      That's it. The rest of the project is figuring out
+      <strong>how big that middle gap should be</strong> — small gap means cheap but more mistakes,
+      big gap means you're paying full price again.
+    </p>
+  </section>
+
+  <section>
+    <h2>How good is each method?</h2>
+    <p>
+      Everything was tested on the <strong>same 127 sentences</strong>. Scores run 0 to 1, higher is
+      better. Nothing gets close to 1 — sarcasm is genuinely hard.
+    </p>
+
+    <div class="bars">
+      <div class="bar-row f-paid">
+        <div class="bar-top"><span class="bar-name">Ask OpenAI every time</span><span class="bar-cost paid">costs money</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:91%"><span class="bar-val">0.727</span></div></div>
+      </div>
+      <div class="bar-row f-mix">
+        <div class="bar-top"><span class="bar-name"><strong>This project</strong> — pay only when unsure</span><span class="bar-cost">¼ the price</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:76%"><span class="bar-val">0.690</span></div></div>
+      </div>
+      <div class="bar-row f-free">
+        <div class="bar-top"><span class="bar-name">Small Thai model on your laptop</span><span class="bar-cost free">free</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:48%"><span class="bar-val">0.620</span></div></div>
+      </div>
+      <div class="bar-row f-free">
+        <div class="bar-top"><span class="bar-name">Just checking for “555”</span><span class="bar-cost free">free</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:36%"><span class="bar-val">0.590</span></div></div>
+      </div>
+      <div class="bar-row f-free">
+        <div class="bar-top"><span class="bar-name">Big free AI models on a gaming GPU</span><span class="bar-cost free">free</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:30%"><span class="bar-val">0.576</span></div></div>
+      </div>
+    </div>
+    <p class="scale-note">bars start at 0.50, not 0, so the differences are visible</p>
+
+    <div class="takeaway">
+      <strong>The funny one:</strong> “555” is how Thai people type “hahaha”. Checking whether a
+      sentence contains it — one line of code, no AI at all — <strong>beat every free AI model</strong>,
+      including two built specially for Thai.
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Worth knowing:</strong> only 127 sentences were tested, and just 30 of them were
+    sarcastic. That's a small test, so small differences between methods might only be luck.</p>
+  </footer>
+
+</div>
+</body>
+</html>

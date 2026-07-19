@@ -9,6 +9,9 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
+📊 **New here? Open [`overview.html`](overview.html) in a browser** — a one-minute visual summary of what
+the system does and how each method scored, written for readers without an ML background.
+
 ## The 60-second version
 
 - I put five systems on the same 127 examples and measured four things at once, not just accuracy: **quality (F1),
