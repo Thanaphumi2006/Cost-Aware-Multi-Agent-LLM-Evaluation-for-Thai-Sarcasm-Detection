@@ -38,6 +38,8 @@ import time
 import numpy as np
 import pandas as pd
 
+import envload  # noqa: F401  -- โหลด OPENAI_API_KEY จาก .env ถ้ามี (ใช้ตอน --live)
+
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 GOLD_CSV = os.path.join(HERE, "gold.csv")

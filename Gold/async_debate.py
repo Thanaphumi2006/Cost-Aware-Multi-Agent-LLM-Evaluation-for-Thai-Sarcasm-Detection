@@ -32,6 +32,7 @@ import time
 
 import pandas as pd
 
+import envload  # noqa: F401  -- โหลด OPENAI_API_KEY จาก .env ถ้ามี (ต้องมาก่อน import ที่ใช้คีย์)
 from baseline import MODELS, PRICE_PER_MTOK, metrics
 from multiagent_debate import (ARG_TOKENS, COLS, DEFE_SYS, JUDGE_SYS, PROS_SYS,
                                GOLD_CSV)
