@@ -4,122 +4,195 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ตรวจจับประชดภาษาไทย · Thai Sarcasm Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper:#EDF1F0; --surface:#FFFFFF; --surface-2:#E3E9E8; --rule:#C7D2D0;
-    --text:#16292D; --mute:#52676A;
-    --free:#17877A; --free-bg:#D6EDE9;
-    --paid:#A9680F; --paid-bg:#F7E7CE;
-    --unk:#5A6E71;  --unk-bg:#E3E9E8;
+    --paper:#FBF7EE; --surface:#FFFFFF; --surface-2:#F3EDDE; --rule:#2E2A23;
+    --ink:#2E2A23; --text:#2E2A23; --mute:#6E6657;
+    --free:#1E8A6E; --free-bg:#DDF0E5;
+    --paid:#C4622A; --paid-bg:#FAE6D4;
+    --unk:#6E6657;  --unk-bg:#F3EDDE;
+    --shadow:3px 4px 0 rgba(46,42,35,.16);
 
-    --display: Georgia, "Times New Roman", "Noto Serif Thai", serif;
-    --body: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --display:"Mali", "Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --body:"Itim", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --mono:"Itim", ui-monospace, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --paper:#0D1B1E; --surface:#132528; --surface-2:#1A2F33; --rule:#2A4247;
-      --text:#DCE7E6; --mute:#93A8AA;
-      --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --paid-bg:#3A2C15;
-      --unk:#93A8AA; --unk-bg:#1A2F33;
+      --paper:#23211C; --surface:#2C2A24; --surface-2:#35322A; --rule:#E8E2D2;
+      --ink:#E8E2D2; --text:#E8E2D2; --mute:#A99F8C;
+      --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62; --paid-bg:#42301F;
+      --unk:#A99F8C; --unk-bg:#35322A;
+      --shadow:3px 4px 0 rgba(0,0,0,.35);
     }
   }
   :root[data-theme="light"] {
-    --paper:#EDF1F0; --surface:#FFFFFF; --surface-2:#E3E9E8; --rule:#C7D2D0;
-    --text:#16292D; --mute:#52676A; --free:#17877A; --free-bg:#D6EDE9;
-    --paid:#A9680F; --paid-bg:#F7E7CE; --unk:#5A6E71; --unk-bg:#E3E9E8;
+    --paper:#FBF7EE; --surface:#FFFFFF; --surface-2:#F3EDDE; --rule:#2E2A23;
+    --ink:#2E2A23; --text:#2E2A23; --mute:#6E6657;
+    --free:#1E8A6E; --free-bg:#DDF0E5; --paid:#C4622A; --paid-bg:#FAE6D4;
+    --unk:#6E6657; --unk-bg:#F3EDDE; --shadow:3px 4px 0 rgba(46,42,35,.16);
   }
   :root[data-theme="dark"] {
-    --paper:#0D1B1E; --surface:#132528; --surface-2:#1A2F33; --rule:#2A4247;
-    --text:#DCE7E6; --mute:#93A8AA; --free:#48C9B4; --free-bg:#123833;
-    --paid:#E0A24C; --paid-bg:#3A2C15; --unk:#93A8AA; --unk-bg:#1A2F33;
+    --paper:#23211C; --surface:#2C2A24; --surface-2:#35322A; --rule:#E8E2D2;
+    --ink:#E8E2D2; --text:#E8E2D2; --mute:#A99F8C;
+    --free:#5CC9A6; --free-bg:#1F3B31; --paid:#E89A62; --paid-bg:#42301F;
+    --unk:#A99F8C; --unk-bg:#35322A; --shadow:3px 4px 0 rgba(0,0,0,.35);
   }
 
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; }
   body {
     margin:0; background:var(--paper); color:var(--text);
-    font-family:var(--body); font-size:17px; line-height:1.65;
+    font-family:var(--body); font-size:17.5px; line-height:1.65;
     -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
+    background-size:22px 22px;
   }
   .wrap {
     max-width:56rem; margin:0 auto; padding:clamp(1.25rem,4.5vw,2.75rem);
     display:flex; flex-direction:column; gap:clamp(1.75rem,4vw,2.5rem);
   }
-  h1 { font-family:var(--display); font-size:clamp(1.7rem,4.6vw,2.3rem); margin:0; line-height:1.2; letter-spacing:-0.015em; }
-  h2 { font-family:var(--display); font-size:1.15rem; margin:0; }
+  h1 { font-family:var(--display); font-weight:700; font-size:clamp(1.7rem,4.6vw,2.35rem);
+       margin:0; line-height:1.25; display:flex; align-items:center; gap:0.6rem; }
+  h1 .squig { display:block; }
+  h2 { font-family:var(--display); font-weight:600; font-size:1.2rem; margin:0; }
   p { margin:0; }
   .sub { color:var(--mute); font-size:1.02rem; }
-  .badge {
-    display:inline-block; font-family:var(--mono); font-size:0.72rem; letter-spacing:0.08em;
-    background:var(--free-bg); color:var(--free); padding:0.2rem 0.55rem; border-radius:3px;
+
+  /* ---- doodle building blocks ---- */
+  .wob, .panel, details, .chip, textarea, .tagline {
+    border:2px solid var(--rule);
+    border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
+  }
+  .wob-b { border-radius:15px 225px 15px 255px / 255px 15px 225px 15px; }
+
+  .ic { width:1.15em; height:1.15em; flex:0 0 auto; stroke:currentColor; fill:none;
+        stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+  .ic.big { width:2.2rem; height:2.2rem; stroke-width:2.6; }
+
+  .tagline {
+    display:inline-flex; align-items:center; gap:0.5rem; align-self:flex-start;
+    font-family:var(--display); font-weight:600; font-size:0.8rem; letter-spacing:0.02em;
+    background:var(--free-bg); color:var(--free); border-color:var(--free);
+    padding:0.25rem 0.8rem; transform:rotate(-1.2deg); box-shadow:var(--shadow);
   }
 
-  .grid { display:grid; grid-template-columns:1fr; gap:1.25rem; }
+  .grid { display:grid; grid-template-columns:1fr; gap:1.4rem; }
   @media (min-width:820px) { .grid { grid-template-columns:1fr 1fr; align-items:start; } }
 
-  .panel { background:var(--surface); border:1px solid var(--rule); padding:1.2rem 1.3rem;
-           display:flex; flex-direction:column; gap:0.85rem; }
+  .panel { background:var(--surface); padding:1.25rem 1.35rem;
+           display:flex; flex-direction:column; gap:0.9rem; box-shadow:var(--shadow); }
+  .panel.tilt-l { transform:rotate(-0.35deg); }
+  .panel.tilt-r { transform:rotate(0.3deg); }
 
   textarea {
     width:100%; min-height:9.5rem; resize:vertical; padding:0.85rem 0.95rem;
-    font-family:var(--body); font-size:1.02rem; line-height:1.6;
+    font-family:var(--body); font-size:1.05rem; line-height:1.6;
     background:var(--paper); color:var(--text);
-    border:1px solid var(--rule); border-radius:3px;
   }
-  textarea:focus-visible { outline:2px solid var(--free); outline-offset:1px; }
+  textarea:focus-visible { outline:3px dashed var(--free); outline-offset:2px; }
 
-  .chips { display:flex; flex-wrap:wrap; gap:0.45rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:0.55rem; }
   .chip {
-    font:inherit; font-size:0.84rem; cursor:pointer; text-align:left;
-    background:var(--surface-2); color:var(--text);
-    border:1px solid var(--rule); border-radius:999px; padding:0.32rem 0.75rem;
+    font:inherit; font-size:0.86rem; cursor:pointer; text-align:left;
+    background:var(--surface-2); color:var(--text); padding:0.3rem 0.8rem;
+    box-shadow:2px 2px 0 rgba(46,42,35,.14); transition:transform .08s ease;
   }
-  .chip:hover { border-color:var(--free); color:var(--free); }
-  .chip:focus-visible { outline:2px solid var(--free); outline-offset:1px; }
+  .chip:nth-child(odd) { transform:rotate(-0.8deg); }
+  .chip:nth-child(even) { transform:rotate(0.7deg); }
+  .chip:hover { border-color:var(--free); color:var(--free); transform:rotate(0deg) translateY(-2px); }
+  .chip:focus-visible { outline:3px dashed var(--free); outline-offset:2px; }
 
-  .verdict { display:flex; align-items:center; gap:0.8rem; }
-  .vicon { font-size:2rem; line-height:1; }
-  .vtext { font-family:var(--display); font-size:1.5rem; font-weight:600; }
-  .v-sarc .vtext { color:var(--paid); }
-  .v-gen  .vtext { color:var(--free); }
-  .v-unk  .vtext { color:var(--unk); }
-  .note { font-size:0.94rem; color:var(--mute); }
+  .verdict { display:flex; align-items:center; gap:0.7rem; }
+  .vtext { font-family:var(--display); font-size:1.55rem; font-weight:700; }
+  .v-sarc .vtext, .v-sarc .ic.big { color:var(--paid); }
+  .v-gen  .vtext, .v-gen  .ic.big { color:var(--free); }
+  .v-unk  .vtext, .v-unk  .ic.big { color:var(--unk); }
+  .note { font-size:0.95rem; color:var(--mute); }
+  .empty { display:flex; align-items:center; gap:0.7rem; color:var(--mute); }
+  .empty .ic { width:1.6rem; height:1.6rem; }
 
-  .meter { height:9px; background:var(--surface-2); border-radius:999px; overflow:hidden; }
-  .meter span { display:block; height:100%; border-radius:999px; transition:width .25s ease; }
-  .v-sarc .meter span { background:var(--paid); }
-  .v-gen  .meter span { background:var(--free); }
-  .v-unk  .meter span { background:var(--unk); }
-  .score { font-family:var(--mono); font-size:0.82rem; color:var(--mute); font-variant-numeric:tabular-nums; }
+  .meter { height:14px; background:var(--surface-2); border:2px solid var(--rule);
+           border-radius:255px 15px 225px 15px / 15px 225px 15px 255px; overflow:hidden; }
+  .meter span { display:block; height:100%; transition:width .25s ease;
+    background:repeating-linear-gradient(-55deg, currentColor 0 6px, transparent 6px 11px); }
+  .v-sarc .meter span { color:var(--paid); }
+  .v-gen  .meter span { color:var(--free); }
+  .v-unk  .meter span { color:var(--unk); }
+  .score { font-size:0.85rem; color:var(--mute); font-variant-numeric:tabular-nums; }
 
-  table { border-collapse:collapse; width:100%; font-size:0.88rem; }
-  th, td { text-align:left; padding:0.5rem 0.6rem; border-bottom:1px solid var(--rule); vertical-align:top; }
-  thead th { font-family:var(--mono); font-size:0.68rem; letter-spacing:0.09em; text-transform:uppercase;
-             color:var(--mute); font-weight:500; }
+  table { border-collapse:collapse; width:100%; font-size:0.9rem; }
+  th, td { text-align:left; padding:0.5rem 0.6rem; vertical-align:top;
+           border-bottom:2px dashed color-mix(in srgb, var(--rule) 45%, transparent); }
+  thead th { font-family:var(--display); font-weight:600; font-size:0.78rem;
+             letter-spacing:0.06em; color:var(--mute); }
   tbody tr:last-child td { border-bottom:none; }
-  .cue { font-family:var(--mono); font-weight:600; }
-  .dir-up { color:var(--paid); font-family:var(--mono); font-size:0.82rem; white-space:nowrap; }
-  .dir-dn { color:var(--free); font-family:var(--mono); font-size:0.82rem; white-space:nowrap; }
+  .cue { font-family:var(--display); font-weight:700; }
+  .dir-up { color:var(--paid); font-size:0.85rem; white-space:nowrap; }
+  .dir-dn { color:var(--free); font-size:0.85rem; white-space:nowrap; }
   .why { color:var(--mute); }
 
-  details { background:var(--surface); border:1px solid var(--rule); padding:1rem 1.2rem; }
-  summary { cursor:pointer; font-weight:600; }
+  details { background:var(--surface); padding:1rem 1.25rem; box-shadow:var(--shadow);
+            transform:rotate(-0.2deg); }
+  summary { cursor:pointer; font-family:var(--display); font-weight:600;
+            display:flex; align-items:center; gap:0.55rem; }
+  summary::-webkit-details-marker { display:none; }
   details[open] summary { margin-bottom:0.7rem; }
   details ul { margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:0.5rem; }
-  details li { font-size:0.9rem; color:var(--mute); line-height:1.55; }
+  details li { font-size:0.92rem; color:var(--mute); line-height:1.55; }
   details li strong { color:var(--text); }
 
-  footer { border-top:1px solid var(--rule); padding-top:1rem; font-size:0.85rem; color:var(--mute); }
-  a { color:var(--free); }
-  @media (prefers-reduced-motion:reduce) { .meter span { transition:none; } }
+  .squiggle { width:100%; height:14px; color:var(--rule); opacity:.7; }
+  footer { padding-top:0.4rem; font-size:0.88rem; color:var(--mute); }
+  a { color:var(--free); text-decoration-style:wavy; text-decoration-thickness:1.5px; text-underline-offset:3px; }
+  @media (prefers-reduced-motion:reduce) { .meter span, .chip { transition:none; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- hand-drawn icon set (stroke doodles, no emoji) -->
+    <g id="d-spiral">
+      <path d="M12.2 12.4 c0.2 -1.4 1.9 -1.8 2.8 -0.8 c1.3 1.3 0.4 3.6 -1.4 4.2 c-2.6 0.9 -5.1 -1.1 -5.3 -3.8 c-0.3 -3.4 2.8 -6 6.1 -5.8 c4 0.2 6.7 3.8 6.2 7.7 c-0.5 4.4 -4.7 7.3 -9 6.6 C7 19.8 4 15.7 4.8 11.2"/>
+    </g>
+    <g id="d-bubble">
+      <path d="M4.5 6.2 C4.3 4.9 5.3 4 6.6 4 h10.9 c1.3 0 2.3 0.9 2.2 2.2 l-0.3 7.2 c0 1.2 -1 2 -2.2 2 H10.5 l-3.6 3.8 0.3 -3.8 H6.4 c-1.2 0 -2.1 -0.8 -2.1 -2 z"/>
+      <path d="M8.2 8.4 h7.6 M8.4 11.2 h5.2"/>
+    </g>
+    <g id="d-think">
+      <path d="M9 4.6 C13 3.2 18 5 18.7 9.2 c0.7 4 -2 7.6 -6.2 8.1 C8.3 17.8 5 15.3 4.8 11.4 4.7 8.4 6.3 5.8 9 4.6 z"/>
+      <path d="M9.4 10.1 c0 -1.6 2.3 -2.1 3.1 -0.8 0.7 1.1 -0.3 1.9 -1.2 2.4 -0.5 0.3 -0.7 0.7 -0.7 1.3 M10.7 15.8 l0.1 0.1"/>
+    </g>
+    <g id="d-arrow-l">
+      <path d="M19.5 12.2 C14.5 11.6 9.8 11.8 5.6 12.1 M9.2 8 c-1.6 1.5 -3 2.8 -4.3 4.1 1.5 1.3 2.9 2.6 4.1 4.1"/>
+    </g>
+    <g id="d-warn">
+      <path d="M11.2 4.4 c0.5 -0.9 1.3 -0.9 1.8 0 l7 12.6 c0.5 0.9 0 1.9 -1 1.9 H5.2 c-1 0 -1.5 -1 -1 -1.9 z"/>
+      <path d="M12 9 l0.1 4.6 M12.1 16.2 l0.1 0.1"/>
+    </g>
+    <g id="d-pencil">
+      <path d="M5 19 l0.9 -3.6 L16.4 4.9 c0.8 -0.8 2 -0.8 2.7 0 0.8 0.8 0.8 2 0 2.7 L8.6 18.1 z M14.8 6.6 l2.6 2.6"/>
+    </g>
+  </defs>
+</svg>
+
 <div class="wrap">
 
-  <header style="display:flex;flex-direction:column;gap:0.7rem">
-    <span class="badge">ฟรี 100% · ทำงานในเบราว์เซอร์ · ไม่ส่งข้อมูลออกไปไหน</span>
-    <h1>🌀 ตรวจจับประชดภาษาไทย</h1>
+  <header style="display:flex;flex-direction:column;gap:0.8rem">
+    <span class="tagline">
+      <svg class="ic" viewBox="0 0 24 24"><use href="#d-bubble"/></svg>
+      ฟรี 100% · ทำงานในเบราว์เซอร์ · ไม่ส่งข้อมูลออกไปไหน
+    </span>
+    <h1>
+      <svg class="ic big" viewBox="0 0 24 24" style="color:var(--free)"><use href="#d-spiral"/></svg>
+      ตรวจจับประชดภาษาไทย
+    </h1>
+    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M4 8 q14 -8 28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0"
+            fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
     <p class="sub">
       พิมพ์ข้อความภาษาไทย ระบบจะบอกว่า <strong>ประชด / ไม่ประชด / บอกไม่ได้</strong>
       พร้อมแสดงเหตุผลว่าดูจากสัญญาณอะไร
@@ -127,23 +200,27 @@
   </header>
 
   <div class="grid">
-    <div class="panel">
-      <label for="inp" style="font-weight:600">ข้อความภาษาไทย</label>
-      <textarea id="inp" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555"
+    <div class="panel tilt-l">
+      <label for="inp" style="font-family:var(--display);font-weight:600;display:flex;align-items:center;gap:0.5rem">
+        <svg class="ic" viewBox="0 0 24 24"><use href="#d-pencil"/></svg> ข้อความภาษาไทย
+      </label>
+      <textarea id="inp" class="wob-b" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555"
                 autocomplete="off" spellcheck="false"></textarea>
       <div>
-        <p style="font-size:0.85rem;color:var(--mute);margin-bottom:0.45rem">ลองตัวอย่าง:</p>
+        <p style="font-size:0.88rem;color:var(--mute);margin-bottom:0.5rem">ลองตัวอย่าง:</p>
         <div class="chips" id="chips"></div>
       </div>
     </div>
 
-    <div class="panel" id="out">
-      <p class="note">⬅️ พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>
+    <div class="panel tilt-r" id="out">
+      <p class="empty"><svg class="ic" viewBox="0 0 24 24"><use href="#d-arrow-l"/></svg>
+      พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>
     </div>
   </div>
 
-  <details>
-    <summary>⚠️ อ่านก่อนเชื่อผลลัพธ์</summary>
+  <details class="wob-b">
+    <summary><svg class="ic" viewBox="0 0 24 24" style="color:var(--paid)"><use href="#d-warn"/></svg>
+    อ่านก่อนเชื่อผลลัพธ์</summary>
     <ul>
       <li><strong>ระบบนี้อ่านแค่ “สัญญาณผิวๆ” ไม่ได้เข้าใจภาษา</strong> — ประชดที่เขียนแนบเนียนโดยไม่มี
           <code>555</code> / สระยืด / <code>??</code> ระบบจะตอบว่า <strong>บอกไม่ได้</strong> ไม่ใช่ตอบว่าไม่ประชด</li>
@@ -158,7 +235,11 @@
   </details>
 
   <footer>
-    <p>
+    <svg class="squiggle" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M4 8 q14 -8 28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0 t28 0"
+            fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+    <p style="margin-top:0.6rem">
       ส่วนหนึ่งของงานวิจัย <em>Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection</em> —
       ระบบเต็มส่งเฉพาะประโยคที่ <em>ไม่แน่ใจ</em> ไปให้ GPT ตัดสิน จ่ายราว 40% ของราคาเต็มแต่ได้คุณภาพราว 95%
       · <a href="https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection">โค้ดและผลการทดลองทั้งหมด</a>
@@ -195,33 +276,36 @@ const EXAMPLES = [
 const esc = s => s.replace(/[&<>"']/g, m =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
+const icon = id =>
+  `<svg class="ic big" viewBox="0 0 24 24"><use href="#${id}"/></svg>`;
+
 const inp = document.getElementById("inp");
 const out = document.getElementById("out");
 
 function render() {
   const text = inp.value.trim();
   if (!text) {
-    out.className = "panel";
-    out.innerHTML = '<p class="note">⬅️ พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>';
+    out.className = "panel tilt-r";
+    out.innerHTML = '<p class="empty"><svg class="ic" viewBox="0 0 24 24"><use href="#d-arrow-l"/></svg> พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>';
     return;
   }
   const hits = findCues(text);
   const s = cueScore(hits);
 
-  let cls, icon, label, note;
+  let cls, ic, label, note;
   if (hits.length === 0) {
-    cls = "v-unk"; icon = "🤔"; label = "บอกไม่ได้";
+    cls = "v-unk"; ic = icon("d-think"); label = "บอกไม่ได้";
     note = "ไม่พบสัญญาณผิวๆ ที่ระบบรู้จักเลย ระบบนี้อ่านจาก cue เชิงคำเท่านั้น จึงตอบไม่ได้ว่าประโยคนี้ประชดหรือไม่ — <strong>และจะไม่เดาให้</strong>";
   } else if (s > 0) {
-    cls = "v-sarc"; icon = "🌀"; label = "น่าจะประชด";
+    cls = "v-sarc"; ic = icon("d-spiral"); label = "น่าจะประชด";
     note = "พบสัญญาณที่มักปรากฏในข้อความประชด";
   } else {
-    cls = "v-gen"; icon = "💬"; label = "น่าจะไม่ประชด";
+    cls = "v-gen"; ic = icon("d-bubble"); label = "น่าจะไม่ประชด";
     note = "พบสัญญาณที่มักปรากฏในข้อความปกติ (ไม่ประชด)";
   }
 
   const strength = Math.min(Math.abs(s) / 3, 1);
-  let html = `<div class="verdict"><span class="vicon">${icon}</span><span class="vtext">${label}</span></div>
+  let html = `<div class="verdict">${ic}<span class="vtext">${label}</span></div>
               <p class="note">${note}</p>`;
 
   if (hits.length) {
@@ -238,7 +322,7 @@ function render() {
     html += `</tbody></table>
              <p class="score">“2.46×” = พบ cue นี้แล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย 2.46 เท่า (วัดจาก 127 ประโยค)</p>`;
   }
-  out.className = "panel " + cls;
+  out.className = "panel tilt-r " + cls;
   out.innerHTML = html;
 }
 
