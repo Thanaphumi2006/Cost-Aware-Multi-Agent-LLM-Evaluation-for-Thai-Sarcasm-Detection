@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตรวจจับประชดภาษาไทย · Thai Sarcasm Detector</title>
+<style>
+  :root {
+    --paper:#EDF1F0; --surface:#FFFFFF; --surface-2:#E3E9E8; --rule:#C7D2D0;
+    --text:#16292D; --mute:#52676A;
+    --free:#17877A; --free-bg:#D6EDE9;
+    --paid:#A9680F; --paid-bg:#F7E7CE;
+    --unk:#5A6E71;  --unk-bg:#E3E9E8;
+
+    --display: Georgia, "Times New Roman", "Noto Serif Thai", serif;
+    --body: system-ui, -apple-system, "Segoe UI", "Leelawadee UI", "Noto Sans Thai", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0D1B1E; --surface:#132528; --surface-2:#1A2F33; --rule:#2A4247;
+      --text:#DCE7E6; --mute:#93A8AA;
+      --free:#48C9B4; --free-bg:#123833; --paid:#E0A24C; --paid-bg:#3A2C15;
+      --unk:#93A8AA; --unk-bg:#1A2F33;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper:#EDF1F0; --surface:#FFFFFF; --surface-2:#E3E9E8; --rule:#C7D2D0;
+    --text:#16292D; --mute:#52676A; --free:#17877A; --free-bg:#D6EDE9;
+    --paid:#A9680F; --paid-bg:#F7E7CE; --unk:#5A6E71; --unk-bg:#E3E9E8;
+  }
+  :root[data-theme="dark"] {
+    --paper:#0D1B1E; --surface:#132528; --surface-2:#1A2F33; --rule:#2A4247;
+    --text:#DCE7E6; --mute:#93A8AA; --free:#48C9B4; --free-bg:#123833;
+    --paid:#E0A24C; --paid-bg:#3A2C15; --unk:#93A8AA; --unk-bg:#1A2F33;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--text);
+    font-family:var(--body); font-size:17px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap {
+    max-width:56rem; margin:0 auto; padding:clamp(1.25rem,4.5vw,2.75rem);
+    display:flex; flex-direction:column; gap:clamp(1.75rem,4vw,2.5rem);
+  }
+  h1 { font-family:var(--display); font-size:clamp(1.7rem,4.6vw,2.3rem); margin:0; line-height:1.2; letter-spacing:-0.015em; }
+  h2 { font-family:var(--display); font-size:1.15rem; margin:0; }
+  p { margin:0; }
+  .sub { color:var(--mute); font-size:1.02rem; }
+  .badge {
+    display:inline-block; font-family:var(--mono); font-size:0.72rem; letter-spacing:0.08em;
+    background:var(--free-bg); color:var(--free); padding:0.2rem 0.55rem; border-radius:3px;
+  }
+
+  .grid { display:grid; grid-template-columns:1fr; gap:1.25rem; }
+  @media (min-width:820px) { .grid { grid-template-columns:1fr 1fr; align-items:start; } }
+
+  .panel { background:var(--surface); border:1px solid var(--rule); padding:1.2rem 1.3rem;
+           display:flex; flex-direction:column; gap:0.85rem; }
+
+  textarea {
+    width:100%; min-height:9.5rem; resize:vertical; padding:0.85rem 0.95rem;
+    font-family:var(--body); font-size:1.02rem; line-height:1.6;
+    background:var(--paper); color:var(--text);
+    border:1px solid var(--rule); border-radius:3px;
+  }
+  textarea:focus-visible { outline:2px solid var(--free); outline-offset:1px; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:0.45rem; }
+  .chip {
+    font:inherit; font-size:0.84rem; cursor:pointer; text-align:left;
+    background:var(--surface-2); color:var(--text);
+    border:1px solid var(--rule); border-radius:999px; padding:0.32rem 0.75rem;
+  }
+  .chip:hover { border-color:var(--free); color:var(--free); }
+  .chip:focus-visible { outline:2px solid var(--free); outline-offset:1px; }
+
+  .verdict { display:flex; align-items:center; gap:0.8rem; }
+  .vicon { font-size:2rem; line-height:1; }
+  .vtext { font-family:var(--display); font-size:1.5rem; font-weight:600; }
+  .v-sarc .vtext { color:var(--paid); }
+  .v-gen  .vtext { color:var(--free); }
+  .v-unk  .vtext { color:var(--unk); }
+  .note { font-size:0.94rem; color:var(--mute); }
+
+  .meter { height:9px; background:var(--surface-2); border-radius:999px; overflow:hidden; }
+  .meter span { display:block; height:100%; border-radius:999px; transition:width .25s ease; }
+  .v-sarc .meter span { background:var(--paid); }
+  .v-gen  .meter span { background:var(--free); }
+  .v-unk  .meter span { background:var(--unk); }
+  .score { font-family:var(--mono); font-size:0.82rem; color:var(--mute); font-variant-numeric:tabular-nums; }
+
+  table { border-collapse:collapse; width:100%; font-size:0.88rem; }
+  th, td { text-align:left; padding:0.5rem 0.6rem; border-bottom:1px solid var(--rule); vertical-align:top; }
+  thead th { font-family:var(--mono); font-size:0.68rem; letter-spacing:0.09em; text-transform:uppercase;
+             color:var(--mute); font-weight:500; }
+  tbody tr:last-child td { border-bottom:none; }
+  .cue { font-family:var(--mono); font-weight:600; }
+  .dir-up { color:var(--paid); font-family:var(--mono); font-size:0.82rem; white-space:nowrap; }
+  .dir-dn { color:var(--free); font-family:var(--mono); font-size:0.82rem; white-space:nowrap; }
+  .why { color:var(--mute); }
+
+  details { background:var(--surface); border:1px solid var(--rule); padding:1rem 1.2rem; }
+  summary { cursor:pointer; font-weight:600; }
+  details[open] summary { margin-bottom:0.7rem; }
+  details ul { margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:0.5rem; }
+  details li { font-size:0.9rem; color:var(--mute); line-height:1.55; }
+  details li strong { color:var(--text); }
+
+  footer { border-top:1px solid var(--rule); padding-top:1rem; font-size:0.85rem; color:var(--mute); }
+  a { color:var(--free); }
+  @media (prefers-reduced-motion:reduce) { .meter span { transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header style="display:flex;flex-direction:column;gap:0.7rem">
+    <span class="badge">ฟรี 100% · ทำงานในเบราว์เซอร์ · ไม่ส่งข้อมูลออกไปไหน</span>
+    <h1>🌀 ตรวจจับประชดภาษาไทย</h1>
+    <p class="sub">
+      พิมพ์ข้อความภาษาไทย ระบบจะบอกว่า <strong>ประชด / ไม่ประชด / บอกไม่ได้</strong>
+      พร้อมแสดงเหตุผลว่าดูจากสัญญาณอะไร
+    </p>
+  </header>
+
+  <div class="grid">
+    <div class="panel">
+      <label for="inp" style="font-weight:600">ข้อความภาษาไทย</label>
+      <textarea id="inp" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555"
+                autocomplete="off" spellcheck="false"></textarea>
+      <div>
+        <p style="font-size:0.85rem;color:var(--mute);margin-bottom:0.45rem">ลองตัวอย่าง:</p>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="out">
+      <p class="note">⬅️ พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>
+    </div>
+  </div>
+
+  <details>
+    <summary>⚠️ อ่านก่อนเชื่อผลลัพธ์</summary>
+    <ul>
+      <li><strong>ระบบนี้อ่านแค่ “สัญญาณผิวๆ” ไม่ได้เข้าใจภาษา</strong> — ประชดที่เขียนแนบเนียนโดยไม่มี
+          <code>555</code> / สระยืด / <code>??</code> ระบบจะตอบว่า <strong>บอกไม่ได้</strong> ไม่ใช่ตอบว่าไม่ประชด</li>
+      <li><strong>ความแม่นยำราว F1 0.59</strong> วัดบนชุดข้อมูล 127 ประโยค — GPT-4o ได้ราว 0.73
+          งานนี้ยากจริงสำหรับทุกวิธี</li>
+      <li><strong>สัญญาณมาจากภาษาโซเชียลไทย</strong> (รีวิว Wongnai + ทวีต Wisesight)
+          กับข้อความทางการหรือคนละโดเมนจะแม่นน้อยลงมาก (วัดแล้ว: precision ตก 0.68 → 0.40)</li>
+      <li><strong>ทำไมไม่ใช้โมเดล AI?</strong> ลองแล้ว — fine-tune WangchanBERTa บนข้อมูลชุดนี้
+          แล้ววัดได้ว่า <strong>แย่กว่า</strong>: บนประโยคใหม่โมเดลตอบ “ประชด” เกือบทุกอย่าง (ถูก 5/10 = เดาสุ่ม)
+          ส่วน cue เชิงคำได้ <strong>8/10</strong> · 127 ประโยคน้อยเกินกว่าโมเดลจะเรียนรู้ประชดได้จริง</li>
+    </ul>
+  </details>
+
+  <footer>
+    <p>
+      ส่วนหนึ่งของงานวิจัย <em>Cost-Aware Multi-Agent LLM Evaluation for Thai Sarcasm Detection</em> —
+      ระบบเต็มส่งเฉพาะประโยคที่ <em>ไม่แน่ใจ</em> ไปให้ GPT ตัดสิน จ่ายราว 40% ของราคาเต็มแต่ได้คุณภาพราว 95%
+      · <a href="https://github.com/Thanaphumi2006/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection">โค้ดและผลการทดลองทั้งหมด</a>
+      · <a href="overview.html">สรุปโปรเจกต์แบบเห็นภาพ</a>
+    </p>
+  </footer>
+</div>
+
+<script>
+// ---- cue: พอร์ตตรงจาก space/app.py · lift วัดจาก gold 127 ข้อ (finding 14) ----
+// ต้องให้ผลตรงกับฝั่ง Python เป๊ะ -- ตรวจสอบด้วย verify_port.py
+const CUES = [
+  { name: "555",          re: /555/,       lift: 2.46, why: "“555” = เสียงหัวเราะ มักมาคู่กับการเหน็บ" },
+  { name: "??",           re: /[?]{2,}/,   lift: 2.54, why: "เครื่องหมายคำถามซ้ำ = ตั้งคำถามเชิงประชด" },
+  { name: "ตัวอักษรยืด",  re: /(.)\1{2,}/, lift: 1.69, why: "เช่น “ดีมากกกก” = เน้นเกินจริง" },
+  { name: "จ้า",           re: /จ้า/,        lift: 1.32, why: "น้ำเสียงกันเอง มักใช้เหน็บ" },
+  { name: "ค่ะ",           re: /ค่ะ/,        lift: 0.40, why: "คำสุภาพ — พบในข้อความ*ไม่*ประชดมากกว่า" },
+  { name: "นะคะ",          re: /นะคะ/,       lift: 0.22, why: "คำสุภาพ — สัญญาณค่อนไปทาง*ไม่*ประชด" },
+  { name: "ครับ",          re: /ครับ/,       lift: 0.05, why: "ในชุดข้อมูลนี้ “ครับ” ไม่เคยอยู่ในข้อความประชดเลย" },
+];
+
+const findCues = t => CUES.filter(c => c.re.test(t));
+// ผลรวมของ log(lift) -- บวก = เอนไปทางประชด · ตรงกับ cue_score() ใน space/app.py
+const cueScore = hits => hits.reduce((s, c) => s + Math.log(Math.max(c.lift, 0.05)), 0);
+
+const EXAMPLES = [
+  "บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555",
+  "อาหารอร่อยมากค่ะ พนักงานน่ารัก จะกลับมาอีกแน่นอน",
+  "ขอบคุณที่ยกเลิกออเดอร์ตอนรอมา 2 ชั่วโมง จ้า",
+  "ราคาสมเหตุสมผล ของสดใหม่ แนะนำครับ",
+  "ดีจังเลย ฝนตกตอนลืมร่มพอดี",
+];
+
+const esc = s => s.replace(/[&<>"']/g, m =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+
+const inp = document.getElementById("inp");
+const out = document.getElementById("out");
+
+function render() {
+  const text = inp.value.trim();
+  if (!text) {
+    out.className = "panel";
+    out.innerHTML = '<p class="note">⬅️ พิมพ์ข้อความทางซ้าย ผลลัพธ์จะขึ้นที่นี่ทันที</p>';
+    return;
+  }
+  const hits = findCues(text);
+  const s = cueScore(hits);
+
+  let cls, icon, label, note;
+  if (hits.length === 0) {
+    cls = "v-unk"; icon = "🤔"; label = "บอกไม่ได้";
+    note = "ไม่พบสัญญาณผิวๆ ที่ระบบรู้จักเลย ระบบนี้อ่านจาก cue เชิงคำเท่านั้น จึงตอบไม่ได้ว่าประโยคนี้ประชดหรือไม่ — <strong>และจะไม่เดาให้</strong>";
+  } else if (s > 0) {
+    cls = "v-sarc"; icon = "🌀"; label = "น่าจะประชด";
+    note = "พบสัญญาณที่มักปรากฏในข้อความประชด";
+  } else {
+    cls = "v-gen"; icon = "💬"; label = "น่าจะไม่ประชด";
+    note = "พบสัญญาณที่มักปรากฏในข้อความปกติ (ไม่ประชด)";
+  }
+
+  const strength = Math.min(Math.abs(s) / 3, 1);
+  let html = `<div class="verdict"><span class="vicon">${icon}</span><span class="vtext">${label}</span></div>
+              <p class="note">${note}</p>`;
+
+  if (hits.length) {
+    html += `<div class="meter"><span style="width:${(strength * 100).toFixed(0)}%"></span></div>
+             <p class="score">ความแรงของสัญญาณ ${(strength * 100).toFixed(0)}% · คะแนนรวม ${s >= 0 ? "+" : ""}${s.toFixed(2)}</p>
+             <h2>สัญญาณที่พบ</h2>
+             <table><thead><tr><th>cue</th><th>ทิศทาง</th><th>ทำไม</th></tr></thead><tbody>`;
+    for (const c of [...hits].sort((a, b) => b.lift - a.lift)) {
+      const dir = c.lift >= 1.5 ? `<span class="dir-up">↑↑ ประชด ${c.lift.toFixed(2)}×</span>`
+                : c.lift > 1.0  ? `<span class="dir-up">↑ ประชด ${c.lift.toFixed(2)}×</span>`
+                                : `<span class="dir-dn">↓ ไม่ประชด ${c.lift.toFixed(2)}×</span>`;
+      html += `<tr><td class="cue">${esc(c.name)}</td><td>${dir}</td><td class="why">${esc(c.why)}</td></tr>`;
+    }
+    html += `</tbody></table>
+             <p class="score">“2.46×” = พบ cue นี้แล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย 2.46 เท่า (วัดจาก 127 ประโยค)</p>`;
+  }
+  out.className = "panel " + cls;
+  out.innerHTML = html;
+}
+
+const chips = document.getElementById("chips");
+EXAMPLES.forEach(ex => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip";
+  b.textContent = ex.length > 34 ? ex.slice(0, 33) + "…" : ex;
+  b.title = ex;
+  b.addEventListener("click", () => { inp.value = ex; render(); inp.focus(); });
+  chips.appendChild(b);
+});
+
+inp.addEventListener("input", render);
+render();
+</script>
+</body>
+</html>
