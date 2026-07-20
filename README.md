@@ -58,10 +58,7 @@ the Python one — currently **12/12**.
 <details>
 <summary><b>One-minute visual summary of the whole project</b> (click to expand)</summary>
 <br>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/overview-dark.png">
-  <img alt="Project overview: paying for only 4 sentences in 10 gave 95% of the quality of paying for all 10. The whole system is an if-statement. Bar chart comparing methods: asking OpenAI every time 0.727, this project 0.690 at a quarter the price, small Thai model 0.620, checking for '555' 0.590, big free AI models 0.576." src="docs/overview-light.png">
-</picture>
+<img alt="Project overview in hand-drawn doodle style: paying for only 4 sentences in 10 gave 95% of the quality of paying for all 10. The whole system is an if-statement. Bar chart comparing methods: asking OpenAI every time 0.727, this project 0.690 at a quarter the price, small Thai model 0.620, checking for '555' 0.590, big free AI models 0.576." src="docs/overview-light.png">
 <br><br>
 Source: <a href="overview.html">overview.html</a> — open it locally for the live version.
 </details>
