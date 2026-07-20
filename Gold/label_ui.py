@@ -25,6 +25,8 @@ ROOT = os.path.dirname(HERE)
 QUEUES = {
     "harvest": (os.path.join(HERE, "harvest_to_review.csv"), "label"),
     "batch400": (os.path.join(ROOT, "to_label_reviewed.csv"), "human_label"),
+    # กองสุ่มจริงจาก raw pool (ไม่ผ่านตัวกรองใดๆ) -- ไว้ทำ absolute number ที่อ่านได้
+    "random": (os.path.join(HERE, "random_to_label.csv"), "label"),
 }
 GOLD = os.path.join(HERE, "gold.csv")
 GOLD_V2 = os.path.join(HERE, "gold_v2.csv")
@@ -169,6 +171,7 @@ color:#fff;border-radius:20px;padding:8px 20px;font-size:13px;opacity:0;transiti
     <div class="tabs">
       <button class="tab" id="tab-harvest" onclick="setQueue('harvest')">harvest (470)</button>
       <button class="tab" id="tab-batch400" onclick="setQueue('batch400')">batch400 (284)</button>
+      <button class="tab" id="tab-random" onclick="setQueue('random')">random (250)</button>
     </div>
     <div class="bar"><i id="bar" style="width:0%"></i></div>
     <span class="stat" id="stat"></span>

@@ -201,7 +201,16 @@ Gold/
   predict.py             the deployable tool (the research conclusion, packaged up)
   app.py                 the web demo (developer page at /, doodle user page at /app)
   eval_domain.py         measure the model on any labeled domain, with confidence intervals
-  RESULTS.md             the full write-up, findings 1 to 11
+  gold_v2.csv            the expanded 302-item hard set (67 sarcastic)
+  label_ui.py            keyboard labeling tool (harvest / batch400 / random queues)
+  random_to_label.csv    250 uniformly random texts, unlabeled, for honest absolute scores
+  RESULTS.md             the full write-up, findings 1 to 19
+dataset/
+  README.md              Hugging Face dataset card for the gold set (two splits)
+  upload_hf.py           builds the splits and uploads them (needs huggingface-cli login)
+docs/
+  paper.pdf              4-page summary (Thai script rendered)
+  paper.tex              the same paper as arXiv-ready LaTeX (compiles clean)
 ```
 
 Not included (regenerable, too large for GitHub): the trained model weights `Gold/wcb_model/` (run
