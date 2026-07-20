@@ -9,15 +9,15 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-**New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** — a one-minute visual summary of what
+**New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)**, a one-minute visual summary of what
 the system does and how each method scored, written for readers without an ML background.
 (Same page as [`overview.html`](overview.html) if you prefer to open it locally.)
 
-**[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)** — paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
+**[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
 
 **Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
 
-**Prefer a whiteboard?** [The whole project as an interactive Miro-style story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e) —
+**Prefer a whiteboard?** [The whole project as an interactive Miro-style story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e),
 six chapters from "is an AI team worth the money?" to what shipped, drawn in the same doodle style
 as the demo, written for readers with no AI background.
 
@@ -41,42 +41,42 @@ intervals, not a single lucky run.
 
 ## The detector
 
-<img alt="Thai sarcasm detector in hand-drawn doodle style: the sentence 'บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555' is judged น่าจะประชด (likely sarcastic), with a table showing the cues found — 555 at 2.46x and elongated letters at 1.69x — and why each one points that way." src="docs/app-light.png">
+<img alt="Thai sarcasm detector in hand-drawn doodle style: the sentence 'บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555' is judged น่าจะประชด (likely sarcastic), with a table showing the cues found, 555 at 2.46x and elongated letters at 1.69x, and why each one points that way." src="docs/app-light.png">
 
-Paste Thai text, get a verdict — **sarcastic / not sarcastic / can't tell** — with the reason shown.
+Paste Thai text, get a verdict, **sarcastic / not sarcastic / can't tell**, with the reason shown.
 Or paste a **YouTube / Pantip / Reddit link**: with the local helper running (`python Gold/app.py`,
 which fetches what browsers cannot due to CORS), the page pulls the thread's comments and scores
-them all — free, cue-only, nothing sent to any server.
+them all, free, cue-only, nothing sent to any server.
 
 ![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo-typing.gif)
 
-**To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser — one file, no install, no
+**To run it: [use the live page](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, or download [`app.html`](app.html) and open it in any browser, one file, no install, no
 server, works offline either way. Nothing you type leaves your machine.
 
-It has no model and no server-side dependency — it's regex plus a little arithmetic — so a plain page
+It has no model and no server-side dependency, it's regex plus a little arithmetic, so a plain page
 is the honest shape for it: no quota to hit, no cold start, nothing to keep paying for. A Gradio
 version for Hugging Face Spaces lives in [`space/`](space/) (blocked by the free CPU quota), and
 [`space/verify_port.py`](space/verify_port.py) checks the browser build returns identical verdicts to
-the Python one — currently **12/12**.
+the Python one, currently **12/12**.
 
 <details>
 <summary><b>One-minute visual summary of the whole project</b> (click to expand)</summary>
 <br>
 <img alt="Project overview in hand-drawn doodle style: paying for only 4 sentences in 10 gave 95% of the quality of paying for all 10. The whole system is an if-statement. Bar chart comparing methods: asking OpenAI every time 0.727, this project 0.690 at a quarter the price, small Thai model 0.620, checking for '555' 0.590, big free AI models 0.576." src="docs/overview-light.png">
 <br><br>
-Source: <a href="overview.html">overview.html</a> — open it locally for the live version.
+Source: <a href="overview.html">overview.html</a>, open it locally for the live version.
 </details>
 
 Two deliberate differences from the local app. It runs on **lexical cues only**: a fine-tuned
 WangchanBERTa was trained and then cut, because it scored **5/10 on unseen sentences versus 8/10 for
-the cues** — with 127 training examples it memorised the set instead of learning sarcasm
+the cues**, with 127 training examples it memorised the set instead of learning sarcasm
 (see [`space/README.md`](space/README.md) for the numbers). And it answers **"can't tell"** when no
 cue is present rather than guessing, since sarcasm without surface markers is real.
 
 ## The interactive app (local, with GPT)
 
 Run it locally with `python Gold/app.py` (see [Run it](#run-it)) and open the doodle-styled page at
-`http://127.0.0.1:5000/app`. This is the full version *with* the paid GPT path — it binds to
+`http://127.0.0.1:5000/app`. This is the full version *with* the paid GPT path, it binds to
 `127.0.0.1` on purpose, because an API-key box on a public URL is a way for strangers to spend your
 money. You can:
 
@@ -120,9 +120,9 @@ Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.m
 **Replicated at 2.4x the data (finding 19).** The gold set was later expanded to 302 items (67 sarcastic,
 labeled blind via `Gold/label_ui.py`) and the core systems re-run: the multi-agent edge stays inside the
 noise (+0.017, 95% CI [−0.013, +0.047]) with a confidence interval three times tighter than the original
-study — at 2.55x the cost. Absolute scores on that set are lower by design (its negatives are
+study, at 2.55x the cost. Absolute scores on that set are lower by design (its negatives are
 pre-selected look-alikes, a hard set), which surfaced a bonus finding: hard negatives collapse precision
-for every architecture equally — adding agents does not fix it.
+for every architecture equally, adding agents does not fix it.
 
 ## Why I trust these numbers (and you can too)
 

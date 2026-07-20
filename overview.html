@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sarcasm Detector — Simple Overview</title>
+<title>Sarcasm Detector, Simple Overview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
@@ -109,7 +109,7 @@ pre .c{color:#a8bfa0} pre .k{color:#ffd84d} pre .s{color:#8fd4a8} pre .n{color:#
       <strong>sarcastic</strong>? Someone writing “great service!” when they mean the opposite.
     </p>
     <p class="big">
-      Asking OpenAI costs money every single time. So — <strong>can a free program handle the easy
+      Asking OpenAI costs money every single time. So, <strong>can a free program handle the easy
       ones, and only pay for the hard ones?</strong>
     </p>
     <div class="answer">
@@ -119,13 +119,13 @@ pre .c{color:#a8bfa0} pre .k{color:#ffd84d} pre .s{color:#8fd4a8} pre .n{color:#
     <p class="trylink">
       <svg class="ic" viewBox="0 0 24 24" style="color:var(--blue)"><use href="#d-spiral"/></svg>
       <a href="app.html" style="font-family:var(--disp)">Try the free version</a>
-      — paste Thai text or a link, runs in your browser, no sign-up and no API key.
+     , paste Thai text or a link, runs in your browser, no sign-up and no API key.
     </p>
   </section>
 
   <section>
     <h2>The whole idea is an if-statement</h2>
-    <p>A small free model reads the sentence and returns a number from 0 to 1 — how sarcastic it looks.</p>
+    <p>A small free model reads the sentence and returns a number from 0 to 1, how sarcastic it looks.</p>
 
 <pre><span class="c"># free, runs on your own laptop</span>
 p = model.predict(text)
@@ -139,7 +139,7 @@ p = model.predict(text)
 
     <p style="margin-top:14px">
       That's it. The rest of the project is figuring out
-      <strong>how big that middle gap should be</strong> — small gap means cheap but more mistakes,
+      <strong>how big that middle gap should be</strong>, small gap means cheap but more mistakes,
       big gap means you're paying full price again.
     </p>
   </section>
@@ -148,7 +148,7 @@ p = model.predict(text)
     <h2>How good is each method?</h2>
     <p>
       Everything was tested on the <strong>same 127 sentences</strong>. Scores run 0 to 1, higher is
-      better. Nothing gets close to 1 — sarcasm is genuinely hard.
+      better. Nothing gets close to 1, sarcasm is genuinely hard.
     </p>
 
     <div class="bars">
@@ -157,7 +157,7 @@ p = model.predict(text)
         <div class="bar-track"><div class="bar-fill" style="width:91%"><span class="bar-val">0.727</span></div></div>
       </div>
       <div class="bar-row f-mix">
-        <div class="bar-top"><span class="bar-name"><strong>This project</strong> — pay only when unsure</span><span class="bar-cost">¼ the price</span></div>
+        <div class="bar-top"><span class="bar-name"><strong>This project</strong>, pay only when unsure</span><span class="bar-cost">¼ the price</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:76%"><span class="bar-val">0.690</span></div></div>
       </div>
       <div class="bar-row f-free">
@@ -177,7 +177,7 @@ p = model.predict(text)
 
     <div class="box alt takeaway">
       <strong class="lead">The funny one:</strong> “555” is how Thai people type “hahaha”. Checking whether a
-      sentence contains it — one line of code, no AI at all — <strong>beat every free AI model</strong>,
+      sentence contains it, one line of code, no AI at all, <strong>beat every free AI model</strong>,
       including two built specially for Thai.
     </div>
   </section>

@@ -1,20 +1,20 @@
-# Handoff — open-model eval on the RTX 3060 Ti box  ✅ DONE (2026-07-18)
+# Handoff, open-model eval on the RTX 3060 Ti box  ✅ DONE (2026-07-18)
 
 The task this file described is **complete**. All four open models ran on the 127-item gold set
 at $0 API cost, twice each (bare prompt + chat template). Results are in `Gold/RESULTS.md`
-finding 13, which was **rewritten** — the original version had a wrong baseline and an unfair
+finding 13, which was **rewritten**, the original version had a wrong baseline and an unfair
 protocol. Keep reading only if you need to re-run or extend this.
 
 ## What was found
 - GPT bot (gpt-4.1-mini + threshold) **0.727** beats every open model, P ≥ 99.4%.
 - Best open models: Qwen2.5-7B and SeaLLM-7B, both **0.576** (chat template + leave-fold-out).
-- The gap is **+0.152**, not the +0.251 originally reported — ~40% of the old gap was
+- The gap is **+0.152**, not the +0.251 originally reported, ~40% of the old gap was
   measurement error, not capability. See finding 13 for the three causes.
 - Thai-specialized models gave **no advantage** over general Qwen.
 
 ## Environment that actually works on Windows (3 fixes the old version got wrong)
 ```
-python -m venv C:\ve                # 1. SHORT PATH — see below
+python -m venv C:\ve                # 1. SHORT PATH, see below
 C:\ve\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cu128
 C:\ve\Scripts\python -m pip install "lm-eval==0.4.12" "transformers<5" accelerate datasets bitsandbytes pandas
 ```
@@ -27,7 +27,7 @@ C:\ve\Scripts\python -m pip install "lm-eval==0.4.12" "transformers<5" accelerat
 3. **`transformers<5` is mandatory.** transformers 5.x removed the `load_in_4bit` passthrough
    (`TypeError: Qwen2ForCausalLM.__init__() got an unexpected keyword argument 'load_in_4bit'`).
    lm-eval 0.4.12 still passes it, and the CLI cannot construct a `BitsAndBytesConfig`.
-   `pandas` is also needed — `score_lm_eval.py` imports it but the old install line omitted it.
+   `pandas` is also needed, `score_lm_eval.py` imports it but the old install line omitted it.
 
 Verify with: `C:\ve\Scripts\python -c "import torch;print(torch.cuda.is_available())"` → `True`
 
@@ -52,7 +52,7 @@ C:\ve\Scripts\python lm_eval\score_lm_eval.py --samples out_<name>_chat --out <n
   carrying the Llama-2 `[INST]` template and pass `tokenizer=<path>` in `--model_args`.
 - Runtime ~4 min/model once weights are warm in the OS cache; the first cold load took ~85 min.
 
-## Comparing to the GPT bot — use the same protocol on BOTH sides
+## Comparing to the GPT bot, use the same protocol on BOTH sides
 The original finding 13 compared *threshold-tuned GPT* against *raw-argmax open models*. Don't.
 Apply the project's leave-fold-out protocol (`gpt_threshold.py:150-157`, StratifiedKFold 5,
 shuffle, seed 42) to the open model's `pred_prob` too, then paired-bootstrap.
@@ -63,5 +63,5 @@ from `gold.csv` in order; assert the label sequences match, then index positiona
 
 ## Files produced
 `Gold/<model>_pred.csv` (bare prompt) and `Gold/<model>_chat_pred.csv` (chat template) for
-`qwen7b`, `typhoon`, `seallm`, `openthaigpt` — schema `text,label,pred_prob,pred_label,pred_decision`,
+`qwen7b`, `typhoon`, `seallm`, `openthaigpt`, schema `text,label,pred_prob,pred_label,pred_decision`,
 the same as `predict.py`, so `compare_systems.py` / bootstrap / McNemar work across all systems.

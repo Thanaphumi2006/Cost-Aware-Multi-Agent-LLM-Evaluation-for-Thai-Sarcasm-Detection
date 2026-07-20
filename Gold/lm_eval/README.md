@@ -52,6 +52,6 @@ Add `--threshold 0.5` to cut on the probability instead of argmax.
   (kept out of the YAML because the harness metric API differs across versions).
 
 ## Files
-- `thai_sarcasm.yaml` — the task config (loads `gold.csv`, prompt, choices, metric).
-- `utils.py` — `process_docs` (adds int `gold`) and `doc_to_text` (rubric prompt).
-- `score_lm_eval.py` — turns harness output into F1 + the project's prediction CSV.
+- `thai_sarcasm.yaml`, the task config (loads `gold.csv`, prompt, choices, metric).
+- `utils.py`, `process_docs` (adds int `gold`) and `doc_to_text` (rubric prompt).
+- `score_lm_eval.py`, turns harness output into F1 + the project's prediction CSV.

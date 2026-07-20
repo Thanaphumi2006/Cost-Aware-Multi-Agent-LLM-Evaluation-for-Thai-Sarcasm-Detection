@@ -41,19 +41,19 @@
 
 <div class="abstract">
 <b class="lead">Abstract.</b>
-Multi-agent LLM architectures — verifier pipelines, debate panels, hybrid committees — are widely
+Multi-agent LLM architectures, verifier pipelines, debate panels, hybrid committees, are widely
 assumed to justify their extra inference cost with higher quality. We test that assumption on a task
 where surface form and intent diverge sharply: sarcasm detection in Thai (<thai>ประชด</thai>).
 On a 127-item human-labeled gold set drawn from product reviews and tweets, we compare five systems
 under identical measurement code, tracking F1, API calls, dollar cost, and latency simultaneously.
 A two-agent screener–verifier pipeline initially appears to win (F1 0.744 vs. 0.690). The advantage
 does not survive a fair baseline: letting the single agent read its own token-level confidence and
-tuning one threshold — chosen leave-one-fold-out, at zero added cost — lifts it to 0.725, after which
+tuning one threshold, chosen leave-one-fold-out, at zero added cost, lifts it to 0.725, after which
 no multi-agent system separates from it (best Δ F1 +0.019, 95% CI [−0.073, +0.113], paired bootstrap).
 Model choice dominates architecture choice: a model 6× cheaper than the flagship stays within a 0.05
 F1 band, making a cheap single agent statistically indistinguishable from a flagship pipeline at
-one-eleventh the cost. We further establish a $0 floor — three independent free methods (a 3-character
-regex, an embedding kNN, and a fine-tuned Thai transformer) all converge at F1 ≈ 0.59 — and show a
+one-eleventh the cost. We further establish a $0 floor, three independent free methods (a 3-character
+regex, an embedding kNN, and a fine-tuned Thai transformer) all converge at F1 ≈ 0.59, and show a
 three-way confidence router that retains 95% of flagship quality at 40% of the cost. Expanding the
 gold set 2.4× (302 items, 67 positive) with adversarially plausible negatives narrows the pipeline-vs-tuned-baseline
 confidence interval threefold and preserves the null result, while collapsing precision for every
@@ -65,7 +65,7 @@ exhaust the information one agent already returns, then choose the cheapest suff
 <h2>1&emsp;Introduction</h2>
 <p>
 Multi-agent LLM systems promise quality through redundancy: multiple calls, multiple roles, a
-final adjudication. The promise is easy to believe and expensive to hold — every added agent
+final adjudication. The promise is easy to believe and expensive to hold, every added agent
 multiplies API cost and latency. Whether the quality materializes is an empirical question, and one
 that is rarely asked with the cost axis in view.
 </p>
@@ -73,8 +73,8 @@ that is rarely asked with the cost axis in view.
 We ask it on Thai sarcasm detection. Sarcasm (<thai>ประชด</thai>) is a deliberately adversarial
 target: the writer states the opposite of their intent, so surface cues mislead exactly the models
 that rely on them. Thai adds a low-resource setting, informal orthography (elongations such as
-<thai>ดีมากกก</thai>, the laughter numeral <thai>555</thai>), and — in our source domains of
-restaurant reviews and tweets — a culture of exuberant sincere praise that is easy to mistake for
+<thai>ดีมากกก</thai>, the laughter numeral <thai>555</thai>), and, in our source domains of
+restaurant reviews and tweets, a culture of exuberant sincere praise that is easy to mistake for
 irony. If multi-agent deliberation helps anywhere, a task defined by hidden intent should be
 favorable ground.
 </p>
@@ -104,8 +104,8 @@ intent) are excluded rather than guessed.
 <b>Gold set.</b> 72,865 texts from Wongnai restaurant reviews and the Wisesight social-media corpus
 were keyword-scored for sarcasm suspicion; 400 sampled items were pre-labeled by GPT-4o and then
 human-reviewed <i>blind</i> (the annotator decides before seeing the model's draft). Agreement
-analysis showed the LLM over-flags sarcasm — of 17 LLM-positive items in the first review pass, the
-human kept 3 — motivating blind review as a design rule. Iterative mining of high-suspicion texts
+analysis showed the LLM over-flags sarcasm, of 17 LLM-positive items in the first review pass, the
+human kept 3, motivating blind review as a design rule. Iterative mining of high-suspicion texts
 brought the canonical set to <b>127 items (30 sarcastic / 97 not)</b>. Provenance caveats (some
 positives were mined with the same model family later evaluated, likely inflating its recall) are
 documented and affect all systems equally.
@@ -114,7 +114,7 @@ documented and affect all systems equally.
 <b>Hard expansion.</b> A later blind-labeling campaign over the remaining mined candidates added 175
 items, giving <b>gold_v2: 302 items (67 sarcastic, 22%)</b>. Because candidates were pre-selected to
 <i>look</i> sarcastic and ~58% were judged sincere, gold_v2 is deliberately enriched with plausible
-negatives — a hard set whose absolute scores are not comparable to the canonical set (§6.4).
+negatives, a hard set whose absolute scores are not comparable to the canonical set (§6.4).
 </p>
 
 <h2>3&emsp;Systems</h2>
@@ -160,8 +160,8 @@ computed from measured token usage; latency is wall-clock per item (p50).
 <h3>5.1&emsp;The fair baseline erases the multi-agent win</h3>
 <p>
 Against the plain single agent, the pipeline's +0.054 looks meaningful (95% CI [−0.002, +0.113],
-P(not better) = 3%). But that baseline throws away the model's own confidence. Reading it back —
-zero extra calls, zero extra dollars — lifts the single agent to 0.725, and against <i>that</i>
+P(not better) = 3%). But that baseline throws away the model's own confidence. Reading it back,
+zero extra calls, zero extra dollars, lifts the single agent to 0.725, and against <i>that</i>
 baseline every multi-agent system is unresolved: pipeline +0.019 [−0.073, +0.113] at 1.8× cost;
 hybrid −0.025 [−0.117, +0.071] at 4.3×; debate −0.030 [−0.158, +0.096] at 7.4×. Roughly half of the
 apparent multi-agent gain was information the baseline had already paid for and discarded.
@@ -171,8 +171,8 @@ apparent multi-agent gain was information the baseline had already paid for and 
 <p>
 Why does the two-agent pipeline outperform the three-agent debate (Δ +0.049, at a quarter of
 debate's price)? The detector starts from recall 1.000; what remains is buying precision without
-spending recall. The pipeline's verifier is <i>structurally constrained</i> — it can only overturn
-positive verdicts, and only when explicitly confident — so it keeps recall at 0.967 while pruning
+spending recall. The pipeline's verifier is <i>structurally constrained</i>, it can only overturn
+positive verdicts, and only when explicitly confident, so it keeps recall at 0.967 while pruning
 false positives. Debate returns full freedom to the panel: its defender successfully argues away 5
 true positives (recall 0.833), spending the asset the detector had secured. The number of agents
 matters less than the constraint structure imposed on them.
@@ -184,19 +184,19 @@ The tuned single agent across five OpenAI models spanning a 25× price range sta
 band, with the best score from one of the cheapest (gpt-4.1-mini: F1 0.727, $0.015). That cheap
 single agent is statistically tied with the flagship pipeline (gpt-4o, 0.744, $0.169) at
 <b>1/11 of the cost</b>. Local open models (Qwen2.5-7B, SeaLLM-7B, Typhoon-8B, OpenThaiGPT-7B, 4-bit,
-chat-templated, same leave-fold-out protocol) top out at 0.576 — a real but modest gap of +0.152 to
+chat-templated, same leave-fold-out protocol) top out at 0.576, a real but modest gap of +0.152 to
 the GPT bot, and Thai-specialized models show no advantage over general Qwen.
 </p>
 
 <h3>5.4&emsp;Anchoring the cost axis</h3>
 <p>
-<b>The $0 floor.</b> Three independent free methods — the regex <code>555</code> alone (F1 0.590), an
-e5 embedding kNN (0.588), and fine-tuned WangchanBERTa at the default threshold (0.590) — converge at
+<b>The $0 floor.</b> Three independent free methods, the regex <code>555</code> alone (F1 0.590), an
+e5 embedding kNN (0.588), and fine-tuned WangchanBERTa at the default threshold (0.590), converge at
 ≈ 0.59. The floor is a property of the task, not of any one method.
 <b>A useful middle.</b> A three-way router (confident-negative / uncertain → escalate to GPT /
-confident-positive) at a 40% escalation budget reaches F1 0.690 — 95% of the GPT bot — for 40% of
+confident-positive) at a 40% escalation budget reaches F1 0.690, 95% of the GPT bot, for 40% of
 its cost; beyond that the curve is flat. A cautionary side-result: tuning WangchanBERTa's threshold
-leave-fold-out <i>underperforms</i> not tuning at all (0.556 vs. 0.590) at this n — at small sample
+leave-fold-out <i>underperforms</i> not tuning at all (0.556 vs. 0.590) at this n, at small sample
 sizes, a tunable knob is a liability, and the 0.071 "gain" from tuning on the full set is leakage.
 </p>
 
@@ -212,13 +212,13 @@ sizes, a tunable knob is a liability, and the 0.071 "gain" from tuning on the fu
 <div class="caption"><b>Table 2.</b> Core systems on the expanded hard set. Absolute scores are not
 comparable to Table 1 by design (§6.4).</div>
 <p>
-On gold_v2 the pipeline-vs-baseline difference is +0.017 with 95% CI [−0.013, +0.047] — an interval
+On gold_v2 the pipeline-vs-baseline difference is +0.017 with 95% CI [−0.013, +0.047], an interval
 <b>three times tighter</b> than the original study's, still crossing zero, at 2.55× the cost. The null
 result is not a small-sample artifact. Absolute F1 halves for every system because the added
-negatives are adversarially plausible (elongations, <thai>555</thai>, effusive tone — sincerely
+negatives are adversarially plausible (elongations, <thai>555</thai>, effusive tone, sincerely
 meant): false positives surge identically across architectures. Hard negatives are a property of the
-data distribution that additional agents do not repair. The model is also overconfident here —
-210/302 items receive P(sarcasm) outside [0.01, 0.99] — leaving the threshold little probability
+data distribution that additional agents do not repair. The model is also overconfident here,
+210/302 items receive P(sarcasm) outside [0.01, 0.99], leaving the threshold little probability
 mass to work with (even the leaked-optimal τ reaches only 0.492).
 </p>
 
@@ -230,14 +230,14 @@ under evaluation; the bias is shared across systems, so paired comparisons stand
 recall should be read cautiously. (3) <b>Domain transfer.</b> On 55 hand-labeled Pantip forum
 comments, precision falls 0.68 → 0.40 (sincere praise flagged as sarcasm) while recall holds;
 deployment outside reviews/tweets requires re-tuning on target-domain labels. (4) <b>Single
-language/task.</b> Conclusions are demonstrated for Thai sarcasm; the <i>method</i> — fair
-confidence-aware baselines, paired statistics, cost as a first-class axis — is the transferable part.
+language/task.</b> Conclusions are demonstrated for Thai sarcasm; the <i>method</i>, fair
+confidence-aware baselines, paired statistics, cost as a first-class axis, is the transferable part.
 </p>
 
 <h2>7&emsp;Conclusion</h2>
 <p>
 On a task chosen to favor deliberation, multi-agent LLM systems did not separate from a single agent
-that simply reads its own confidence — while costing 1.8–7.4× more. The result replicated at double
+that simply reads its own confidence, while costing 1.8–7.4× more. The result replicated at double
 the data with threefold-tighter intervals. Before adding agents, exhaust the one you have: read its
 confidence, tune with leakage-free protocol, and choose the cheapest sufficient model. Architecture
 is a question to ask after the information already purchased has been spent.
