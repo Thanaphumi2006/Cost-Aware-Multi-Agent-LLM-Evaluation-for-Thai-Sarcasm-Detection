@@ -9,17 +9,13 @@ The real lever was choosing a cheaper model and reading its confidence score, no
 
 This repo is the whole story: eleven experiments, proper statistics, a deployable tool, and a demo you can play with.
 
-**New here? [Open the live overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)**, a one-minute visual summary of what
-the system does and how each method scored, written for readers without an ML background.
-(Same page as [`overview.html`](overview.html) if you prefer to open it locally.)
+What you can access here:
 
-**[Try the live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, paste Thai text, get a sarcasm verdict with the reasons shown. Runs entirely in your browser; nothing you type leaves your machine.
-
-**Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
-
-**Prefer a whiteboard?** [The whole project as an interactive Miro-style story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e),
-six chapters from "is an AI team worth the money?" to what shipped, drawn in the same doodle style
-as the demo, written for readers with no AI background.
+- **[Live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, paste Thai text or a comment-thread link, get a verdict with the reasons shown. Runs in your browser; nothing you type leaves your machine. (Same file: [`app.html`](app.html))
+- **[One-minute visual overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** of what the system does and how each method scored, for readers without an ML background. (Same file: [`overview.html`](overview.html))
+- **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
+- **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo.
+- **[Full findings, 1 to 19](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
 
 ## The 60-second version
 
