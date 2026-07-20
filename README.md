@@ -119,12 +119,19 @@ at **one eleventh of the cost.**
 
 Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 19).
 
-**Replicated at 2.4x the data (finding 19).** The gold set was later expanded to 302 items (67 sarcastic,
-labeled blind via `Gold/label_ui.py`) and the core systems re-run: the multi-agent edge stays inside the
-noise (+0.017, 95% CI [−0.013, +0.047]) with a confidence interval three times tighter than the original
-study, at 2.55x the cost. Absolute scores on that set are lower by design (its negatives are
-pre-selected look-alikes, a hard set), which surfaced a bonus finding: hard negatives collapse precision
-for every architecture equally, adding agents does not fix it.
+**Replicated at 4.7x the data (finding 19).** The gold set was later expanded to 595 items
+(104 sarcastic, labeled blind via `Gold/label_ui.py`) and the core systems re-run. Two results:
+
+- **The free upgrade is now proven.** Letting the single agent read its own confidence beats the
+  plain baseline by +0.040 F1, 95% CI [+0.018, +0.060], the first time this interval excludes zero.
+  Same model, same number of API calls, same $0.275. McNemar 80 to 6.
+- **The multi-agent verdict holds, and leans further against it.** Measured against that fair
+  baseline the pipeline is -0.019 (95% CI [-0.047, +0.009]) at 2.96x the cost, with a 91% chance
+  it is not better. The confidence interval has narrowed from 0.186 wide at n=127 to 0.056 here.
+
+Absolute scores on that set are lower by design (its negatives are pre-selected look-alikes, a hard
+set), which surfaced a bonus finding: hard negatives collapse precision for every architecture
+equally, so adding agents does not fix it.
 
 ## Why I trust these numbers (and you can too)
 

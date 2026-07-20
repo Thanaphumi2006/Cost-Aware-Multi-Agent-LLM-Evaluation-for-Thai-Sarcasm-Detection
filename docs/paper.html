@@ -55,9 +55,13 @@ F1 band, making a cheap single agent statistically indistinguishable from a flag
 one-eleventh the cost. We further establish a $0 floor, three independent free methods (a 3-character
 regex, an embedding kNN, and a fine-tuned Thai transformer) all converge at F1 ≈ 0.59, and show a
 three-way confidence router that retains 95% of flagship quality at 40% of the cost. Expanding the
-gold set 2.4× (302 items, 67 positive) with adversarially plausible negatives narrows the pipeline-vs-tuned-baseline
-confidence interval threefold and preserves the null result, while collapsing precision for every
-architecture equally: hard negatives are a property of the data that additional agents do not repair.
+gold set 4.7× (595 items, 104 positive) with adversarially plausible negatives narrows the
+pipeline-vs-tuned-baseline confidence interval from 0.186 to 0.056 wide and preserves the null
+result, with the point estimate now favouring the single agent (−0.019, 91% chance the pipeline is
+not better) at 2.96× the cost. At that scale the confidence-reading upgrade itself becomes
+statistically significant for the first time (+0.040, 95% CI [+0.018, +0.060]), while precision
+collapses for every architecture equally: hard negatives are a property of the data that additional
+agents do not repair.
 We conclude that for subjective, low-resource classification, the first questions are not architectural:
 exhaust the information one agent already returns, then choose the cheapest sufficient model.
 </div>
@@ -82,7 +86,7 @@ favorable ground.
 <p style="margin-left:14px">
 (1) A human-labeled Thai sarcasm gold set with a sharp operational rubric (sarcasm requires
 <i>feigned praise</i>, <thai>การเสแสร้ง</thai>), documented provenance and bias notes, plus a
-2.4×-expanded hard variant labeled blind through a purpose-built tool.<br>
+4.7×-expanded hard variant labeled blind through a purpose-built tool.<br>
 (2) A five-system, four-axis comparison (F1, calls, cost, latency) under one measurement harness,
 with paired bootstrap and McNemar tests throughout.<br>
 (3) A negative result with an identified mechanism: multi-agent gains over a
@@ -111,9 +115,9 @@ positives were mined with the same model family later evaluated, likely inflatin
 documented and affect all systems equally.
 </p>
 <p>
-<b>Hard expansion.</b> A later blind-labeling campaign over the remaining mined candidates added 175
-items, giving <b>gold_v2: 302 items (67 sarcastic, 22%)</b>. Because candidates were pre-selected to
-<i>look</i> sarcastic and ~58% were judged sincere, gold_v2 is deliberately enriched with plausible
+<b>Hard expansion.</b> A later blind-labeling campaign exhausted the mined candidate pool (495
+items), giving <b>gold_v2: 595 items (104 sarcastic, 17.5%)</b>. Because candidates were pre-selected
+to <i>look</i> sarcastic and 81% were judged sincere, gold_v2 is deliberately enriched with plausible
 negatives, a hard set whose absolute scores are not comparable to the canonical set (§6.4).
 </p>
 
@@ -200,26 +204,34 @@ leave-fold-out <i>underperforms</i> not tuning at all (0.556 vs. 0.590) at this 
 sizes, a tunable knob is a liability, and the 0.071 "gain" from tuning on the full set is leakage.
 </p>
 
-<h3>5.5&emsp;Replication at 2.4× the data</h3>
+<h3>5.5&emsp;Replication at 4.7× the data</h3>
 <table>
-<thead><tr><th class="l">System (gold_v2, n=302)</th><th>F1</th><th>Prec.</th><th>Rec.</th><th>Cost</th></tr></thead>
+<thead><tr><th class="l">System (gold_v2, n=595)</th><th>F1</th><th>Prec.</th><th>Rec.</th><th>Cost</th></tr></thead>
 <tbody>
-<tr><td class="l">S1 Single agent (argmax)</td><td>0.443</td><td>0.291</td><td>0.925</td><td>$0.16</td></tr>
-<tr><td class="l">S1+τ + threshold (LOFO)</td><td>0.458</td><td>0.325</td><td>0.776</td><td>$0.16</td></tr>
-<tr><td class="l">S2 Two-agent pipeline</td><td>0.460</td><td>0.304</td><td>0.940</td><td>$0.41 (2.55×)</td></tr>
+<tr><td class="l">S1 Single agent (argmax)</td><td>0.337</td><td>0.206</td><td>0.933</td><td>$0.275</td></tr>
+<tr><td class="l"><b>S1+τ + threshold (LOFO)</b></td><td><b>0.377</b></td><td>0.238</td><td>0.894</td><td><b>$0.275</b></td></tr>
+<tr><td class="l">S2 Two-agent pipeline</td><td>0.357</td><td>0.222</td><td>0.913</td><td>$0.814 (2.96×)</td></tr>
 </tbody>
 </table>
 <div class="caption"><b>Table 2.</b> Core systems on the expanded hard set. Absolute scores are not
 comparable to Table 1 by design (§6.4).</div>
 <p>
-On gold_v2 the pipeline-vs-baseline difference is +0.017 with 95% CI [−0.013, +0.047], an interval
-<b>three times tighter</b> than the original study's, still crossing zero, at 2.55× the cost. The null
-result is not a small-sample artifact. Absolute F1 halves for every system because the added
-negatives are adversarially plausible (elongations, <thai>555</thai>, effusive tone, sincerely
-meant): false positives surge identically across architectures. Hard negatives are a property of the
-data distribution that additional agents do not repair. The model is also overconfident here,
-210/302 items receive P(sarcasm) outside [0.01, 0.99], leaving the threshold little probability
-mass to work with (even the leaked-optimal τ reaches only 0.492).
+On the expanded set two things resolve. First, the confidence-reading upgrade that defines our fair
+baseline is now <i>statistically significant</i>: +0.040 F1 over the plain baseline, 95% CI
+[+0.018, +0.060], McNemar 80:6, at identical cost and call count. What was a suggestive trend at
+n=127 and n=302 is confirmed at n=595. Second, the thesis comparison holds and hardens: measured
+against that baseline the pipeline is <b>−0.019</b> (95% CI [−0.047, +0.009]), a 91% chance it is
+not better, McNemar 49:83 in the single agent's favour, at 2.96× the cost. The interval has narrowed
+monotonically with sample size (0.186 at n=127, 0.094 at n=302, 0.056 at n=595) without the sign of
+the conclusion ever flipping toward multi-agent.
+</p>
+<p>
+Absolute F1 falls to ≈0.35 for every system because the added items are adversarially plausible
+negatives: 403 of the 495 mined candidates (81%) were judged sincere by the human annotator, diluting
+the positive rate to 17.5% and surging false positives identically across architectures. The model is
+also more overconfident at this scale (404/595 items outside [0.01, 0.99]), yet the threshold still
+extracts a significant gain, and its leave-fold-out score (0.377) sits within 0.004 of the
+oracle-tuned value (0.381), indicating a stable rather than overfitted cutoff.
 </p>
 
 <h2>6&emsp;Limitations</h2>
