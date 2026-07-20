@@ -17,6 +17,10 @@ the system does and how each method scored, written for readers without an ML ba
 
 **Prefer a paper?** A 4-page write-up in research-paper format: [`docs/paper.pdf`](docs/paper.pdf).
 
+**Prefer a whiteboard?** [The whole project as an interactive Miro-style story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e) —
+six chapters from "is an AI team worth the money?" to what shipped, drawn in the same doodle style
+as the demo, written for readers with no AI background.
+
 ## The 60-second version
 
 - I put five systems on the same 127 examples and measured four things at once, not just accuracy: **quality (F1),
