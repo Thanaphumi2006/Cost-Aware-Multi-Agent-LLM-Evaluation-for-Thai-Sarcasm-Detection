@@ -14,8 +14,14 @@ What you can access here:
 - **[Live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, paste Thai text or a comment-thread link, get a verdict with the reasons shown. Runs in your browser; nothing you type leaves your machine. (Same file: [`app.html`](app.html))
 - **[One-minute visual overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** of what the system does and how each method scored, for readers without an ML background. (Same file: [`overview.html`](overview.html))
 - **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
-- **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo.
+- **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo (pictured below).
 - **[Full findings, 1 to 19](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
+
+<details>
+<summary><b>The whole project on one board</b> (click to expand)</summary>
+<br>
+<img alt="Hand-drawn project board in six chapters: the question (is an AI team worth the money), building the 302-item human-checked exam, the experiment where every system takes the same exam, the retest that held up at 2.4x the data, what you can use today, and what's next." src="docs/story-board.png">
+</details>
 
 ## The 60-second version
 
