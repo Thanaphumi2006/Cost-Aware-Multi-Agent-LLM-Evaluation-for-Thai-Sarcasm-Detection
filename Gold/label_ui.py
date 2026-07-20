@@ -225,6 +225,9 @@ color:#fff;border-radius:20px;padding:8px 20px;font-size:13px;opacity:0;transiti
 <script>
 let Q='harvest', IDX=null, REVEALED=false;
 const $=id=>document.getElementById(id);
+// เก็บโครงการ์ดตั้งต้นไว้ -- ตอนกองไหนจบเราเขียนทับ #main ทิ้ง ถ้าไม่คืนกลับ
+// การสลับไปกองที่ยังไม่จบจะพัง (element หาย -> JS error -> หน้าค้าง)
+const MAIN_HTML=$('main').innerHTML;
 
 function flash(m){const f=$('flash');f.textContent=m;f.classList.add('show');
   clearTimeout(f._t);f._t=setTimeout(()=>f.classList.remove('show'),1200);}
@@ -242,10 +245,13 @@ function render(s){
     +` · gold รวม <b>${s.gold_pos}+${s.new_pos}</b>/60 เป้า`;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   $('tab-'+Q).classList.add('on');
+  if(s.queues){for(const [name,left] of Object.entries(s.queues)){
+    const t=$('tab-'+name); if(t) t.textContent=name+' ('+(left?'เหลือ '+left:'ครบแล้ว')+')';}}
   if(s.index===null){
-    $('main').innerHTML='<div class="fin">🎉 กองนี้ครบแล้ว — สลับไปอีกกอง หรือรัน <code>python Gold/label_ui.py --merge</code></div>';
+    $('main').innerHTML='<div class="fin">กองนี้ครบแล้ว · สลับไปกองอื่นด้านบน หรือรัน <code>python Gold/label_ui.py --merge</code></div>';
     return;
   }
+  if(!$('text')) $('main').innerHTML=MAIN_HTML;   // คืนโครงการ์ดหลังหน้าจบกอง
   $('text').textContent=s.text;
   $('meta').textContent=`ข้อ ${s.index+1} จาก ${s.total}`;
   $('note').value=s.note||'';
@@ -303,8 +309,10 @@ def run_server(port):
         else:
             index = max(0, min(int(index), len(df) - 1))
         p = progress(queue)
-        new_pos = sum(progress(q)["pos"] for q in QUEUES)
-        out = {**p, "index": index, "gold_pos": gold_pos(), "new_pos": new_pos}
+        all_p = {q: progress(q) for q in QUEUES}
+        new_pos = sum(v["pos"] for v in all_p.values())
+        out = {**p, "index": index, "gold_pos": gold_pos(), "new_pos": new_pos,
+               "queues": {q: v["total"] - v["done"] for q, v in all_p.items()}}
         if index is not None:
             r = df.loc[index]
             out["text"] = str(r["text"])
