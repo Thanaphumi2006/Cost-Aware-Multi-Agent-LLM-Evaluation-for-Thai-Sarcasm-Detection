@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-ทางเลือก 2 - ตัวที่ 1: ให้ LLM ติดป้ายร่าง (pre-label)  [เวอร์ชัน GPT / OpenAI]
+Option 2 - part 1: have the LLM draft labels (pre-label)  [GPT / OpenAI version]
 
-อินพุต : to_label.csv        (จากสคริปต์รอบที่ 1)
-เอาต์พุต: to_label_prelabeled.csv  (เพิ่มคอลัมน์ llm_label, llm_reason)
+Input : to_label.csv        (from the round-1 script)
+Output: to_label_prelabeled.csv  (adds columns llm_label, llm_reason)
 
-- ใช้โมเดล GPT ติดป้ายทีละข้อ พร้อมเหตุผลสั้นๆ
-- เซฟทีละข้อ (incremental) + รันซ้ำได้ (ข้ามข้อที่ติดป้ายแล้ว) กันงานหายถ้าค้าง
-- ป้ายนี้เป็นแค่ "ร่าง" คนต้องมาตรวจ/แก้ในตัวที่ 2 อีกที
+- uses a GPT model to label item by item, with a short reason
+- saves incrementally + rerunnable (skips already-labeled items) to avoid losing work on a hang
+- these labels are only a "draft"; a human must review/fix them in part 2
 
-ติดตั้ง:  pip install openai pandas
-ตั้งคีย์:  export OPENAI_API_KEY="sk-..."          (Windows: set OPENAI_API_KEY=...)
-รัน:       python llm_prelabel.py
+Install:  pip install openai pandas
+Set key:  export OPENAI_API_KEY="sk-..."          (Windows: set OPENAI_API_KEY=...)
+Run:       python llm_prelabel.py
 """
 
 import os
@@ -20,14 +20,14 @@ import time
 import pandas as pd
 from openai import OpenAI
 
-# ================== ปรับได้ ==================
+# ================== tunable ==================
 INPUT_CSV = "to_label.csv"
 OUTPUT_CSV = "to_label_prelabeled.csv"
-MODEL = "gpt-4o"          # เปลี่ยนเป็นรุ่นที่คุณมีสิทธิ์ใช้ได้ (เช่นรุ่นใหม่กว่านี้)
-SLEEP_SEC = 0.3           # หน่วงกันชนลิมิต
+MODEL = "gpt-4o"          # change to a model you have access to (e.g. a newer one)
+SLEEP_SEC = 0.3           # delay to avoid hitting rate limits
 # =============================================
 
-client = OpenAI()  # อ่านคีย์จาก OPENAI_API_KEY อัตโนมัติ
+client = OpenAI()  # reads the key from OPENAI_API_KEY automatically
 
 SYSTEM = """คุณเป็นผู้ช่วยติดป้ายว่า "ข้อความภาษาไทยนี้ประชด/เสียดสีหรือไม่"
 
@@ -51,7 +51,7 @@ def label_one(text):
     resp = client.chat.completions.create(
         model=MODEL,
         max_tokens=150,
-        response_format={"type": "json_object"},   # บังคับให้ตอบเป็น JSON
+        response_format={"type": "json_object"},   # force a JSON response
         messages=[
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": f"ข้อความ: {text}"},
@@ -68,7 +68,7 @@ def label_one(text):
         return "X", "parse_error:" + raw[:60]
 
 
-# ---- โหลด (ถ้ามีไฟล์ output อยู่แล้ว = รันต่อจากเดิม) ----
+# ---- load (if the output file already exists = resume) ----
 if os.path.exists(OUTPUT_CSV):
     df = pd.read_csv(OUTPUT_CSV)
 else:
@@ -76,21 +76,21 @@ else:
     df["llm_label"] = ""
     df["llm_reason"] = ""
 
-# ---- ติดป้ายเฉพาะข้อที่ยังว่าง ----
+# ---- label only the still-empty items ----
 todo = df.index[df["llm_label"].astype(str).str.len() == 0].tolist()
-print(f"ต้องติดป้ายอีก {len(todo)} จากทั้งหมด {len(df)} ข้อ")
+print(f"{len(todo)} items left to label out of {len(df)}")
 
 for i, idx in enumerate(todo, 1):
     lab, reason = label_one(str(df.at[idx, "text"]))
     df.at[idx, "llm_label"] = lab
     df.at[idx, "llm_reason"] = reason
     if i % 10 == 0 or i == len(todo):
-        df.to_csv(OUTPUT_CSV, index=False, encoding="utf-8-sig")  # เซฟทุก 10 ข้อ
-        print(f"  ...{i}/{len(todo)}  (ล่าสุด: [{lab}] {reason[:40]})")
+        df.to_csv(OUTPUT_CSV, index=False, encoding="utf-8-sig")  # save every 10 items
+        print(f"  ...{i}/{len(todo)}  (latest: [{lab}] {reason[:40]})")
     time.sleep(SLEEP_SEC)
 
 df.to_csv(OUTPUT_CSV, index=False, encoding="utf-8-sig")
-print("\nเสร็จ! บันทึกที่:", OUTPUT_CSV)
-print("การกระจายป้ายร่างจาก LLM:")
+print("\ndone! saved to:", OUTPUT_CSV)
+print("distribution of the LLM draft labels:")
 print(df["llm_label"].value_counts())
-print("\nขั้นต่อไป: รัน human_review.py เพื่อตรวจ/แก้ป้ายเหล่านี้")
+print("\nnext step: run human_review.py to review/fix these labels")

@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-สัปดาห์ 2 — Baseline: เอเจนต์เดี่ยว LLM zero-shot classifier
+Week 2 -- Baseline: single-agent LLM zero-shot classifier
 
-แนวคิด: ให้ LLM ตัวเดียว 1 คอลตัดสิน "ประชดไหม" แบบ zero-shot (ไม่มีตัวอย่าง)
-        แล้ววัดผลเทียบ gold.csv -> ได้ accuracy / precision / recall / F1
-        ตัวเลขนี้คือ "เส้นฐาน" ไว้เทียบกับระบบที่ซับซ้อนกว่า (เช่น multi-agent) ทีหลัง
+Idea: have a single LLM decide "sarcasm?" zero-shot in one call (no examples)
+        then evaluate against gold.csv -> get accuracy / precision / recall / F1
+        this number is the "baseline" to compare against more complex systems (e.g. multi-agent) later
 
-อินพุต : gold.csv   (จาก human_review.py — ต้องมีคอลัมน์ text, label โดย label ∈ {0,1})
-เอาต์พุต:
-  - baseline_preds.csv : ทุกข้อ + pred (คำทำนายของ baseline) + ถูก/ผิด
-  - พิมพ์รายงาน metric + confusion matrix ออกจอ
+Input : gold.csv   (from human_review.py -- must have columns text, label with label in {0,1})
+Output:
+  - baseline_preds.csv : every item + pred (the baseline prediction) + correct/wrong
+  - prints a metric report + confusion matrix to the screen
 
-หมายเหตุ: baseline นี้จงใจใช้ prompt "เรียบๆ" (ไม่ยัดกฎเยอะเหมือนตอน pre-label)
-          เพื่อให้เป็นเส้นฐานที่ยุติธรรม — ระบบที่ซับซ้อนกว่าควรทำได้ดีกว่าเส้นนี้
+Note: this baseline deliberately uses a "plain" prompt (not stuffed with rules like the pre-label step)
+          to be a fair baseline -- more complex systems should beat this line
 
-ติดตั้ง:  pip install openai pandas scikit-learn
-ตั้งคีย์:  export OPENAI_API_KEY="sk-..."
-รัน:       python baseline_zeroshot.py
+Install:  pip install openai pandas scikit-learn
+Set key:  export OPENAI_API_KEY="sk-..."
+Run:       python baseline_zeroshot.py
 """
 
 import os
@@ -28,17 +28,17 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, confusion_matrix,
 )
 
-# ================== ปรับได้ ==================
+# ================== tunable ==================
 GOLD_CSV = "gold.csv"
 PRED_CSV = "baseline_preds.csv"
 MODEL = "gpt-4o"
 SLEEP_SEC = 0.3
-POSITIVE = "1"          # คลาสบวก = ประชด
+POSITIVE = "1"          # positive class = sarcasm
 # =============================================
 
 client = OpenAI()
 
-# prompt เรียบๆ ตั้งใจ (เส้นฐานที่ยุติธรรม) — บอกแค่นิยาม ไม่ยัดกฎย่อยเยอะ
+# deliberately plain prompt (a fair baseline) -- just the definition, no piled-on sub-rules
 SYSTEM = """ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่
 ประชด = เจตนาจริงตรงข้ามกับความหมายผิวเผิน เพื่อเหน็บหรือแสดงความไม่พอใจ
 
@@ -66,10 +66,10 @@ def predict_one(text):
 
 def main():
     if not os.path.exists(GOLD_CSV):
-        print(f"ยังไม่มี {GOLD_CSV} — รัน human_review.py ให้ได้ gold ก่อนนะครับ")
+        print(f"{GOLD_CSV} not found yet -- run human_review.py to produce gold first")
         return
 
-    # โหลด: ทำต่อจากเดิมได้ถ้ามี pred อยู่แล้ว
+    # load: can resume if pred already exists
     if os.path.exists(PRED_CSV):
         df = pd.read_csv(PRED_CSV)
     else:
@@ -78,11 +78,11 @@ def main():
     df["label"] = df["label"].astype(str).str.strip()
     df["pred"] = df["pred"].fillna("").astype(str)
 
-    # เอาเฉพาะข้อที่ label เป็น 0/1 (เผื่อมี X หลุดมา)
+    # keep only items with label 0/1 (in case an X slipped in)
     df = df[df["label"].isin(["0", "1"])].reset_index(drop=True)
 
     todo = df.index[~df["pred"].isin(["0", "1"])].tolist()
-    print(f"Baseline zero-shot: ต้องทำนายอีก {len(todo)} จาก {len(df)} ข้อ")
+    print(f"Baseline zero-shot: {len(todo)} items left to predict out of {len(df)}")
 
     for i, idx in enumerate(todo, 1):
         df.at[idx, "pred"] = predict_one(str(df.at[idx, "text"]))
@@ -94,7 +94,7 @@ def main():
     df["correct"] = df["pred"] == df["label"]
     df.to_csv(PRED_CSV, index=False, encoding="utf-8-sig")
 
-    # ---- วัดผล ----
+    # ---- evaluate ----
     y_true = df["label"].tolist()
     y_pred = df["pred"].tolist()
     acc = accuracy_score(y_true, y_pred)
@@ -107,15 +107,15 @@ def main():
     print(f"BASELINE (LLM zero-shot, {MODEL}) — n = {len(df)}")
     print("═" * 55)
     print(f"Accuracy : {acc:.3f}")
-    print(f"Precision: {prec:.3f}   (ประชด=1 เป็นคลาสบวก)")
+    print(f"Precision: {prec:.3f}   (sarcasm=1 is the positive class)")
     print(f"Recall   : {rec:.3f}")
     print(f"F1       : {f1:.3f}")
-    print("\nConfusion matrix  (แถว=จริง, คอลัมน์=ทำนาย)")
+    print("\nConfusion matrix  (rows=true, cols=predicted)")
     print("            pred:0   pred:1")
     print(f"  true:0     {cm[0][0]:>5}    {cm[0][1]:>5}")
     print(f"  true:1     {cm[1][0]:>5}    {cm[1][1]:>5}")
-    print(f"\nบันทึกคำทำนายที่: {PRED_CSV}")
-    print("→ เก็บ F1 นี้ไว้เป็นเส้นฐาน เทียบกับระบบ multi-agent ทีหลัง")
+    print(f"\nsaved predictions to: {PRED_CSV}")
+    print("-> keep this F1 as the baseline to compare against multi-agent systems later")
 
 
 if __name__ == "__main__":

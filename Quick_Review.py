@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-ตรวจเร็วกดปุ่มเดียว: ไล่กอง harvest -> เก็บประชดเข้า gold.csv ให้อัตโนมัติ
+Quick one-key review: sweep the harvest pile -> auto-collect sarcasm into gold.csv
 
-อินพุต : Gold/harvest_to_review.csv (กองที่ LLM คัดว่าน่าจะประชด เรียงจากมั่นใจสุด)
-         Gold/gold.csv              (ของเดิม ใช้กันข้อซ้ำ)
-เอาต์พุต: Gold/gold.csv             (เติมข้อที่ตรวจแล้ว 1/0 เข้าไป)
-         Gold/gold_backup.csv       (สำรองของเดิมก่อนแตะ)
-         Gold/harvest_to_review.csv (จำ label ที่ตรวจไปแล้ว -> รันซ้ำ ทำต่อจากเดิมได้)
+Input : Gold/harvest_to_review.csv (the pile the LLM picked as likely sarcasm, sorted most-confident first)
+         Gold/gold.csv              (existing, used to avoid duplicates)
+Output: Gold/gold.csv             (appends reviewed 1/0 items)
+         Gold/gold_backup.csv       (backup of the original before touching it)
+         Gold/harvest_to_review.csv (remembers reviewed labels -> rerun resumes where you left off)
 
-กดปุ่ม:  y = ประชด   n = ไม่ประชด   Enter = ข้าม(งง)   q = บันทึกแล้วออก
-หยุดเองเมื่อประชดใน gold ครบ TARGET_POS ข้อ
+Keys:  y = sarcasm   n = not sarcasm   Enter = skip(unsure)   q = save and quit
+Stops automatically once sarcasm in gold reaches TARGET_POS items
 
-รัน:  python Quick_Review.py
+Run:  python Quick_Review.py
 """
 
 import os
@@ -21,22 +21,22 @@ import sys
 
 import pandas as pd
 
-# ================== ปรับได้ ==================
-TARGET_POS = 30      # หยุดเมื่อประชดใน gold ครบเท่านี้
-SAVE_EVERY = 5       # เซฟทุกกี่ข้อ (กันงานหาย)
-SHOW_CONF = False    # โชว์ค่าความมั่นใจของ LLM ไหม -- ปิดไว้ เพื่อไม่ให้คำตอบ LLM ชี้นำคุณ
-RANK_BY_MARKERS = True   # เอาข้อที่มีสัญญาณประชดขึ้นก่อน -> เจอประชดเร็วขึ้น (ไม่ทิ้งข้อไหน)
+# ================== tunable ==================
+TARGET_POS = 30      # stop when gold sarcasm reaches this
+SAVE_EVERY = 5       # save every N items (avoid losing work)
+SHOW_CONF = False    # show the LLM confidence? -- off, so the LLM answer does not bias you
+RANK_BY_MARKERS = True   # surface items with sarcasm signals first -> find sarcasm faster (drops nothing)
 # =============================================
 
-# สัญญาณประชด: น้ำหนักมาจากการวัดบน gold ฝั่ง wisesight (แหล่งเดียวกับ harvest)
-# 555      : เจอในประชด 3/6, ไม่เจอในไม่ประชดเลย 0/11  -> สะอาดสุด
-# ยืดอักษร : เจอในประชด 4/6, ไม่ประชด 1/11
-# ที่เหลือ : หลักฐานบางมาก ให้น้ำหนักน้อย เผื่อไว้เฉยๆ
-# ระวัง: ฐานคือประชดแค่ 6 ข้อ ตัวเลขยังแกว่งได้มาก -- ใช้แค่ "จัดลำดับ" ไม่ใช้ "ตัดทิ้ง"
+# sarcasm signals: weights come from measuring on the wisesight side of gold (same source as harvest)
+# 555      : appears in 3/6 sarcastic, 0/11 non-sarcastic  -> cleanest
+# elongation : appears in 4/6 sarcastic, 1/11 non-sarcastic
+# the rest : very thin evidence, low weight, just in case
+# caution: the base is only 6 sarcastic items, numbers still swing a lot -- use only to "rank", not to "drop"
 MARKERS = [
     (2, lambda t: bool(re.search(r"5{3,}", t))),                    # 555
-    (2, lambda t: bool(re.search(r"(.)\1\1", t))),                  # มากกก เยี่ยมมม
-    (1, lambda t: "?" in t or "ไหม" in t),                          # คำถามเชิงเหน็บ
+    (2, lambda t: bool(re.search(r"(.)\1\1", t))),                  # elongated chars, e.g. มากกก เยี่ยมมม
+    (1, lambda t: "?" in t or "ไหม" in t),                          # snide question
     (1, lambda t: "ขอบคุณ" in t),
     (1, lambda t: any(e in t for e in "🙄🙃👏😑😏🤡✨😂🤣")),
 ]
@@ -45,7 +45,7 @@ MARKERS = [
 def marker_score(text):
     return sum(w for w, hit in MARKERS if hit(text))
 
-# โผล่ภาษาไทยบน Windows console ได้ไม่เพี้ยน
+# make Thai display correctly on the Windows console
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")
@@ -57,7 +57,7 @@ GOLD_DIR = HERE if os.path.exists(os.path.join(HERE, "gold.csv")) else os.path.j
 GOLD_CSV = os.path.join(GOLD_DIR, "gold.csv")
 BACKUP_CSV = os.path.join(GOLD_DIR, "gold_backup.csv")
 HARVEST_CSV = os.path.join(GOLD_DIR, "harvest_to_review.csv")
-# ถ้ามีไฟล์นี้ ข้อในนั้นจะถูกยกขึ้นมาตรวจก่อน (ลบไฟล์ทิ้ง = กลับไปเรียงแบบปกติ)
+# if this file exists, its items are reviewed first (delete it = back to normal ordering)
 SHORTLIST_CSV = os.path.join(GOLD_DIR, "shortlist.csv")
 
 GOLD_COLS = ["text", "label", "source", "suspect_score", "signals"]
@@ -67,14 +67,14 @@ DECIDED = {"1", "0"}
 def load_csv(path, name):
     if not os.path.exists(path):
         sys.exit(f"หาไฟล์ไม่เจอ: {path}\n(วางสคริปต์ไว้ข้าง {name} หรือข้างโฟลเดอร์ Gold/)")
-    # dtype=str: กัน label ช่องว่างถูกอ่านเป็น NaN แล้วเทียบพลาด
+    # dtype=str: prevent blank labels being read as NaN and miscompared
     return pd.read_csv(path, dtype=str).fillna("")
 
 
 def to_gold_rows(done):
-    """แปลงแถว harvest ที่ตรวจแล้ว -> รูปแบบคอลัมน์ของ gold
-    harvest มาจาก wisesight ล้วน (Harvest.py กรอง ONLY_WISESIGHT) เลยเติม source ได้ตรง
-    suspect_score/signals ไม่มีในกองนี้ ปล่อยว่าง"""
+    """convert a reviewed harvest row -> gold's column format
+    harvest is all from wisesight (Harvest.py filters ONLY_WISESIGHT) so source is filled correctly
+    suspect_score/signals are not in this pile, leave them blank"""
     rows = pd.DataFrame({
         "text": done["text"],
         "label": done["label"],
@@ -86,20 +86,20 @@ def to_gold_rows(done):
 
 
 def save_all(gold, harvest):
-    """เขียน gold (เดิม + ที่เพิ่งตรวจ) และจำ label ลง harvest"""
+    """write gold (existing + just-reviewed) and remember labels back into harvest"""
     done = harvest[harvest["label"].isin(DECIDED)]
     merged = pd.concat([gold, to_gold_rows(done)], ignore_index=True)
     merged = merged.drop_duplicates(subset="text", keep="first")
     merged.to_csv(GOLD_CSV, index=False, encoding="utf-8-sig")
-    # ตัดคอลัมน์ชั่วคราว (_marker) ไม่ให้หลุดลงไฟล์
+    # drop the temporary column (_marker) so it does not leak into the file
     keep = [c for c in harvest.columns if not c.startswith("_")]
     harvest[keep].to_csv(HARVEST_CSV, index=False, encoding="utf-8-sig")
     return merged
 
 
 def count_pos(gold, harvest, in_gold):
-    """นับประชดทั้งหมด: ของใน gold + ที่เพิ่งตรวจในกอง harvest
-    ต้องกัน harvest แถวที่ถูกรวมเข้า gold ไปแล้ว (รอบก่อน) ไม่งั้นนับซ้ำ -> หยุดก่อนถึงเป้าจริง"""
+    """count all sarcasm: those in gold + just-reviewed in the harvest pile
+    must exclude harvest rows already merged into gold (previous round) or it double-counts -> stops before the real target"""
     n = (gold["label"] == "1").sum()
     fresh = harvest[~harvest["text"].isin(in_gold)]
     n += (fresh["label"] == "1").sum()
@@ -132,8 +132,8 @@ def main():
         shutil.copy2(GOLD_CSV, BACKUP_CSV)
         print(f"สำรอง gold เดิมไว้ที่ {os.path.basename(BACKUP_CSV)} แล้ว")
 
-    # เรียง: shortlist ก่อน -> สัญญาณประชด -> ความมั่นใจ LLM
-    # (ไม่ตัดข้อไหนทิ้ง แค่เลื่อนขึ้นมาก่อน ถ้าคัดพลาด ยังไล่กองที่เหลือต่อได้)
+    # order: shortlist first -> sarcasm signals -> LLM confidence
+    # (drops nothing, just moves them up; if mis-picked, you still sweep the rest)
     harvest["llm_conf"] = pd.to_numeric(harvest["llm_conf"], errors="coerce").fillna(0)
     sort_cols = ["llm_conf"]
     if RANK_BY_MARKERS:
@@ -144,7 +144,7 @@ def main():
     if os.path.exists(SHORTLIST_CSV):
         short = pd.read_csv(SHORTLIST_CSV, dtype=str).fillna("")
         order = {t: i for i, t in enumerate(short["text"])}
-        # ยิ่งอันดับต้น ค่ายิ่งสูง (เรียง descending) ; ไม่อยู่ใน shortlist = 0
+        # higher rank = higher value (descending) ; not in shortlist = 0
         harvest["_short"] = harvest["text"].map(lambda t: len(order) - order[t] if t in order else 0)
         sort_cols = ["_short"] + sort_cols
         n_short = int((harvest["_short"] > 0).sum())
@@ -192,7 +192,7 @@ def main():
             save_all(gold, harvest)
 
         if pos >= TARGET_POS:
-            print(f"\n🎉 ครบเป้าแล้ว! ประชด {pos} ข้อ")
+            print(f"\nครบเป้าแล้ว! ประชด {pos} ข้อ")
             break
 
     merged = save_all(gold, harvest)
