@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""เทียบ baseline vs multi-agent อย่างถูกสถิติ (วัด gold ชุดเดียวกัน -> ต้องใช้ paired test)
+"""Compare baseline vs multi-agent correctly (same gold set -> must use a paired test)
 
-ทำไมไม่ใช้ "F1 เกิน CI บนของ baseline":
-  นั่นเทียบราวกับสองระบบวัดคนละชุด -> เข้มเกินไป
-  ที่ถูกคือ paired bootstrap: resample ข้อเดียวกันทั้งคู่ แล้วดูผลต่าง F1 ต่อรอบ
-  ถ้า 95% CI ของผลต่าง "ไม่คร่อม 0" = ต่างจริง ไม่ใช่บังเอิญ
-  + McNemar: ดูเฉพาะข้อที่สองระบบไม่ตรงกัน
+Why not "F1 exceeds the baseline's upper CI":
+  that compares as if the two systems measured different sets -> too strict.
+  The correct way is a paired bootstrap: resample the same items for both, look at the F1 difference per round.
+  If the 95% CI of the difference "doesn't cross 0" = a real difference, not chance.
+  + McNemar: look only at items where the two systems disagree.
 
-รัน: python compare_systems.py
+Run: python compare_systems.py
 """
 import glob
 import os
@@ -35,21 +35,21 @@ def load(path):
     return d.set_index("text")
 
 
-EVAL_DIR = os.environ.get("EVAL_DIR", HERE)  # ชี้โฟลเดอร์ผลชุดอื่น (เช่น v2_results) ได้
+EVAL_DIR = os.environ.get("EVAL_DIR", HERE)  # can point to another results folder (e.g. v2_results)
 base = load(os.path.join(EVAL_DIR, "baseline_preds_gpt.csv"))
 variants = {}
 for p in sorted(glob.glob(os.path.join(EVAL_DIR, "multiagent_preds_gpt*.csv"))):
     name = os.path.basename(p).replace("multiagent_preds_gpt", "").replace(".csv", "").strip("_") or "v?"
     variants[name] = load(p)
 
-# ระบบ ③ WangchanBERTa (out-of-fold preds ครบ 127 ข้อ -> เทียบ paired ได้เหมือนกัน)
+# system ③ WangchanBERTa (out-of-fold preds for all 127 items -> pairs the same way)
 wcb = os.path.join(EVAL_DIR, "wangchanberta_preds.csv")
 if os.path.exists(wcb):
     variants["wangchanberta"] = load(wcb)
 
-print(f"baseline: {len(base)} ข้อ | multi-agent variants: {list(variants)}\n")
+print(f"baseline: {len(base)} items | multi-agent variants: {list(variants)}\n")
 bf1, bp, br = f1_of(base.label, base.pred)
-print(f"{'ระบบ':<16}{'F1':>8}{'prec':>8}{'recall':>8}")
+print(f"{'system':<16}{'F1':>8}{'prec':>8}{'recall':>8}")
 print(f"{'baseline':<16}{bf1:>8.3f}{bp:>8.3f}{br:>8.3f}")
 for name, d in variants.items():
     f1, pr, rc = f1_of(d.label, d.pred)
@@ -58,7 +58,7 @@ for name, d in variants.items():
 random.seed(42)
 N = 5000
 for name, d in variants.items():
-    # จัดให้เรียงข้อเดียวกัน (paired)
+    # align to the same items (paired)
     common = base.index.intersection(d.index)
     b = base.loc[common]
     m = d.loc[common]
@@ -68,7 +68,7 @@ for name, d in variants.items():
     f1b, _, _ = f1_of(lab, bp_)
     f1m, _, _ = f1_of(lab, mp_)
 
-    # paired bootstrap ของผลต่าง F1
+    # paired bootstrap of the F1 difference
     idx = list(range(len(lab)))
     diffs = []
     for _ in range(N):
@@ -79,17 +79,17 @@ for name, d in variants.items():
     lo, hi = diffs[int(0.025 * N)], diffs[int(0.975 * N)]
     p_worse = sum(1 for x in diffs if x <= 0) / N
 
-    # McNemar: เฉพาะข้อที่ถูก/ผิดต่างกัน
+    # McNemar: only items where correct/wrong differs
     b_correct = [p == t for p, t in zip(bp_, lab)]
     m_correct = [p == t for p, t in zip(mp_, lab)]
-    b_only = sum(bc and not mc for bc, mc in zip(b_correct, m_correct))  # base ถูก multi ผิด
-    m_only = sum(mc and not bc for bc, mc in zip(b_correct, m_correct))  # multi ถูก base ผิด
+    b_only = sum(bc and not mc for bc, mc in zip(b_correct, m_correct))  # base right, multi wrong
+    m_only = sum(mc and not bc for bc, mc in zip(b_correct, m_correct))  # multi right, base wrong
 
     print(f"\n== {name}  vs baseline (paired, n={len(common)}) ==")
-    print(f"  F1: baseline {f1b:.3f} -> {name} {f1m:.3f}  (ต่าง {f1m-f1b:+.3f})")
-    print(f"  95% CI ของผลต่าง F1: [{lo:+.3f}, {hi:+.3f}]")
+    print(f"  F1: baseline {f1b:.3f} -> {name} {f1m:.3f}  (diff {f1m-f1b:+.3f})")
+    print(f"  95% CI of the F1 difference: [{lo:+.3f}, {hi:+.3f}]")
     if lo > 0:
-        print(f"  -> CI ไม่คร่อม 0 = {name} ดีกว่า baseline อย่างมีนัยสำคัญ ✓")
+        print(f"  -> CI does not cross 0 = {name} is significantly better than baseline ok")
     else:
-        print(f"  -> CI คร่อม 0 (โอกาส {name} ไม่ดีกว่า/แย่กว่า = {p_worse:.0%}) = ยังสรุปว่าชนะไม่ได้")
-    print(f"  McNemar: multi ถูก-base ผิด {m_only} ข้อ | base ถูก-multi ผิด {b_only} ข้อ")
+        print(f"  -> CI crosses 0 (chance {name} is not better/worse = {p_worse:.0%}) = can't conclude a win")
+    print(f"  McNemar: multi-right-base-wrong {m_only} | base-right-multi-wrong {b_only}")
