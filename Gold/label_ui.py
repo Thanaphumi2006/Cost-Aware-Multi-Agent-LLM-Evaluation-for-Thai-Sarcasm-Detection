@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""UI ติดป้ายแบบเร็ว (คีย์บอร์ดล้วน) — ขยาย gold set ให้ positive ถึง ~60-80 ข้อ
+"""Fast labeling UI (keyboard-only) — expand the gold set to ~60-80 positives
 
-ทำไมต้องมี: human_review.py ใช้ได้แต่ช้า (พิมพ์ทีละข้อในเทอร์มินัล) เหลืองานอีก
-754 ข้อ (harvest 470 + batch400 อีก 284) — หน้าเว็บนี้ให้กด 1/0/X ได้ทันที
-เซฟทุกครั้งที่กด ปิดแล้วเปิดใหม่ทำต่อได้เลย
+Why it exists: human_review.py works but is slow (typing each item in the terminal), with 754 items left
+(harvest 470 + batch400 284) — this web page lets you press 1/0/X instantly.
+Saves on every press; close and reopen to continue.
 
-หลักการเดียวกับ human_review.py โหมด blind: **ไม่โชว์คำตอบ/ความมั่นใจของ LLM**
-จนกว่าจะตัดสินเสร็จ เพื่อไม่ให้ป้ายของเราเอนตาม LLM (ปัญหา over-flag ที่เจอใน STEP 6)
+Same principle as human_review.py blind mode: **do not show the LLM answer/confidence**
+until you have decided, so our labels don't lean toward the LLM (the over-flag problem seen in STEP 6).
 
-รัน:   python Gold/label_ui.py            แล้วเปิด http://127.0.0.1:5001
-รวม:   python Gold/label_ui.py --merge    สร้าง Gold/gold_v2.csv (ไม่แตะ gold.csv เดิม)
+Run:   python Gold/label_ui.py            then open http://127.0.0.1:5001
+Merge: python Gold/label_ui.py --merge    build Gold/gold_v2.csv (doesn't touch the original gold.csv)
 """
 import argparse
 import os
@@ -21,11 +21,11 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-# สองกองที่ค้างอยู่: ชื่อกอง -> (ไฟล์, คอลัมน์ป้าย)
+# the pending queues: queue name -> (file, label column)
 QUEUES = {
     "harvest": (os.path.join(HERE, "harvest_to_review.csv"), "label"),
     "batch400": (os.path.join(ROOT, "to_label_reviewed.csv"), "human_label"),
-    # กองสุ่มจริงจาก raw pool (ไม่ผ่านตัวกรองใดๆ) -- ไว้ทำ absolute number ที่อ่านได้
+    # a truly random queue from the raw pool (no filter) -- for readable absolute numbers
     "random": (os.path.join(HERE, "random_to_label.csv"), "label"),
 }
 GOLD = os.path.join(HERE, "gold.csv")
@@ -55,7 +55,7 @@ def is_labeled(v):
 
 
 def canon(v):
-    """ป้ายในไฟล์มีทั้ง 1.0 / '1' / 'X' -> แปลงเป็น '1' | '0' | 'X'"""
+    """labels in the file come as 1.0 / '1' / 'X' -> normalize to '1' | '0' | 'X'"""
     s = str(v).strip()
     if s in ("1", "1.0"):
         return "1"
@@ -77,7 +77,7 @@ def gold_pos():
 
 
 # ----------------------------------------------------------------------
-# merge: gold.csv + ป้ายใหม่จากทั้งสองกอง -> gold_v2.csv (dedupe ด้วยข้อความ)
+# merge: gold.csv + new labels from every queue -> gold_v2.csv (dedupe by text)
 # ----------------------------------------------------------------------
 def merge():
     g = pd.read_csv(GOLD, encoding="utf-8-sig")
@@ -86,7 +86,7 @@ def merge():
 
     for queue in QUEUES:
         df, _, col = load(queue)
-        # batch400: ถ้ามี final_label (ผ่าน adjudicate แล้ว) ให้เชื่อ final_label ก่อน
+        # batch400: if final_label exists (adjudicated), trust final_label first
         eff = df[col]
         if "final_label" in df.columns:
             eff = df["final_label"].where(df["final_label"].map(is_labeled), df[col])
@@ -110,15 +110,15 @@ def merge():
     out = pd.concat([g, pd.DataFrame(rows, columns=g.columns)], ignore_index=True) if rows else g
     save_atomic(out, GOLD_V2)
     n, pos = len(out), int(out["label"].sum())
-    print(f"gold.csv เดิม: {len(g)} ข้อ (ประชด {gold_pos()})")
-    print(f"เพิ่มใหม่: {len(rows)} ข้อ | ข้าม X: {skipped_x} | ข้ามซ้ำ: {skipped_dup}")
-    print(f"-> {GOLD_V2}: {n} ข้อ (ประชด {pos} / ไม่ประชด {n - pos})")
+    print(f"original gold.csv: {len(g)} items (sarcastic {gold_pos()})")
+    print(f"newly added: {len(rows)} items | skipped X: {skipped_x} | skipped dup: {skipped_dup}")
+    print(f"-> {GOLD_V2}: {n} items (sarcastic {pos} / not {n - pos})")
     if pos < 60:
-        print(f"   เป้า ~60-80 positive: ยังขาดอีก {60 - pos}")
+        print(f"   target ~60-80 positives: {60 - pos} short")
 
 
 # ----------------------------------------------------------------------
-# หน้าเว็บ
+# web page
 # ----------------------------------------------------------------------
 PAGE = """<!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -226,8 +226,8 @@ color:#fff;border-radius:20px;padding:8px 20px;font-size:13px;opacity:0;transiti
 <script>
 let Q=localStorage.getItem('lastQueue')||'random', IDX=null, REVEALED=false;
 const $=id=>document.getElementById(id);
-// เก็บโครงการ์ดตั้งต้นไว้ -- ตอนกองไหนจบเราเขียนทับ #main ทิ้ง ถ้าไม่คืนกลับ
-// การสลับไปกองที่ยังไม่จบจะพัง (element หาย -> JS error -> หน้าค้าง)
+// keep the original card markup -- when a queue finishes we overwrite #main; without restoring it,
+// switching to an unfinished queue would break (element gone -> JS error -> page frozen)
 const MAIN_HTML=$('main').innerHTML;
 
 function flash(m){const f=$('flash');f.textContent=m;f.classList.add('show');
@@ -297,11 +297,11 @@ def run_server(port):
     from flask import Flask, jsonify, request
 
     app = Flask(__name__)
-    history = []  # (queue, index, ป้ายเดิม, โน้ตเดิม) สำหรับ undo
+    history = []  # (queue, index, old label, old note) for undo
 
     def state(queue, index=None):
-        """สถานะที่หน้าเว็บใช้วาด: ข้อความปัจจุบัน + ความคืบหน้า
-        index=None -> ไปข้อที่ยังไม่มีป้ายข้อแรก"""
+        """the state the page renders: current text + progress
+        index=None -> jump to the first unlabeled item"""
         df, _, col = load(queue)
         done = df[col].map(is_labeled)
         if index is None:
@@ -366,7 +366,7 @@ def run_server(port):
 
     @app.post("/api/quit")
     def api_quit():
-        """ปิดเซิร์ฟเวอร์จากหน้าเว็บ — ข้อมูลเซฟไปแล้วทุกครั้งที่กด จึงแค่สรุปแล้วดับเครื่อง"""
+        """shut the server down from the page — data is saved on every press, so just summarize and exit"""
         import threading
 
         parts = []
@@ -378,7 +378,7 @@ def run_server(port):
 
     @app.get("/api/hint")
     def api_hint():
-        """ความเห็น LLM — ให้ดูได้เฉพาะข้อที่ติดป้ายแล้ว (กัน anchor bias)"""
+        """the LLM opinion — viewable only on already-labeled items (avoid anchor bias)"""
         q, idx = request.args["queue"], int(request.args["index"])
         df, _, col = load(q)
         if not is_labeled(df.at[idx, col]):
@@ -399,7 +399,7 @@ def run_server(port):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--merge", action="store_true", help="รวมป้ายใหม่ -> gold_v2.csv")
+    ap.add_argument("--merge", action="store_true", help="merge new labels -> gold_v2.csv")
     ap.add_argument("--port", type=int, default=5001)
     args = ap.parse_args()
     if args.merge:

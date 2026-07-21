@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-"""ระบบ ③ — WangchanBERTa (โมเดลเล็กเทรนเอง) เทียบกับ LLM
+"""System ③ — WangchanBERTa (a self-trained small model) vs. the LLM
 
-คำถามที่ระบบนี้ตอบ: "ต้องใช้ LLM จริงไหม หรือโมเดลเล็กฟรีๆ ก็พอ"
+The question this system answers: "do you really need the LLM, or is a free small model enough?"
 
-ทำไมต้อง 5-fold CV ไม่ใช่ train/test split:
-  gold มีแค่ 127 ข้อ (ประชด 30) -- แบ่ง 80/20 จะเหลือ test 25 ข้อ ประชด 6 ข้อ
-  -> ตัวเลขจะเป็น noise ล้วน และเทียบกับ baseline/multi-agent (ที่วัดบน 127 ข้อ) ไม่ได้
-  5-fold CV: ทุกข้อถูกทำนายโดยโมเดลที่ "ไม่เคยเห็นข้อนั้น" -> ได้ pred ครบ 127 ข้อ
-  -> เทียบข้อต่อข้อกับอีกสองระบบได้ตรงๆ เข้า paired bootstrap ตัวเดิมได้เลย
+Why 5-fold CV, not a train/test split:
+  gold has only 127 items (30 sarcastic) -- an 80/20 split leaves a test set of 25, with 6 sarcastic
+  -> the numbers would be pure noise, and not comparable to baseline/multi-agent (measured on 127)
+  5-fold CV: every item is predicted by a model that "never saw that item" -> full 127-item predictions
+  -> compares item-by-item with the other two systems directly, straight into the same paired bootstrap
 
-จัดการ class imbalance (97:30) ด้วย pos_weight ใน loss
-ไม่งั้นโมเดลจะเรียนรู้ทางลัด "ตอบ 0 ทุกข้อ" ซึ่งได้ accuracy 0.764 ฟรีๆ
+Handle the class imbalance (97:30) with pos_weight in the loss,
+or the model learns the shortcut "answer 0 for everything," which gets accuracy 0.764 for free.
 
-รัน: python wangchanberta.py
+Run: python wangchanberta.py
 """
 import os
 import sys
@@ -26,7 +26,7 @@ from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, logging as hf_log
 
-from baseline import metrics  # harness เดียวกับอีกสองระบบ -- พิสูจน์ว่าไม่ได้วัดคนละมาตรฐาน
+from baseline import metrics  # same harness as the other two systems -- proving no double standard
 
 sys.stdout.reconfigure(encoding="utf-8")
 hf_log.set_verbosity_error()
@@ -37,7 +37,7 @@ PRED_CSV = os.path.join(HERE, "wangchanberta_preds.csv")
 
 MODEL_NAME = "airesearch/wangchanberta-base-att-spm-uncased"
 N_FOLDS = 5
-SEEDS = [42, 7, 2024]   # เทรนหลาย seed -- ข้อมูลน้อยขนาดนี้ผลแกว่งมาก ต้องรายงานความแกว่งด้วย
+SEEDS = [42, 7, 2024]   # multiple seeds -- with this little data results swing a lot, so report the variance
 EPOCHS = 4
 BATCH = 8
 LR = 2e-5
@@ -45,8 +45,8 @@ MAX_LEN = 256
 
 
 class DS(Dataset):
-    """เก็บ text ดิบไว้ -- ให้ collate ตัดสินความยาว pad ทีละ batch
-    (ข้อความจริง p50 แค่ 87 tokens ถ้า pad ทุกข้อไป 256 = เผาเวลา CPU กับ padding เปล่าๆ ~3 เท่า)"""
+    """Keep raw text -- let collate decide the length and pad per batch
+    (real text is p50 only 87 tokens; padding everything to 256 wastes ~3x the CPU time on empty padding)"""
 
     def __init__(self, texts, labels):
         self.texts = list(texts)
@@ -78,7 +78,7 @@ def train_one_fold(tr_texts, tr_y, te_texts, tok, pos_weight, seed):
     dl = DataLoader(DS(tr_texts, tr_y), batch_size=BATCH, shuffle=True,
                     collate_fn=make_collate(tok))
     opt = torch.optim.AdamW(model.parameters(), lr=LR)
-    # ถ่วงน้ำหนักคลาสประชด -- กันโมเดลเลือกทางลัด "ตอบ 0 ทุกข้อ" (ซึ่งได้ acc 0.764 ฟรีๆ)
+    # weight the sarcastic class -- prevent the shortcut "answer 0 for everything" (which gets acc 0.764 for free)
     lossf = nn.CrossEntropyLoss(weight=torch.tensor([1.0, pos_weight], dtype=torch.float))
 
     for _ in range(EPOCHS):
@@ -108,9 +108,9 @@ def main():
 
     n_pos, n_neg = int((y == 1).sum()), int((y == 0).sum())
     pos_weight = n_neg / n_pos
-    print(f"gold {len(df)} ข้อ | ประชด {n_pos} / ไม่ประชด {n_neg} | pos_weight {pos_weight:.2f}")
-    print(f"โมเดล {MODEL_NAME}")
-    print(f"{N_FOLDS}-fold CV × {len(SEEDS)} seeds × {EPOCHS} epochs (CPU -- ใช้เวลาสักพัก)\n")
+    print(f"gold {len(df)} items | sarcastic {n_pos} / not {n_neg} | pos_weight {pos_weight:.2f}")
+    print(f"model {MODEL_NAME}")
+    print(f"{N_FOLDS}-fold CV × {len(SEEDS)} seeds × {EPOCHS} epochs (CPU -- takes a while)\n")
 
     tok = AutoTokenizer.from_pretrained(MODEL_NAME)
     t0 = time.time()
@@ -134,7 +134,7 @@ def main():
 
     total = time.time() - t0
 
-    # เลือก seed ที่ให้ F1 กลาง (median) เป็นตัวแทน -- ไม่ใช่ seed ที่ดีที่สุด (นั่นคือการ cherry-pick)
+    # pick the median-F1 seed as representative -- not the best seed (that would be cherry-picking)
     f1s = [r[1] for r in per_seed]
     med_i = int(np.argsort(f1s)[len(f1s) // 2])
     rep_seed = per_seed[med_i][0]
@@ -146,18 +146,18 @@ def main():
     out.to_csv(PRED_CSV, index=False, encoding="utf-8-sig")
 
     print("=" * 62)
-    print(f"F1 ต่อ seed : {', '.join(f'{f:.3f}' for f in f1s)}")
-    print(f"F1 เฉลี่ย    : {np.mean(f1s):.3f}  (SD {np.std(f1s):.3f})")
-    print(f"seed ตัวแทน  : {rep_seed} (median -- ไม่เลือก seed ที่ดีที่สุด นั่นคือ cherry-pick)")
-    print(f"เวลาเทรนรวม  : {total/60:.1f} นาที (CPU)")
-    print(f"ค่า API      : $0.00  |  LLM calls: 0")
-    print(f"บันทึก -> {PRED_CSV}")
+    print(f"F1 per seed : {', '.join(f'{f:.3f}' for f in f1s)}")
+    print(f"F1 mean     : {np.mean(f1s):.3f}  (SD {np.std(f1s):.3f})")
+    print(f"repr. seed  : {rep_seed} (median -- not the best seed, that would be cherry-picking)")
+    print(f"total train : {total/60:.1f} min (CPU)")
+    print(f"API cost    : $0.00  |  LLM calls: 0")
+    print(f"saved -> {PRED_CSV}")
     print("=" * 62)
-    print("\nเทียบกับ LLM (วัด gold ชุดเดียวกัน 127 ข้อ):")
-    print(f"  baseline (เดี่ยว)   F1 0.690 | $0.094")
+    print("\nvs the LLM (measured on the same 127-item gold):")
+    print(f"  baseline (single)   F1 0.690 | $0.094")
     print(f"  multi-agent v2      F1 0.744 | $0.169")
     print(f"  WangchanBERTa       F1 {np.mean(f1s):.3f} | $0.00")
-    print("\nรัน compare_systems.py เพื่อทดสอบนัยสำคัญแบบ paired")
+    print("\nrun compare_systems.py for the paired significance test")
 
 
 if __name__ == "__main__":
