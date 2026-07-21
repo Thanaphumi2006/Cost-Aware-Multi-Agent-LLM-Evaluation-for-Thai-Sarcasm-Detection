@@ -15,7 +15,7 @@ What you can access here:
 - **[One-minute visual overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** of what the system does and how each method scored, for readers without an ML background. (Same file: [`overview.html`](overview.html))
 - **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
 - **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo (pictured below).
-- **[Full findings, 1 to 19](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
+- **[Full findings, 1 to 20](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
 
 <details>
 <summary><b>The whole project on one board</b> (click to expand)</summary>
@@ -117,7 +117,7 @@ range stays inside a 0.05 F1 band, with the best score belonging to one of the c
 (gpt-4.1-mini, F1 0.727, $0.015) is statistically tied with the flagship two-agent pipeline (gpt-4o, F1 0.744, $0.169)
 at **one eleventh of the cost.**
 
-Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 19).
+Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 20).
 
 **Replicated at 4.7x the data (finding 19).** The gold set was later expanded to 595 items
 (104 sarcastic, labeled blind via `Gold/label_ui.py`) and the core systems re-run. Two results:
@@ -132,6 +132,15 @@ Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.m
 Absolute scores on that set are lower by design (its negatives are pre-selected look-alikes, a hard
 set), which surfaced a bonus finding: hard negatives collapse precision for every architecture
 equally, so adding agents does not fix it.
+
+**The honest reality check (finding 20).** Every gold set above was keyword-mined to be
+17 to 24% sarcastic. A uniformly random sample of Thai social text is only **4.9% sarcastic**, and on
+that realistic distribution the celebrated numbers evaporate: the free cue detector falls from F1
+0.59 to **0.09**, and GPT with plain argmax flags 36% of all text as sarcastic (F1 0.20). The one
+thing that survives is the free confidence-reading upgrade, which cuts the flag rate to 6% and lifts
+F1 to **0.46**, its largest single improvement anywhere in the project. Sarcasm detection on real
+traffic is harder than any headline number suggested, and reading the confidence you already paid for
+is what separates a usable system from an unusable one.
 
 ## Why I trust these numbers (and you can too)
 
@@ -211,7 +220,8 @@ Gold/
   gold_v2.csv            the expanded 302-item hard set (67 sarcastic)
   label_ui.py            keyboard labeling tool (harvest / batch400 / random queues)
   random_to_label.csv    250 uniformly random texts, unlabeled, for honest absolute scores
-  RESULTS.md             the full write-up, findings 1 to 19
+  gold_random.csv        250 uniformly random texts, human-labeled: the honest 4.9%-sarcastic test set
+  RESULTS.md             the full write-up, findings 1 to 20
 dataset/
   README.md              Hugging Face dataset card for the gold set (two splits)
   upload_hf.py           builds the splits and uploads them (needs huggingface-cli login)

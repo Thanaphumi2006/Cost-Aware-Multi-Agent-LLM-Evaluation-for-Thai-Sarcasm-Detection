@@ -62,8 +62,12 @@ not better) at 2.96× the cost. At that scale the confidence-reading upgrade its
 statistically significant for the first time (+0.040, 95% CI [+0.018, +0.060]), while precision
 collapses for every architecture equally: hard negatives are a property of the data that additional
 agents do not repair.
-We conclude that for subjective, low-resource classification, the first questions are not architectural:
-exhaust the information one agent already returns, then choose the cheapest sufficient model.
+On a uniformly random test set (4.9% sarcastic, the true base rate versus 17--24% in the mined
+sets), every headline number collapses: the free cue detector falls from F1 0.59 to 0.09 and
+argmax GPT flags 36% of all text (F1 0.20), while the free confidence-reading upgrade is what
+rescues the system to F1 0.46, its largest single gain anywhere. We conclude that for subjective,
+low-resource classification, the first questions are not architectural: exhaust the information one
+agent already returns, then choose the cheapest sufficient model.
 </div>
 
 <h2>1&emsp;Introduction</h2>
@@ -232,6 +236,40 @@ the positive rate to 17.5% and surging false positives identically across archit
 also more overconfident at this scale (404/595 items outside [0.01, 0.99]), yet the threshold still
 extracts a significant gain, and its leave-fold-out score (0.377) sits within 0.004 of the
 oracle-tuned value (0.381), indicating a stable rather than overfitted cutoff.
+</p>
+
+<h3>5.6&emsp;Reality check on a uniformly random test set</h3>
+<p>
+Every set above was keyword-mined to 17--24% sarcastic. To measure the true base rate we drew 250
+uniformly random texts from the 72,865-item pool, labeled blind: only <b>4.9%</b> (12/245 decidable)
+are sarcastic, so keyword mining inflates the positive rate roughly 4.5&times;. On this realistic
+distribution the class-imbalance mathematics dominates every result.
+</p>
+<table>
+<thead><tr><th class="l">System (random set, n=245, 4.9% sarcastic)</th><th>F1</th><th>Prec.</th><th>Rec.</th><th>Flag rate</th></tr></thead>
+<tbody>
+<tr><td class="l">Always "not sarcastic"</td><td>0.000</td><td>&mdash;</td><td>0.000</td><td>0%</td></tr>
+<tr><td class="l">Lexical cues (deployed free tool)</td><td>0.090</td><td>0.055</td><td>0.250</td><td>22%</td></tr>
+<tr><td class="l">GPT-4o (argmax)</td><td>0.202</td><td>0.115</td><td>0.833</td><td>36%</td></tr>
+<tr><td class="l"><b>GPT-4o + threshold (LOFO)</b></td><td><b>0.462</b></td><td>0.429</td><td>0.500</td><td>6%</td></tr>
+</tbody>
+</table>
+<div class="caption"><b>Table 3.</b> Absolute performance on a realistically distributed test set. Threshold F1 95% CI [0.182, 0.688] (wide: only 12 positives).</div>
+<p>
+Two anchors from the mined data are exposed as artifacts. The "$0 floor at F1 0.59" (the free cue
+detector) collapses to <b>0.09</b>: the same cues that fire on sarcasm in a 24%-positive set fire
+overwhelmingly on sincere text when positives are rare (52 false positives), so precision falls to
+0.055. This is not a property of the method but the arithmetic of a rare positive class. GPT with
+argmax fails identically, flagging 36% of all text as sarcastic (precision 0.115) when only 4.9% is.
+</p>
+<p>
+The one intervention that survives is the free confidence-reading upgrade that defines our fair
+baseline. Thresholding the logprob cuts the flag rate from 36% to 6% (near the true 4.9% base rate),
+lifting precision from 0.115 to 0.429 and F1 from 0.202 to <b>0.462</b>: a +0.26 gain at zero added
+cost, larger than any architectural change measured in this work. On realistic data, reading the
+confidence already paid for is not a marginal upgrade but the line between a usable and an unusable
+system. The best absolute F1 achievable here is ~0.46, well below the 0.73 headline from the mined
+set; sarcasm detection on real traffic is materially harder than any mined benchmark implies.
 </p>
 
 <h2>6&emsp;Limitations</h2>
