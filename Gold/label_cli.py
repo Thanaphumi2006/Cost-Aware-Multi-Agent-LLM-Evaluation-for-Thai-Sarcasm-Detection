@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""เครื่องมือ label ประชดในเทอร์มินัล -- เติม human_label ใน to_label_next.csv
+"""Terminal tool for labeling sarcasm -- fills human_label in to_label_next.csv
 
-ออกแบบให้ label เร็วและปลอดภัย:
-  - โชว์ทีละข้อ เรียงตาม P(ประชด) มาก->น้อย (ผู้สมัคร positive ก่อน) เฉพาะข้อที่ยังไม่ label
-  - กด 1/0 ตัดสิน, u=ไม่แน่ใจ(ข้าม), b=ย้อนกลับ, q=บันทึกแล้วออก
-  - **บันทึกลงไฟล์ทุกครั้งที่ตอบ** -> ปิดกลางคันได้ เปิดใหม่ทำต่อจากเดิม
-  - เตือน rubric: ประชดต้องมี "การเสแสร้ง" (แกล้งชม) -- รีวิวสมดุล/บ่นตรงๆ = 0
+Designed to label fast and safely:
+  - show one item at a time, sorted by P(sarcasm) high->low (positive candidates first), only unlabeled items
+  - press 1/0 to decide, u=unsure(skip), b=go back, q=save and quit
+  - **saves to file on every answer** -> can quit midway and resume later
+  - rubric reminder: sarcasm requires "pretense" (fake praise) -- balanced review / direct complaint = 0
 
-รัน:  python label_cli.py            (label เฉพาะ P>0.2 = ~37 ข้อที่คุ้มสุด)
-      python label_cli.py --all      (label ทุกข้อรวม P<0.2)
+Run:  python label_cli.py            (label only P>0.2 = ~37 highest-value items)
+      python label_cli.py --all      (label all items including P<0.2)
 """
 import argparse
 import os
@@ -42,7 +42,7 @@ def main():
         except ValueError:
             return -1.0
 
-    # คิวงาน: ยังไม่ label + (ถ้าไม่ใส่ --all) เอาเฉพาะ P>0.2 ; เรียง P มาก->น้อย
+    # work queue: unlabeled + (unless --all) only P>0.2 ; sorted by P high->low
     order = df.assign(_p=df["P_sarcasm"].map(pnum)).sort_values("_p", ascending=False).index
     queue = [i for i in order
              if df.at[i, "human_label"].strip() == ""
@@ -57,7 +57,7 @@ def main():
     print(RULE)
     print("  พิมพ์:  1=ประชด  0=ไม่ประชด  u=ไม่แน่ใจ(ข้าม)  b=ย้อนกลับ  q=บันทึก+ออก\n")
 
-    hist = []          # ประวัติ index ที่เพิ่งตอบ -> ให้ b ย้อนได้
+    hist = []          # history of just-answered indices -> lets b go back
     pos = 0
     while pos < len(queue):
         i = queue[pos]
@@ -76,17 +76,17 @@ def main():
         if ans == "b":
             if hist:
                 pos = hist.pop()
-                df.at[queue[pos], "human_label"] = ""   # ล้างคำตอบเก่าให้ตอบใหม่
+                df.at[queue[pos], "human_label"] = ""   # clear the old answer to re-answer
                 df.to_csv(CSV, index=False, encoding="utf-8-sig")
             else:
                 print("  (ย้อนไม่ได้ อยู่ข้อแรกแล้ว)")
             continue
         if ans in ("1", "0"):
             df.at[i, "human_label"] = ans
-            df.to_csv(CSV, index=False, encoding="utf-8-sig")   # เซฟทุกครั้ง
+            df.to_csv(CSV, index=False, encoding="utf-8-sig")   # save every time
             hist.append(pos); pos += 1
         elif ans == "u":
-            df.at[i, "human_label"] = "X"                       # ไม่แน่ใจ -> ไม่เข้า gold
+            df.at[i, "human_label"] = "X"                       # unsure -> not included in gold
             df.to_csv(CSV, index=False, encoding="utf-8-sig")
             hist.append(pos); pos += 1
         else:

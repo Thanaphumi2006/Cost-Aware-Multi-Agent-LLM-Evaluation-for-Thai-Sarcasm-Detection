@@ -1,34 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-ขุด "ผู้ต้องสงสัยประชด" เพิ่ม ด้วย LLM (แม่นกว่าคีย์เวิร์ด) เพื่อเพิ่มฝั่งประชดใน gold
+Mine more "sarcasm suspects" with an LLM (more accurate than keywords) to grow the sarcastic side of gold
 
-ทำไมต้องมี: คีย์เวิร์ดเจอประชดจริงน้อย (รีวิว Wongnai ยาวๆ ปนเยอะ)
-วิธีแก้: เน้น Wisesight + ตัดข้อความยาว + ให้ LLM คัดเฉพาะที่น่าจะประชด
-ผลลัพธ์: harvest_to_review.csv = กองที่ LLM คิดว่าน่าจะประชด เรียงจากมั่นใจสุด
-         -> คุณเอาไปตรวจด้วยมือ (blind) เฉพาะกองนี้ เจอประชดเร็วขึ้นมาก
+Why it exists: keywords find few real sarcasm cases (long Wongnai reviews are noisy)
+Approach: focus on Wisesight + drop long texts + let the LLM pick only likely-sarcastic ones
+Output: harvest_to_review.csv = the pile the LLM thinks is likely sarcastic, sorted most-confident first
+         -> you hand-check (blind) only this pile, finding sarcasm much faster
 
-อินพุต : to_label.csv (ต้นทาง) + gold.csv (ข้อที่ตรวจแล้ว จะได้ไม่ซ้ำ)
-ติดตั้ง:  pip install openai pandas
-ตั้งคีย์:  export OPENAI_API_KEY="sk-..."
-รัน:       python harvest_positives_llm.py
+Input : to_label.csv (source) + gold.csv (already-checked items, to avoid duplicates)
+Install:  pip install openai pandas
+Set key:  export OPENAI_API_KEY="sk-..."
+Run:       python harvest_positives_llm.py
 """
 
 import os, json, time
 import pandas as pd
 from openai import OpenAI
 
-# path แบบทนทาน: อ้างอิงตำแหน่งไฟล์สคริปต์ (รันจากที่ไหนก็ได้)
-HERE = os.path.dirname(os.path.abspath(__file__))       # โฟลเดอร์ Gold/
-BASE = os.path.dirname(HERE)                            # โฟลเดอร์โปรเจกต์
+# robust paths: reference the script file location (run from anywhere)
+HERE = os.path.dirname(os.path.abspath(__file__))       # the Gold/ folder
+BASE = os.path.dirname(HERE)                            # the project folder
 
-# ============ ปรับได้ ============
-SRC_CSV = os.path.join(BASE, "scored_texts.csv")  # ขุดจากกองใหญ่ 68k (ไม่ใช่แค่ 400)
-GOLD_CSV = os.path.join(HERE, "gold.csv")         # ใช้กันข้อที่ตรวจไปแล้ว
+# ============ tunable ============
+SRC_CSV = os.path.join(BASE, "scored_texts.csv")  # mine from the big 68k pile (not just 400)
+GOLD_CSV = os.path.join(HERE, "gold.csv")         # used to exclude already-checked items
 OUT_CSV = os.path.join(HERE, "harvest_to_review.csv")
 MODEL = "gpt-4o"
-ONLY_WISESIGHT = True                 # เน้นแหล่งที่ประชดหนาแน่น
-MAX_LEN = 150                         # ตัดข้อความยาว (ประชดมักสั้น กระชับ)
-MAX_SCAN = 800                        # สแกนกี่ข้อ (คุมค่า API)
+ONLY_WISESIGHT = True                 # focus on the source dense with sarcasm
+MAX_LEN = 150                         # drop long texts (sarcasm is usually short and terse)
+MAX_SCAN = 800                        # how many items to scan (controls API cost)
 SLEEP = 0.3
 # =================================
 
@@ -40,7 +40,7 @@ SYSTEM = """ดูข้อความไทยแล้วตอบว่า "
 ตอบ JSON เท่านั้น: {"maybe_sarcasm": true/false, "conf": 0.0-1.0}"""
 
 def judge(text):
-    # retry กันเน็ตหลุด/ลิมิตชั่วคราว (ไม่ให้ทั้งงานพังเพราะ blip เดียว)
+    # retry against network drops / temporary limits (so one blip does not kill the whole job)
     for attempt in range(4):
         try:
             r = client.chat.completions.create(
@@ -55,11 +55,11 @@ def judge(text):
             return False, 0.0
         except Exception as e:
             if attempt == 3:
-                print(f"    (ข้าม 1 ข้อ หลัง retry: {type(e).__name__})")
+                print(f"    (skipped 1 item after retry: {type(e).__name__})")
                 return False, 0.0
             time.sleep(2 * (attempt + 1))   # 2s, 4s, 6s
 
-# ---- โหลด + กันข้อที่ตรวจแล้ว ----
+# ---- load + exclude already-checked items ----
 df = pd.read_csv(SRC_CSV)
 reviewed = set()
 if os.path.exists(GOLD_CSV):
@@ -70,11 +70,11 @@ cand = df[~df["text"].isin(reviewed)]
 if ONLY_WISESIGHT and "source" in cand.columns:
     cand = cand[cand["source"] == "wisesight"]
 cand = cand[cand["text"].str.len() <= MAX_LEN]
-# เรียงจาก suspect_score สูงก่อน (มีโอกาสประชดกว่า) แล้วจำกัดจำนวนสแกน
+# sort by suspect_score descending (more likely sarcastic first) then cap the scan count
 if "suspect_score" in cand.columns:
     cand = cand.sort_values("suspect_score", ascending=False)
 cand = cand.head(MAX_SCAN).reset_index(drop=True)
-print(f"จะสแกน {len(cand)} ข้อด้วย LLM...")
+print(f"will scan {len(cand)} items with the LLM...")
 
 rows = []
 for i, t in enumerate(cand["text"], 1):
@@ -82,15 +82,15 @@ for i, t in enumerate(cand["text"], 1):
     if maybe:
         rows.append({"text": t, "llm_conf": conf})
     if i % 25 == 0:
-        print(f"  ...{i}/{len(cand)}  พบผู้ต้องสงสัย {len(rows)}")
-        if rows:  # เซฟบางส่วนกันงานหาย
+        print(f"  ...{i}/{len(cand)}  suspects found {len(rows)}")
+        if rows:  # save partial progress so work is not lost
             pd.DataFrame(rows).sort_values("llm_conf", ascending=False).to_csv(
                 OUT_CSV, index=False, encoding="utf-8-sig")
     time.sleep(SLEEP)
 
 out = pd.DataFrame(rows).sort_values("llm_conf", ascending=False)
-out["label"] = ""   # ช่องให้คุณตรวจด้วยมือ
+out["label"] = ""   # a column for you to hand-check
 out["note"] = ""
 out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
-print(f"\nพบผู้ต้องสงสัยประชด {len(out)} ข้อ -> {OUT_CSV}")
-print("ขั้นต่อไป: ตรวจด้วยมือเฉพาะกองนี้ (blind) แล้วรวมข้อที่เป็น 1 เข้า gold.csv")
+print(f"\nfound {len(out)} sarcasm suspects -> {OUT_CSV}")
+print("next step: hand-check only this pile (blind), then merge the 1s into gold.csv")
