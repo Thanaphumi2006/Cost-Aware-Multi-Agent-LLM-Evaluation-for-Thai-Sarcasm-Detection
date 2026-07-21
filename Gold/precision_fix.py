@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""แก้ precision ที่ต้นทาง: ใส่ few-shot "รีวิวสมดุล = ไม่ประชด" ใน detector prompt
+"""Fix precision at the source: add a few-shot "balanced review = not sarcasm" to the detector prompt
 
-ที่มา (finding 1): คอขวดคือ precision 0.526 -- FP 27 ข้อ ส่วนใหญ่คือ "รีวิวสมดุล" (ชมจริง+ติจริง)
-ทุกระบบก่อนหน้าพยายามล้าง FP นี้ *หลัง* detector ยิง -- ไม่มีใครแก้ที่ตัว detector เลย
-สมมติฐาน: บอก detector ตรงๆ ว่า "ชมจริง+ติจริง = ไม่ประชด" น่าจะตัด FP ตั้งแต่ต้นทาง ฟรี (ไม่เพิ่ม call)
+Motivation (finding 1): the bottleneck is precision 0.526 -- 27 FPs, mostly "balanced reviews" (real praise + real criticism)
+Every prior system tried to clean up these FPs *after* the detector fired -- nobody fixed the detector itself
+Hypothesis: telling the detector directly "real praise + real criticism = not sarcasm" should cut FPs at the source, for free (no extra calls)
 
-*** สำคัญ: few-shot ข้างล่างเป็นตัวอย่าง "สังเคราะห์" ทั้งหมด -- ไม่ได้ก๊อปจาก gold แม้แต่ข้อเดียว ***
-    (ถ้าเอา gold มาเป็น few-shot = leak = โกง) ตัวอย่างแค่สอน "เส้นแบ่ง" ไม่ใช่ท่องคำตอบ
+*** Important: the few-shot examples below are all "synthetic" -- not a single one copied from gold ***
+    (using gold as few-shot = leak = cheating) the examples only teach the "boundary", not memorized answers
 
-เทียบแบบยุติธรรม: รันบน gpt-4o เหมือน baseline+threshold (finding 7, F1 0.725) -- ต่างแค่ prompt
-threshold เลือกแบบ leave-fold-out เหมือนเดิม
+Fair comparison: run on gpt-4o like baseline+threshold (finding 7, F1 0.725) -- only the prompt differs
+threshold chosen leave-fold-out as before
 
-รัน:
-  python precision_fix.py --score       ยิง gpt-4o 127 ครั้ง (~$0.09)
-  python precision_fix.py --report      วิเคราะห์ + เทียบ paired กับ plain prompt (ฟรี)
+Run:
+  python precision_fix.py --score       call gpt-4o 127 times (~$0.09)
+  python precision_fix.py --report      analyze + paired comparison vs plain prompt (free)
 """
 import argparse
 import json
@@ -33,11 +33,11 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 GOLD_CSV = os.path.join(HERE, "gold.csv")
 PROB_CSV = os.path.join(HERE, "precision_fix_probs.csv")
-PLAIN_CSV = os.path.join(HERE, "frontier_probs_gpt-4o.csv")  # prompt เดิม, gpt-4o, F1 0.725
+PLAIN_CSV = os.path.join(HERE, "frontier_probs_gpt-4o.csv")  # original prompt, gpt-4o, F1 0.725
 MODEL = "gpt-4o"
 N_FOLDS, SEED = 5, 42
 
-# prompt เดิม + กฎ "การเสแสร้ง" ชัดๆ + few-shot สังเคราะห์ (ไม่ใช่ gold) เจาะ FP รีวิวสมดุล
+# original prompt + an explicit "pretense" rule + synthetic few-shot (not gold) targeting balanced-review FPs
 DETECT_V2 = """ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่
 ประชด = เจตนาจริงตรงข้ามกับความหมายผิวเผิน เพื่อเหน็บหรือแสดงความไม่พอใจ
 
@@ -90,7 +90,7 @@ def score_one(client, text):
 
 def do_score():
     if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("ต้องมี OPENAI_API_KEY")
+        sys.exit("OPENAI_API_KEY required")
     df = pd.read_csv(GOLD_CSV, dtype=str).fillna("")
     df["label"] = df["label"].str.strip()
     df = df[df["label"].isin(["0", "1"])].reset_index(drop=True)
@@ -103,19 +103,19 @@ def do_score():
         try:
             p, i, o = score_one(client, text)
         except Exception as e:
-            print(f"\n  ข้อ {n} พัง: {type(e).__name__}: {e}")
+            print(f"\n  item {n} failed: {type(e).__name__}: {e}")
             p, i, o = float("nan"), 0, 0
         probs.append(p); ti += i; to += o
         print(f"  {n}/{len(df)}", end="\r", flush=True)
     out = df[["text", "label"]].copy()
     out["prob"] = probs
     out.to_csv(PROB_CSV, index=False, encoding="utf-8-sig")
-    print(f"\nยิง {len(df)} calls | {ti} in / {to} out | ${cost(ti,to):.4f} | {time.time()-t0:.0f}s")
-    print(f"บันทึก -> {PROB_CSV}  |  ต่อไป: python precision_fix.py --report")
+    print(f"\ncalled {len(df)} calls | {ti} in / {to} out | ${cost(ti,to):.4f} | {time.time()-t0:.0f}s")
+    print(f"saved -> {PROB_CSV}  |  next: python precision_fix.py --report")
 
 
 def loo_pred(probs, y):
-    """leave-fold-out threshold -> คืน pred array"""
+    """leave-fold-out threshold -> return pred array"""
     def f1_at(p, yy, t):
         pr = (p >= t).astype(int); tp = ((pr == 1) & (yy == 1)).sum()
         fp = ((pr == 1) & (yy == 0)).sum(); fn = ((pr == 0) & (yy == 1)).sum()
@@ -136,18 +136,18 @@ def f1(y, p):
 
 def do_report():
     if not os.path.exists(PROB_CSV):
-        sys.exit(f"ไม่พบ {PROB_CSV} -- รัน --score ก่อน")
+        sys.exit(f"{PROB_CSV} not found -- run --score first")
     fix = pd.read_csv(PROB_CSV, dtype={"text": str, "label": str}).fillna("")
     fix["label"] = fix["label"].str.strip()
     y = fix["label"].astype(int).values
     pf = loo_pred(np.nan_to_num(fix["prob"].astype(float).values, nan=0.0), y)
     _, prec, rec, f1v, (tn, fp, fn, tp) = metrics(fix["label"].tolist(), [str(v) for v in pf])
-    print(f"detector + few-shot (รีวิวสมดุล=0) บน {MODEL} + threshold leave-fold-out:")
+    print(f"detector + few-shot (balanced review=0) on {MODEL} + threshold leave-fold-out:")
     print(f"  F1 {f1v:.3f} | prec {prec:.3f} | recall {rec:.3f} | TP {tp} FP {fp} FN {fn}\n")
 
-    # เทียบ paired กับ prompt เดิม (gpt-4o, F1 0.725) -- ข้อต่อข้อ
+    # paired comparison vs the original prompt (gpt-4o, F1 0.725) -- item by item
     if not os.path.exists(PLAIN_CSV):
-        print("(ไม่มี frontier_probs_gpt-4o.csv -> ข้ามการเทียบ paired)")
+        print("(no frontier_probs_gpt-4o.csv -> skipping paired comparison)")
         return
     plain = pd.read_csv(PLAIN_CSV, dtype={"text": str, "label": str}).fillna("")
     plain["label"] = plain["label"].str.strip()
@@ -162,15 +162,15 @@ def do_report():
     rng = np.random.default_rng(0)
     d = np.array([f1(yy[i], pb[i]) - f1(yy[i], pa[i]) for i in (rng.integers(0, n, n) for _ in range(5000))])
     lo, hi = np.percentile(d, [2.5, 97.5])
-    print(f"เทียบ paired (n={n}) กับ prompt เดิม (gpt-4o):")
+    print(f"paired comparison (n={n}) vs the original prompt (gpt-4o):")
     print(f"  plain prompt      F1 {f1(yy,pa):.3f}")
-    print(f"  + few-shot สมดุล   F1 {f1(yy,pb):.3f}")
-    print(f"  ต่าง {f1(yy,pb)-f1(yy,pa):+.3f}  95% CI [{lo:+.3f}, {hi:+.3f}]  "
-          f"P(ไม่ดีกว่า)={np.mean(d<=0)*100:.0f}%")
+    print(f"  + balanced few-shot   F1 {f1(yy,pb):.3f}")
+    print(f"  delta {f1(yy,pb)-f1(yy,pa):+.3f}  95% CI [{lo:+.3f}, {hi:+.3f}]  "
+          f"P(not better)={np.mean(d<=0)*100:.0f}%")
     nb = ((pb == yy) & (pa != yy)).sum(); na = ((pa == yy) & (pb != yy)).sum()
-    print(f"  McNemar: few-shot ถูก-plain ผิด {nb} | plain ถูก-few-shot ผิด {na}")
-    print(f"  *** cost ไม่เท่ากัน: few-shot ทำ prompt ยาวขึ้น -> input token ~2x ($0.19 vs $0.094)")
-    print(f"      calls เท่าเดิม (127) แต่ 'ฟรี' เฉพาะจำนวน call ไม่ใช่ค่าเงิน")
+    print(f"  McNemar: few-shot right-plain wrong {nb} | plain right-few-shot wrong {na}")
+    print(f"  *** cost is not equal: few-shot makes the prompt longer -> input tokens ~2x ($0.19 vs $0.094)")
+    print(f"      same call count (127) but 'free' only in call count, not in dollars")
 
 
 if __name__ == "__main__":

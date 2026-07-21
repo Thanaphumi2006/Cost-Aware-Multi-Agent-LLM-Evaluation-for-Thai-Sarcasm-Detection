@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Semantic cache (Redis) — ตัวระบบจริง + วัดว่ามันได้ผลจริงไหมบนงานนี้
+"""Semantic cache (Redis) -- the real system + a measurement of whether it actually works on this task
 
-⚠️ อ่านก่อนใช้: finding 14 ใน RESULTS.md **วัดไว้แล้วว่าแคชแบบนี้ใช้ไม่ได้กับงานประชด**
-   ความคล้ายสูงสุดในชุดข้อมูลคือ 0.942 -> ตั้ง threshold 0.95 ได้ hit rate 0% (แคชไม่เคยทำงาน)
-   ลด threshold ลงให้ทำงานได้ ก็เริ่มคืนคำตอบผิด: ที่ 0.90 hit 7.7% แต่ผิด 15.2%
-   ไฟล์นี้ **ไม่ได้เขียนมาเพื่อลบล้างผลนั้น** แต่เพื่อยืนยันมันแบบ end-to-end
-   semantic_cache_test.py วัดแบบ "คู่ข้อความ" (pairwise) -> ไฟล์นี้วัดแบบ "ระบบที่วิ่งจริง"
+Read before use: finding 14 in RESULTS.md **already measured that this kind of cache does not work for sarcasm**
+   the highest similarity in the dataset is 0.942 -> setting threshold 0.95 gives a 0% hit rate (the cache never fires)
+   lower the threshold to make it work and it starts returning wrong answers: at 0.90, hit 7.7% but wrong 15.2%
+   this file **was not written to overturn that result** but to confirm it end-to-end
+   semantic_cache_test.py measures "text pairs" (pairwise) -> this file measures a "system that actually runs"
 
-ทำไมยังคุ้มที่จะเขียน: ผลลบที่ได้จาก *ระบบที่ทำงานได้จริง* หนักแน่นกว่าผลลบจากการวิเคราะห์เฉยๆ
-รายงานได้ว่า "เราสร้างมันขึ้นมา รันจริง แล้ววัดได้ว่าไม่เวิร์ค เพราะเหตุผลเชิงภาษาศาสตร์ข้อนี้"
-ซึ่งแข็งกว่า "เราไม่ได้ลอง"
+Why it is still worth writing: a negative result from a *working system* is stronger than one from analysis alone
+We can report "we built it, ran it for real, and measured that it does not work, for this linguistic reason"
+which is stronger than "we did not try"
 
-สาเหตุเชิงงาน (ไม่ใช่เชิงวิศวกรรม -- แก้ด้วยโค้ดไม่ได้):
-  แคชเชิงความหมายตั้งอยู่บนสมมติฐาน "ข้อความคล้ายกัน = คำตอบเหมือนกัน"
-  แต่ประชดนิยามด้วย *เจตนาที่สวนกับเนื้อความผิวเผิน* ซึ่งเนื้อความผิวเผินคือสิ่งเดียวที่ embedding วัด
-  -> รีวิวร้านอาหาร 2 อันคล้ายกันเพราะ "หัวข้อเดียวกัน" ไม่ใช่ "ท่าทีเดียวกัน" -> แคชคืนคำตอบผิด
+The task-level cause (not engineering -- cannot be fixed with code):
+  a semantic cache rests on the assumption "similar text = same answer"
+  but sarcasm is defined by *intent that runs counter to the surface content*, and the surface content is the only thing the embedding measures
+  -> two restaurant reviews are similar because of the "same topic", not the "same stance" -> the cache returns a wrong answer
 
 backend:
-  Redis ถ้าต่อได้ (--redis-url) มิฉะนั้น fallback เป็น dict ในหน่วยความจำ -> รันได้เสมอไม่ต้องลง server
-  โปรดักชันจริงควรใช้ RediSearch (HNSW vector index) แทนการสแกนทั้งหมดด้วย numpy
-  ที่นี่สแกนตรงๆ เพราะ n=127 -- และเพราะคอขวดของงานนี้ไม่ใช่ความเร็ว แต่คือความถูกต้อง
+  Redis if reachable (--redis-url), otherwise fall back to an in-memory dict -> always runnable without standing up a server
+  real production should use RediSearch (HNSW vector index) instead of a full scan with numpy
+  here we scan directly because n=127 -- and because this task bottleneck is not speed, it is correctness
 
-รัน:
-  python semantic_cache.py                       (in-memory, ฟรี)
+Run:
+  python semantic_cache.py                       (in-memory, free)
   python semantic_cache.py --redis-url redis://localhost:6379
   python semantic_cache.py --thresholds 0.99 0.95 0.90 0.85
 """
@@ -38,12 +38,12 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 GOLD_CSV = os.path.join(HERE, "gold.csv")
 OUT_JSON = os.path.join(HERE, "semantic_cache_result.json")
-ENC = "intfloat/multilingual-e5-large"      # encoder เดียวกับ semantic_cache_test.py
+ENC = "intfloat/multilingual-e5-large"      # same encoder as semantic_cache_test.py
 COST_PER_CALL = 391 / 1e6 * 2.50 + 7 / 1e6 * 10.0
 
 
 class RedisBackend:
-    """เก็บ vector + คำตอบไว้ใน Redis. คีย์: cache:<n> -> hash{vec(bytes), answer, text}"""
+    """store vector + answer in Redis. key: cache:<n> -> hash{vec(bytes), answer, text}"""
 
     def __init__(self, url, prefix="sarcasm"):
         import redis
@@ -98,12 +98,12 @@ class SemanticCache:
         self.hits = self.misses = 0
 
     def get(self, vec):
-        """คืน (answer, sim) ถ้าเจอของคล้ายพอ มิฉะนั้น (None, best_sim)"""
+        """return (answer, sim) if a close-enough match is found, else (None, best_sim)"""
         M, answers = self.b.all_vectors()
         if M.size == 0:
             self.misses += 1
             return None, 0.0
-        sims = M @ vec                       # vector ถูก normalize มาแล้ว -> dot = cosine
+        sims = M @ vec                       # vectors are already normalized -> dot = cosine
         j = int(np.argmax(sims))
         if float(sims[j]) >= self.threshold:
             self.hits += 1
@@ -134,8 +134,8 @@ def embed(texts, batch=8):
 
 
 def replay(E, y, threshold, backend_factory):
-    """เล่น gold ทีละข้อเหมือน traffic จริง: ถามแคชก่อน ไม่เจอค่อย 'ยิง LLM' แล้วเก็บลงแคช
-    วัด: hit rate / คำตอบที่แคชคืนมาผิดกี่ % / ประหยัดได้เท่าไหร่"""
+    """replay gold item by item like real traffic: ask the cache first, on a miss 'call the LLM' then store it
+    measure: hit rate / what % of cache-returned answers are wrong / how much is saved"""
     cache = SemanticCache(backend_factory(), threshold)
     served_wrong = 0
     hit_sims = []
@@ -144,9 +144,9 @@ def replay(E, y, threshold, backend_factory):
         if ans is not None:
             hit_sims.append(sim)
             if str(ans) != str(y[i]):
-                served_wrong += 1          # แคช hit แต่คืนคำตอบที่ไม่ตรงกับ label จริงของข้อนี้
+                served_wrong += 1          # cache hit but returned an answer not matching this item true label
         else:
-            cache.put(E[i], str(y[i]), "")  # miss -> "ยิง LLM" (จำลองว่าได้คำตอบถูก) แล้วเก็บ
+            cache.put(E[i], str(y[i]), "")  # miss -> "call the LLM" (assume it returns the right answer) then store
     n = len(y)
     return {
         "threshold": threshold,
@@ -177,19 +177,19 @@ def main():
             try:
                 return RedisBackend(a.redis_url)
             except Exception as e:
-                print(f"ต่อ Redis ไม่ได้ ({type(e).__name__}) -> ใช้ in-memory แทน")
+                print(f"cannot connect to Redis ({type(e).__name__}) -> using in-memory instead")
         return MemoryBackend()
 
     probe = factory()
-    print(f"semantic cache | gold {n} ข้อ | encoder {ENC.split('/')[-1]} | backend {probe.name()}")
-    print("กำลัง encode ...")
+    print(f"semantic cache | gold {n} items | encoder {ENC.split('/')[-1]} | backend {probe.name()}")
+    print("encoding ...")
     E = embed(texts)
     S = E @ E.T
     np.fill_diagonal(S, -1)
-    print(f"ความคล้ายสูงสุดระหว่างข้อความคนละข้อในชุดนี้: {S.max():.4f}\n")
+    print(f"highest similarity between distinct items in this set: {S.max():.4f}\n")
 
-    print(f"{'threshold':>10} {'hit':>5} {'hit rate':>9} {'คืนผิด':>7} {'% ของ hit':>10} "
-          f"{'call ที่ประหยัด':>14} {'$ ประหยัด':>10}")
+    print(f"{'threshold':>10} {'hit':>5} {'hit rate':>9} {'wrong':>7} {'% of hits':>10} "
+          f"{'calls saved':>14} {'$ saved':>10}")
     print("-" * 76)
     rows = []
     for t in a.thresholds:
@@ -207,21 +207,21 @@ def main():
     print("\n" + "=" * 76)
     if at95 is not None:
         if at95["hits"] == 0:
-            print("ที่ threshold 0.95 (ค่าที่มักแนะนำกัน): hit 0 ครั้ง -> **แคชไม่เคยทำงานเลย**")
-            print(f"เพราะไม่มีข้อความคู่ไหนในชุดนี้คล้ายกันถึง 0.95 (สูงสุด {S.max():.4f})")
+            print("at threshold 0.95 (the commonly recommended value): 0 hits -> **the cache never fires**")
+            print(f"because no pair of items in this set is similar up to 0.95 (max {S.max():.4f})")
         else:
-            print(f"ที่ threshold 0.95: hit {at95['hits']} ครั้ง "
-                  f"({100*at95['hit_rate']:.1f}%) คืนผิด {at95['wrong_served']}")
+            print(f"at threshold 0.95: {at95['hits']} hits "
+                  f"({100*at95['hit_rate']:.1f}%) wrong {at95['wrong_served']}")
     worst = [r for r in rows if r["hits"] > 0 and (r["wrong_rate_of_hits"] or 0) > 0]
     if worst:
         w = worst[0]
-        print(f"threshold ต่ำสุดที่ยังไม่คืนคำตอบผิดเลย -> ดูตารางข้างบน")
-        print(f"พอลด threshold จนแคชเริ่มทำงาน มันก็เริ่มคืนคำตอบผิด "
-              f"(ที่ {w['threshold']:.2f}: ผิด {100*w['wrong_rate_of_hits']:.1f}% ของ hit)")
-    print("\nสรุป: นี่คือระบบที่ทำงานได้จริง แต่ผลบอกว่า *ไม่ควรเปิดใช้* กับงานนี้")
-    print("สาเหตุอยู่ที่ตัวงาน ไม่ใช่ตัวโค้ด -- ประชด = เจตนาสวนกับเนื้อความผิวเผิน")
-    print("ซึ่งเนื้อความผิวเผินคือสิ่งเดียวที่ embedding วัดได้ (ดู finding 14)")
-    print(f"บันทึก -> {os.path.basename(OUT_JSON)}")
+        print(f"lowest threshold that still returns no wrong answers -> see the table above")
+        print(f"once you lower the threshold until the cache starts working, it starts returning wrong answers "
+              f"(at {w['threshold']:.2f}: wrong {100*w['wrong_rate_of_hits']:.1f}% of hits)")
+    print("\nSummary: this is a working system, but the result says *do not enable it* for this task")
+    print("the cause is the task, not the code -- sarcasm = intent counter to the surface content")
+    print("which surface content is the only thing the embedding can measure (see finding 14)")
+    print(f"saved -> {os.path.basename(OUT_JSON)}")
     print("=" * 76)
 
 
