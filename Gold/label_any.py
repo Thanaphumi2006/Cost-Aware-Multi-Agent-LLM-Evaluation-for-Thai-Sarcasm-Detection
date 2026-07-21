@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""label ข้อความโดเมนไหนก็ได้ ให้พร้อมป้อน eval_domain.py — เครื่องมือปิด step 3 (cross-domain)
+"""Label text from any domain, ready to feed eval_domain.py -- the tool that closes step 3 (cross-domain)
 
-รับ input อะไรก็ได้ที่มีข้อความไทย:
-  - .txt : หนึ่งข้อความต่อบรรทัด
-  - .csv : มีคอลัมน์ text (หรือระบุ --text-col)
-แล้ว label ทีละข้อ (เกณฑ์เดียวกับ gold: การเสแสร้ง) เขียนออกเป็น text,label CSV
-บันทึกทุกครั้งที่ตอบ -> ปิดกลางคันแล้วรันซ้ำทำต่อได้ (ข้อที่ label แล้วจะข้าม)
+Accepts any input containing Thai text:
+  - .txt : one text per line
+  - .csv : has a text column (or specify --text-col)
+then label one at a time (same criteria as gold: pretense), writing out a text,label CSV
+saves on every answer -> quit midway and rerun to resume (already-labeled items are skipped)
 
-ใช้:
+Usage:
   python label_any.py news_raw.txt              -> news_raw_labeled.csv
   python label_any.py comments.csv --out yt.csv --text-col body
-  python label_any.py news_raw.txt              (รันซ้ำ = ทำต่อจากเดิม)
-  แล้ว: python eval_domain.py news_raw_labeled.csv
+  python label_any.py news_raw.txt              (rerun = resume from where you left off)
+  then: python eval_domain.py news_raw_labeled.csv
 """
 import argparse
 import os
@@ -46,7 +46,7 @@ def main():
 
     out = a.out or (os.path.splitext(a.input)[0] + "_labeled.csv")
     texts = load_texts(a.input, a.text_col)
-    # dedupe รักษาลำดับ
+    # dedupe, preserving order
     seen, uniq = set(), []
     for t in texts:
         if t not in seen:

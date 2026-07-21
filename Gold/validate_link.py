@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-"""ทดสอบข้ามโดเมนจากลิงก์ ครบจบในคำสั่งเดียว: ดึงคอมเมนต์ -> label -> วัด F1
+"""Cross-domain test from a link, all in one command: fetch comments -> label -> measure F1
 
-รองรับ Pantip, YouTube, Reddit (ดู fetch_social.py). เหมาะกับการ "validate ข้ามโดเมน":
+Supports Pantip, YouTube, Reddit (see fetch_social.py). Good for "cross-domain validation":
   python validate_link.py "https://pantip.com/topic/XXXXXXXX"
 
-มันจะ:
-  1) ดึงคอมเมนต์ไทย (ข้ามถ้าดึงไว้แล้ว)
-  2) เปิดหน้า label ให้ (กด 1=ประชด 0=ไม่ u=ข้าม b=ย้อน q=บันทึกออก · บันทึกทุกครั้ง · รันซ้ำทำต่อได้)
-  3) พอ label ครบพอ รัน eval อัตโนมัติ บอก F1 บนโดเมนนี้ เทียบกับ gold เดิม
+It will:
+  1) fetch Thai comments (skip if already fetched)
+  2) open the labeling page (press 1=sarcasm 0=not u=skip b=back q=save&quit · saves every time · rerun to resume)
+  3) once enough is labeled, auto-run eval, report F1 on this domain vs the original gold
 
-เคล็ดลับเลือกกระทู้ Pantip ที่มีประชด: เอากระทู้ที่คนถกเถียง/บ่น/การเมือง/ดราม่า
-(กระทู้ถาม-ตอบเฉยๆ มักไม่มีประชด จะ label ยากได้ positive น้อย)
+Tip for picking Pantip threads with sarcasm: choose threads with debate/complaints/politics/drama
+(plain Q&A threads usually have no sarcasm, hard to label, few positives)
 
-ต้องมี OPENAI_API_KEY ตอนขั้น eval (ขั้น label ไม่ต้อง)
+Needs OPENAI_API_KEY at the eval step (not needed for the label step)
 """
 import argparse
 import hashlib
@@ -39,10 +39,10 @@ def counts(csv):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="validate ข้ามโดเมนจากลิงก์ (Pantip/YouTube/Reddit)")
-    ap.add_argument("url", help="ลิงก์กระทู้/คลิป")
-    ap.add_argument("-n", type=int, default=120, help="จำนวนคอมเมนต์ที่ดึง (ค่าเริ่มต้น 120)")
-    ap.add_argument("--min-label", type=int, default=30, help="label อย่างน้อยเท่านี้ก่อน eval (ค่าเริ่มต้น 30)")
+    ap = argparse.ArgumentParser(description="cross-domain validation from a link (Pantip/YouTube/Reddit)")
+    ap.add_argument("url", help="thread/video link")
+    ap.add_argument("-n", type=int, default=120, help="number of comments to fetch (default 120)")
+    ap.add_argument("--min-label", type=int, default=30, help="label at least this many before eval (default 30)")
     ap.add_argument("--op", default="balanced", choices=["balanced", "high_recall"])
     a = ap.parse_args()
 
@@ -53,41 +53,41 @@ def main():
 
     # 1) fetch
     if not os.path.exists(raw):
-        print(f"[1] ดึงคอมเมนต์จาก {plat} ...")
+        print(f"[1] fetching comments from {plat} ...")
         try:
             comments, plat = fs.fetch_any(a.url, a.n)
         except fs.UnsupportedError as e:
-            sys.exit(f"ดึงจาก {plat} อัตโนมัติไม่ได้ ({e}). รองรับ: Pantip, YouTube, Reddit")
+            sys.exit(f"cannot auto-fetch from {plat} ({e}). Supported: Pantip, YouTube, Reddit")
         except Exception as e:
-            sys.exit(f"ดึงไม่สำเร็จ: {type(e).__name__}: {e}")
+            sys.exit(f"fetch failed: {type(e).__name__}: {e}")
         if not comments:
-            sys.exit("ไม่พบคอมเมนต์ภาษาไทย (ลองกระทู้อื่น)")
+            sys.exit("no Thai comments found (try another thread)")
         with open(raw, "w", encoding="utf-8") as f:
             f.write("\n".join(comments))
-        print(f"    ได้ {len(comments)} คอมเมนต์ -> {os.path.basename(raw)}\n")
+        print(f"    got {len(comments)} comments -> {os.path.basename(raw)}\n")
     else:
-        print(f"[1] มีคอมเมนต์แล้ว ({os.path.basename(raw)}) ข้าม\n")
+        print(f"[1] comments already present ({os.path.basename(raw)}), skipping\n")
 
     # 2) label
     ntot, npos = counts(labeled)
     if ntot < a.min_label:
-        print(f"[2] label (ทำไปแล้ว {ntot} ข้อ ประชด {npos}) เปิดหน้า label ...\n")
+        print(f"[2] label (done {ntot} items, sarcasm {npos}) opening the label page ...\n")
         subprocess.run([PY, os.path.join(HERE, "label_any.py"), raw, "--out", labeled])
         ntot, npos = counts(labeled)
     else:
-        print(f"[2] label ครบแล้ว ({ntot} ข้อ ประชด {npos}) ข้าม\n")
+        print(f"[2] labeling complete ({ntot} items, sarcasm {npos}), skipping\n")
 
     # 3) eval
     if ntot < 10:
-        print(f"\nlabel ยังน้อย ({ntot} ข้อ) รันคำสั่งเดิมซ้ำเพื่อ label ต่อ แล้วค่อย eval")
+        print(f"\ntoo few labels ({ntot} items), rerun the same command to keep labeling, then eval")
         return
     if not os.environ.get("OPENAI_API_KEY"):
-        print(f"\n[3] พร้อม eval แล้ว ({ntot} ข้อ) แต่ยังไม่มี OPENAI_API_KEY")
-        print(f"    export OPENAI_API_KEY=sk-...  แล้วรัน: python eval_domain.py {os.path.basename(labeled)}")
+        print(f"\n[3] ready to eval ({ntot} items) but OPENAI_API_KEY is not set")
+        print(f"    export OPENAI_API_KEY=sk-...  then run: python eval_domain.py {os.path.basename(labeled)}")
         return
     if npos < 10:
-        print(f"[!] ประชดมีแค่ {npos} ข้อ F1/CI จะหยาบ (แต่ยังพอเห็นทิศทางได้)")
-    print(f"[3] วัด F1 บนโดเมน {plat} ({ntot} ข้อ ประชด {npos}) ...\n")
+        print(f"[!] only {npos} sarcastic items, F1/CI will be rough (but still shows the direction)")
+    print(f"[3] measuring F1 on the {plat} domain ({ntot} items, sarcasm {npos}) ...\n")
     subprocess.run([PY, os.path.join(HERE, "eval_domain.py"), labeled, "--op", a.op])
 
 

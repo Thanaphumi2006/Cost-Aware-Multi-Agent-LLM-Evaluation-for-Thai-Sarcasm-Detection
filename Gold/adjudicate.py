@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-ตัดสินชี้ขาด (adjudicate) เฉพาะข้อที่ "คน vs LLM เห็นไม่ตรงกัน"
-ใช้คู่กับ labeling_rubric.md (เปิดอ่านคู่มือไว้ข้างๆ ตอนตัดสิน)
+Adjudicate only the items where "human vs LLM disagree"
+Use alongside labeling_rubric.md (keep the guide open while adjudicating)
 
-อินพุต : ../to_label_reviewed.csv   (มี human_label + llm_label)
-เอาต์พุต:
-  - ../to_label_reviewed.csv        (อัปเดตคอลัมน์ final_label)
-  - ./gold.csv                      (สร้างใหม่จาก final_label, เอาเฉพาะ 1/0)
+Input : ../to_label_reviewed.csv   (has human_label + llm_label)
+Output:
+  - ../to_label_reviewed.csv        (updates the final_label column)
+  - ./gold.csv                      (rebuilt from final_label, keeping only 1/0)
 
-ตรรกะ: final_label เริ่มจาก human_label ทุกแถว แล้วเดินให้ตัดสินใหม่เฉพาะข้อที่ขัดกัน
-รันซ้ำได้ (ข้อที่ชี้ขาดแล้วจะข้าม)  |  ไม่ต้องใช้ API key
+Logic: final_label starts from human_label on every row, then re-decides only the conflicting items
+Re-runnable (already-adjudicated items are skipped)  |  no API key needed
 
-รัน:  python adjudicate.py
+Run:  python adjudicate.py
 """
 
 import os
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BASE = os.path.dirname(HERE)                       # โฟลเดอร์โปรเจกต์
+BASE = os.path.dirname(HERE)                       # the project folder
 REVIEWED = os.path.join(BASE, "to_label_reviewed.csv")
 GOLD = os.path.join(HERE, "gold.csv")
 
@@ -39,12 +39,12 @@ def main():
     df["human_label"] = df["human_label"].astype(str).str.strip()
     df["llm_label"] = df["llm_label"].astype(str).str.strip()
 
-    # final_label: เริ่มจาก human_label; ถ้ามีอยู่แล้ว (รันซ้ำ) ใช้ของเดิม
+    # final_label: start from human_label; if it already exists (re-run), keep it
     if "final_label" not in df.columns:
         df["final_label"] = df["human_label"]
     df["final_label"] = df["final_label"].astype(str).str.strip()
 
-    # ต้องเป็นข้อที่คนตัดสินแล้ว (1/0/X) และ "ขัด" กับ LLM และ "ยังไม่ถูกชี้ขาด"
+    # must be items a human has decided (1/0/X) and that "conflict" with the LLM and are "not yet adjudicated"
     if "adjudicated" not in df.columns:
         df["adjudicated"] = ""
     df["adjudicated"] = df["adjudicated"].astype(str)

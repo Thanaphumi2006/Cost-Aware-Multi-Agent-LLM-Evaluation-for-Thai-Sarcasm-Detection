@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Distillation ขั้น 1 — ให้ "teacher" ติดป้าย silver ให้ข้อความที่ยังไม่มีป้าย
+"""Distillation step 1 -- have the "teacher" put silver labels on unlabeled text
 
-แนวคิด: เอาระบบ GPT (teacher) ไปติดป้ายข้อความดิบเยอะๆ ได้ "silver data" (ป้ายที่อาจผิดบ้าง)
-แล้วเอาไปเทรน WangchanBERTa (student) ต่อ -> หวังปิดช่องว่าง F1 0.62 -> 0.74 แบบต้นทุนต่อข้อ = 0
+Idea: use the GPT system (teacher) to label lots of raw text, getting "silver data" (labels that may be partly wrong)
+then train WangchanBERTa (student) on it -> hoping to close the F1 gap 0.62 -> 0.74 at per-item cost = 0
 
-*** จุดสำคัญที่ทำให้ silver ไม่พังเพราะ teacher ไม่แม่น (precision teacher ~0.68) ***
-teacher มี "ความมั่นใจ" (P(ประชด) จาก logprob) -> เก็บเฉพาะข้อที่มั่นใจสูงสองฝั่ง ทิ้งช่วงกลาง
-  ประชด    : prob >= --pos-conf (เช่น 0.90)
-  ไม่ประชด : prob <= --neg-conf (เช่น 0.05)
--> ลด noise ของป้าย (ช่วงก้ำกึ่งคือที่ teacher ผิดบ่อยสุด)
+*** the key that keeps silver from breaking despite an imprecise teacher (teacher precision ~0.68) ***
+the teacher has "confidence" (P(sarcasm) from logprob) -> keep only high-confidence items on both sides, drop the middle
+  sarcasm     : prob >= --pos-conf (e.g. 0.90)
+  not sarcasm : prob <= --neg-conf (e.g. 0.05)
+-> reduces label noise (the borderline range is where the teacher errs most)
 
-ทำไม teacher เป็น "single agent" (predict.py/batch_eval.py) ไม่ใช่ pipeline v2:
-  - pipeline ให้แต่ป้าย hard ไม่มีความมั่นใจ -> กรอง noise ไม่ได้
-  - single agent มี logprob (คัดความมั่นใจได้) + precision สูงกว่า (0.68 vs 0.60) = teacher ที่ดีกว่าสำหรับ distill
+Why the teacher is a "single agent" (predict.py/batch_eval.py), not pipeline v2:
+  - the pipeline gives only hard labels with no confidence -> cannot filter noise
+  - the single agent has logprob (can select by confidence) + higher precision (0.68 vs 0.60) = a better teacher for distillation
 
-ขั้นตอน:
-  1) ให้ teacher (ถูกสุด) ติดป้ายข้อความดิบก่อน — แนะนำ batch API ลดครึ่งราคา:
+Steps:
+  1) have the teacher (cheapest) label the raw text first -- batch API recommended, halves the price:
        python batch_eval.py --csv harvest_to_review.csv --out harvest_pred.csv
-  2) กรองเป็น silver:
+  2) filter into silver:
        python distill_label.py --pred harvest_pred.csv --out silver.csv --pos-conf 0.9 --neg-conf 0.05 --balance
 """
 import argparse
@@ -28,26 +28,26 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pred", required=True, help="CSV จาก batch_eval.py/predict.py (ต้องมี text + pred_prob)")
+    ap.add_argument("--pred", required=True, help="CSV from batch_eval.py/predict.py (must have text + pred_prob)")
     ap.add_argument("--out", default="silver.csv")
     ap.add_argument("--text-col", default="text")
-    ap.add_argument("--pos-conf", type=float, default=0.90, help="เก็บเป็นประชด เมื่อ prob >= ค่านี้")
-    ap.add_argument("--neg-conf", type=float, default=0.05, help="เก็บเป็นไม่ประชด เมื่อ prob <= ค่านี้")
-    ap.add_argument("--max-pos", type=int, default=0, help="จำกัดจำนวน silver ประชด (0=ไม่จำกัด)")
-    ap.add_argument("--max-neg", type=int, default=0, help="จำกัดจำนวน silver ไม่ประชด (0=ไม่จำกัด)")
-    ap.add_argument("--balance", action="store_true", help="ตัด negative ให้เท่า positive (กัน silver เอียงไปทางลบ)")
+    ap.add_argument("--pos-conf", type=float, default=0.90, help="keep as sarcasm when prob >= this")
+    ap.add_argument("--neg-conf", type=float, default=0.05, help="keep as not-sarcasm when prob <= this")
+    ap.add_argument("--max-pos", type=int, default=0, help="cap the number of silver sarcasm (0=no cap)")
+    ap.add_argument("--max-neg", type=int, default=0, help="cap the number of silver not-sarcasm (0=no cap)")
+    ap.add_argument("--balance", action="store_true", help="trim negatives to match positives (prevent silver skewing negative)")
     a = ap.parse_args()
 
     import pandas as pd
     df = pd.read_csv(a.pred, dtype=str).fillna("")
     if a.text_col not in df.columns or "pred_prob" not in df.columns:
-        sys.exit(f"ต้องมีคอลัมน์ '{a.text_col}' และ 'pred_prob' (รัน batch_eval.py/predict.py --csv ก่อน)")
+        sys.exit(f"columns '{a.text_col}' and 'pred_prob' required (run batch_eval.py/predict.py --csv first)")
     df = df[df["pred_prob"] != ""].copy()
     df["p"] = df["pred_prob"].astype(float)
 
     pos = df[df["p"] >= a.pos_conf].copy(); pos["silver_label"] = 1
     neg = df[df["p"] <= a.neg_conf].copy(); neg["silver_label"] = 0
-    pos = pos.sort_values("p", ascending=False)   # มั่นใจสุดก่อน (เผื่อ cap)
+    pos = pos.sort_values("p", ascending=False)   # most confident first (in case of cap)
     neg = neg.sort_values("p", ascending=True)
     if a.max_pos:
         pos = pos.head(a.max_pos)
@@ -65,10 +65,10 @@ def main():
     out.to_csv(a.out, index=False, encoding="utf-8-sig")
 
     npos = int((out["silver_label"] == 1).sum()); nneg = int((out["silver_label"] == 0).sum())
-    print(f"เขียน {a.out} · silver {len(out)} ข้อ (ประชด {npos} / ไม่ประชด {nneg}) · "
-          f"ทิ้งช่วงไม่มั่นใจ {len(df) - len(out)} ข้อ (pos>={a.pos_conf}, neg<={a.neg_conf})")
-    print("เตือน: 'silver' = teacher อาจผิด -- precision teacher จำกัด ประชด(positive)อาจปนเปื้อน "
-          "เอาไปเทรนแล้ววัดผลด้วย distill_train_eval.py (OOF ไม่ leak) เท่านั้น")
+    print(f"wrote {a.out} · silver {len(out)} items (sarcasm {npos} / not {nneg}) · "
+          f"dropped the uncertain middle {len(df) - len(out)} items (pos>={a.pos_conf}, neg<={a.neg_conf})")
+    print("warning: 'silver' = the teacher may be wrong -- teacher precision is limited, sarcasm (positives) may be contaminated "
+          "train on it then measure only with distill_train_eval.py (OOF, no leak)")
 
 
 if __name__ == "__main__":
