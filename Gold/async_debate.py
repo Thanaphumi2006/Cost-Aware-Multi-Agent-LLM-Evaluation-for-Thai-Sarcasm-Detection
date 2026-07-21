@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
-"""ระบบ ④-async — DEBATE เดิม แต่ให้อัยการกับทนายพูดพร้อมกัน
+"""System ④-async — the same DEBATE, but prosecutor and defender speak concurrently
 
-multiagent_debate.py รันเรียงกัน:  อัยการ -> ทนาย -> ผู้พิพากษา
-  latency = t(อัยการ) + t(ทนาย) + t(ผู้พิพากษา)
+multiagent_debate.py runs sequentially:  prosecutor -> defender -> judge
+  latency = t(prosecutor) + t(defender) + t(judge)
 
-แต่ **อัยการกับทนายไม่ได้อ่านคำแถลงของกันและกัน** (ดู _argue: user prompt คือ "ข้อความ: {text}"
-เท่านั้น ไม่มีการส่งคำแถลงฝ่ายตรงข้ามเข้าไป) -> สองตัวนี้เป็นอิสระต่อกันจริง ยิงพร้อมกันได้
-  latency = max(t(อัยการ), t(ทนาย)) + t(ผู้พิพากษา)
+But **prosecutor and defender never read each other's statements** (see _argue: the user prompt is just "ข้อความ: {text}",
+no opposing statement is passed in) -> the two are truly independent and can fire concurrently.
+  latency = max(t(prosecutor), t(defender)) + t(judge)
 
-**ราคาไม่เปลี่ยนเลย** -- จำนวน call เท่าเดิม (3/ข้อ) token เท่าเดิม เปลี่ยนแค่ "รอ" เท่านั้น
+**Cost is unchanged** -- same call count (3/item), same tokens; only the "waiting" changes.
 
-ความถูกต้อง: import prompt/schema จาก multiagent_debate โดยตรง ไม่ก๊อปมาวาง
--> prompt ดริฟต์ไม่ได้ ผลลัพธ์ต้องเทียบกับตัว sequential ได้แบบ apples-to-apples
+Correctness: import the prompts/schema from multiagent_debate directly, no copy-paste
+-> prompts can't drift; results must compare apples-to-apples with the sequential version.
 
-CONCURRENCY คุมสองชั้น:
-  1) ในข้อเดียว: asyncio.gather(อัยการ, ทนาย)          -> ลด latency ต่อข้อ
-  2) ข้ามข้อ: semaphore --concurrency ข้อพร้อมกัน       -> ลด wall-clock รวม
-ชั้นที่ 2 คือตัวที่ชน rate limit ได้ -> ดีฟอลต์ 4 (อนุรักษ์นิยม) ปรับขึ้นได้ถ้า tier สูง
+CONCURRENCY controlled at two levels:
+  1) within one item: asyncio.gather(prosecutor, defender)   -> reduce per-item latency
+  2) across items: semaphore --concurrency items at once     -> reduce total wall-clock
+level 2 is what can hit rate limits -> default 4 (conservative), raise it on a higher tier
 
-รัน:
-  python async_debate.py --dry-run              ดูว่าจะยิงกี่ call (ฟรี ไม่ยิง API)
-  python async_debate.py --concurrency 4        รันจริง (ต้องมี OPENAI_API_KEY)
-  python async_debate.py --limit 10 --compare   รัน 10 ข้อทั้ง async และ sequential แล้วเทียบเวลา
+Run:
+  python async_debate.py --dry-run              see how many calls it would fire (free, no API)
+  python async_debate.py --concurrency 4        run for real (needs OPENAI_API_KEY)
+  python async_debate.py --limit 10 --compare   run 10 items both async and sequential and compare timing
 """
 import argparse
 import asyncio
@@ -32,7 +32,7 @@ import time
 
 import pandas as pd
 
-import envload  # noqa: F401  -- โหลด OPENAI_API_KEY จาก .env ถ้ามี (ต้องมาก่อน import ที่ใช้คีย์)
+import envload  # noqa: F401  -- load OPENAI_API_KEY from .env if present (must precede imports that use the key)
 from baseline import MODELS, PRICE_PER_MTOK, metrics
 from multiagent_debate import (ARG_TOKENS, COLS, DEFE_SYS, JUDGE_SYS, PROS_SYS,
                                GOLD_CSV)
@@ -45,10 +45,10 @@ METRICS_JSON = os.path.join(HERE, "async_debate_metrics.json")
 
 
 def load(fresh=False):
-    """เหมือน multiagent_debate.load() แต่ merge ผลเก่าจาก **ไฟล์ของ async เอง**
+    """Like multiagent_debate.load() but merges old results from **async's own file**
 
-    ห้าม import load() จาก multiagent_debate มาใช้ตรงๆ -- ฟังก์ชันนั้นอ่าน PRED_CSV ของ *module มัน*
-    (ผล sequential ที่รันครบ 127 ข้อแล้ว) -> todo จะเป็น 0 เสมอ แล้ว async จะไม่มีวันได้รัน
+    Don't import load() from multiagent_debate directly -- that function reads *its module's* PRED_CSV
+    (the sequential results, already complete for 127 items) -> todo would always be 0 and async would never run.
     """
     g = pd.read_csv(GOLD_CSV, dtype=str).fillna("")
     g["label"] = g["label"].str.strip()
@@ -68,7 +68,7 @@ def load(fresh=False):
 
 def _make_async_client():
     if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("ไม่พบ OPENAI_API_KEY -- ตั้งก่อน:  $env:OPENAI_API_KEY=\"sk-...\"")
+        sys.exit("OPENAI_API_KEY not found -- set it first:  $env:OPENAI_API_KEY=\"sk-...\"")
     from openai import AsyncOpenAI
     return AsyncOpenAI()
 
@@ -100,15 +100,15 @@ async def _judge(client, text, pros, defe):
 
 
 async def run_debate(client, text, sem):
-    """เหมือน multiagent_debate.run_debate ทุกอย่าง ยกเว้นอัยการ+ทนายยิงพร้อมกัน
-    err handling ตรงกัน: พังที่ด่านไหน -> pred="err" ไม่เดา "0" """
+    """Same as multiagent_debate.run_debate except prosecutor+defender fire concurrently.
+    Same err handling: any stage failure -> pred="err", not a guessed "0" """
     async with sem:
         t0 = time.perf_counter()
         ti = to = 0
         calls = 0
         pros = defe = verdict = ""
         try:
-            # ---- ชั้นที่ 1: สองฝ่ายพูดพร้อมกัน (อิสระต่อกัน) ----
+            # ---- level 1: the two sides speak concurrently (independent) ----
             t_arg = time.perf_counter()
             (pros, i1, o1), (defe, i2, o2) = await asyncio.gather(
                 _argue(client, PROS_SYS, f"ข้อความ: {text}"),
@@ -117,7 +117,7 @@ async def run_debate(client, text, sem):
             arg_ms = round((time.perf_counter() - t_arg) * 1000)
             ti += i1 + i2; to += o1 + o2; calls += 2
 
-            # ---- ผู้พิพากษาต้องรอทั้งคู่ -> ยังเรียงกันตามเดิม ----
+            # ---- the judge must wait for both -> still sequential ----
             verdict, i, o = await _judge(client, text, pros, defe)
             ti += i; to += o; calls += 1
         except Exception as e:
@@ -153,10 +153,10 @@ async def run_all(df, todo, concurrency):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--concurrency", type=int, default=4, help="กี่ข้อพร้อมกัน (ชั้นที่ชน rate limit)")
+    ap.add_argument("--concurrency", type=int, default=4, help="items at once (the level that hits rate limits)")
     ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--dry-run", action="store_true", help="ไม่ยิง API -- แค่ดูว่าจะยิงกี่ call")
-    ap.add_argument("--fresh", action="store_true", help="ไม่ต่อจากผลเก่า -- รันใหม่ทั้งหมด")
+    ap.add_argument("--dry-run", action="store_true", help="no API -- just see how many calls it would fire")
+    ap.add_argument("--fresh", action="store_true", help="don't resume -- run everything fresh")
     a = ap.parse_args()
 
     df = load(fresh=a.fresh)
@@ -166,7 +166,7 @@ def main():
 
     if a.dry_run:
         ip, op = PRICE_PER_MTOK[PROVIDER]
-        # ค่าเฉลี่ยจริงต่อข้อจาก multiagent_preds_gpt_debate.csv ถ้ามี
+        # real per-item averages from multiagent_preds_gpt_debate.csv if present
         est = ""
         old = os.path.join(HERE, f"multiagent_preds_{PROVIDER}_debate.csv")
         if os.path.exists(old):
@@ -177,19 +177,19 @@ def main():
             n_ok = int((ti > 0).sum())
             if n_ok:
                 pi, po = ti.sum() / n_ok, to.sum() / n_ok
-                est = (f"\n  ต่อข้อเฉลี่ย (จากรัน sequential เดิม): {pi:.0f} in / {po:.0f} out tok"
-                       f"\n  คาดราคา: ${len(todo)*(pi/1e6*ip + po/1e6*op):.3f}"
-                       f"\n  latency sequential p50: {lat.median():.0f} ms/ข้อ"
-                       f"\n  คาด async p50: ~{lat.median()*0.67:.0f} ms/ข้อ (ตัด 1 ใน 3 ด่านออกจากเส้นทางวิกฤต)")
-        print(f"dry-run: จะรัน {len(todo)} ข้อ x 3 calls = {len(todo)*3} calls")
-        print(f"  concurrency {a.concurrency} ข้อพร้อมกัน -> in-flight สูงสุด {a.concurrency*2} calls{est}")
-        print("\nราคาไม่ต่างจาก sequential เลย -- async เปลี่ยนแค่เวลารอ ไม่ได้เปลี่ยนจำนวน call")
+                est = (f"\n  per-item average (from the sequential run): {pi:.0f} in / {po:.0f} out tok"
+                       f"\n  estimated cost: ${len(todo)*(pi/1e6*ip + po/1e6*op):.3f}"
+                       f"\n  sequential latency p50: {lat.median():.0f} ms/item"
+                       f"\n  estimated async p50: ~{lat.median()*0.67:.0f} ms/item (one of three stages off the critical path)")
+        print(f"dry-run: will run {len(todo)} items x 3 calls = {len(todo)*3} calls")
+        print(f"  concurrency {a.concurrency} items at once -> max in-flight {a.concurrency*2} calls{est}")
+        print("\nCost is identical to sequential -- async only changes wait time, not the call count")
         return
 
-    print(f"gold {len(df)} ข้อ | ต้องรัน {len(todo)} ข้อ | โมเดล {MODELS[PROVIDER]}")
-    print(f"สถาปัตยกรรม: (อัยการ || ทนาย) -> ผู้พิพากษา | concurrency {a.concurrency}\n")
+    print(f"gold {len(df)} items | to run {len(todo)} | model {MODELS[PROVIDER]}")
+    print(f"architecture: (prosecutor || defender) -> judge | concurrency {a.concurrency}\n")
     if not todo:
-        print("ครบแล้ว -- ข้ามไปสรุปผล\n")
+        print("all done -- skipping to the summary\n")
         results = []
     else:
         t0 = time.time()
@@ -216,17 +216,17 @@ def main():
     cost = ti / 1e6 * ip + to / 1e6 * op
 
     print("\n" + "=" * 58)
-    print(f"DEBATE async | วัด {len(done)} ข้อ | error {n_err}")
+    print(f"DEBATE async | measured {len(done)} items | error {n_err}")
     print(f"  F1 {f1:.3f} | precision {prec:.3f} | recall {rec:.3f}")
     print(f"  TP {tp}  FP {fp}  FN {fn}  TN {tn}")
     print(f"  LLM calls {int(calls)} | token {int(ti)} in / {int(to)} out | ${cost:.3f}")
     if len(lat):
-        print(f"  latency p50 {lat.median():.0f} ms/ข้อ")
+        print(f"  latency p50 {lat.median():.0f} ms/item")
     if arg_ms:
-        print(f"  ขั้นโต้แย้ง (อัยการ||ทนาย) p50 {pd.Series(arg_ms).median():.0f} ms "
-              f"= max ของสองฝ่าย ไม่ใช่ผลรวม")
+        print(f"  argue stage (prosecutor||defender) p50 {pd.Series(arg_ms).median():.0f} ms "
+              f"= max of the two, not the sum")
     if results:
-        print(f"  wall-clock รวม {wall:.0f}s ({wall/len(results):.2f}s/ข้อ ที่ concurrency {a.concurrency})")
+        print(f"  total wall-clock {wall:.0f}s ({wall/len(results):.2f}s/item at concurrency {a.concurrency})")
 
     if results:
         json.dump({"n": len(results), "wall_sec": round(wall, 1),
@@ -237,8 +237,8 @@ def main():
                   open(METRICS_JSON, "w"), ensure_ascii=False, indent=2)
         print(f"  metrics -> {os.path.basename(METRICS_JSON)}")
     print("=" * 58)
-    print("เทียบกับ sequential: python multiagent_debate.py (prompt/โมเดลชุดเดียวกัน)")
-    print("F1 ควรใกล้เคียงกัน -- ถ้าต่างมาก แปลว่าไม่ใช่แค่เรื่องเวลา ต้องไปหาสาเหตุ")
+    print("compare to sequential: python multiagent_debate.py (same prompts/model)")
+    print("F1 should be close -- a large difference means it's not just timing; investigate")
 
 
 if __name__ == "__main__":

@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
-"""ระบบ ⑤ -- HYBRID: เอา debate มาเป็น verifier ของ pipeline
+"""System ⑤ -- HYBRID: use debate as the pipeline's verifier
 
-ที่มา (สำคัญ -- นี่คือการทดลองแบบแยกตัวแปร):
-  pipeline v2 (F1 0.744) ชนะ เพราะ verifier "ถูกโครงสร้างบังคับ" ให้พลิกได้ทางเดียว (1->0)
-      -> หวง recall 1.000 ที่ detector ได้มาฟรีไว้ได้
-  debate (F1 0.694) แพ้ เพราะ "ตัดสินใหม่ได้ทั้งสองทาง" ทุกข้อ
-      -> ทนายแก้ต่างสำเร็จให้ประชดจริง 5 ข้อ recall ร่วงเหลือ 0.833
+Motivation (important -- this is a controlled experiment):
+  pipeline v2 (F1 0.744) wins because the verifier is "structurally constrained" to flip one way (1->0)
+      -> it guards the recall 1.000 the detector got for free
+  debate (F1 0.694) loses because it "re-decides both ways" on every item
+      -> the defender argues away 5 real positives, recall drops to 0.833
 
-แต่ debate มี "การไตร่ตรองที่ลึกกว่า" (สองฝ่ายเถียงกันก่อนตัดสิน) ซึ่ง verifier เดี่ยวไม่มี
-คำถาม: ความลึกนั้นมีค่าจริงไหม -- หรือที่ pipeline ชนะเป็นเพราะ "ข้อจำกัด" ล้วนๆ
+But debate has "deeper deliberation" (two sides argue before deciding) that a lone verifier lacks.
+Question: is that depth genuinely valuable -- or does the pipeline win purely because of the "constraint"?
 
-HYBRID = ความลึกของ debate + ข้อจำกัดของ pipeline
-  detector (เหมือน baseline เป๊ะ)
-    -> ถ้าตอบ 0: จบเลย (verifier เพิ่มประชดใหม่ไม่ได้อยู่แล้ว -> ยิงไปก็เปลืองเปล่า)
-    -> ถ้าตอบ 1: อัยการ vs ทนาย เถียงกัน -> ผู้พิพากษาตัดสิน
-                 *** ผู้พิพากษาปัดตกได้อย่างเดียว (1->0) เพิ่มประชดใหม่ไม่ได้ ***
+HYBRID = debate's depth + the pipeline's constraint
+  detector (exactly like baseline)
+    -> answers 0: done (a verifier can't add new sarcasm anyway -> firing it is wasted)
+    -> answers 1: prosecutor vs defender argue -> the judge decides
+                 *** the judge can only reject (1->0), can't add new sarcasm ***
 
-ตีความผล:
-  ถ้า hybrid ชนะ v2  -> การไตร่ตรองมีค่า (debate แค่เอาไปใช้ผิดที่)
-  ถ้า hybrid เสมอ/แพ้ -> "ข้อจำกัด" ต่างหากที่สำคัญ ไม่ใช่จำนวน agent หรือความลึก
+Interpretation:
+  if hybrid beats v2  -> deliberation is valuable (debate just used it in the wrong place)
+  if hybrid ties/loses -> the "constraint" is what matters, not agent count or depth
 
-รัน: python multiagent_hybrid.py
+Run: python multiagent_hybrid.py
 """
 import json
 import os
@@ -47,8 +47,9 @@ SLEEP_SEC = 0.2
 
 COLS = ["pred", "detect", "pros", "defe", "judge", "in_tok", "out_tok", "calls", "latency_ms", "err"]
 
-# ผู้พิพากษาแบบ "ถูกจำกัดอำนาจ" -- ต่างจาก judge ของ debate ตรงนี้จุดเดียว
-# (กฎก้ำกึ่ง = คงไว้เป็นประชด เหมือน verifier ของ v2 เป๊ะ -> เทียบกันได้ยุติธรรม)
+# a "power-limited" judge -- differs from debate's judge only here
+# (borderline rule = keep as sarcasm, exactly like v2's verifier -> a fair comparison)
+# (the Thai prompt below is the experimental instruction to the model and is kept as-is)
 JUDGE_SYS = """คุณคือ "ผู้พิพากษา" -- แต่ **อำนาจของคุณถูกจำกัด**
 
 มีคนตัดสินมาก่อนแล้วว่าข้อความไทยนี้ "ประชด" และคนนั้นจับประชดเก่งมาก (แทบไม่พลาด)
@@ -78,7 +79,7 @@ JUDGE_SCHEMA = {"type": "object",
 
 def _make_client():
     if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("ไม่พบ OPENAI_API_KEY")
+        sys.exit("OPENAI_API_KEY not found")
     from openai import OpenAI
     return OpenAI()
 
@@ -108,10 +109,10 @@ def run_hybrid(client, text):
     if det not in ("0", "1"):
         return {"pred": "err", "detect": str(det), "pros": "", "defe": "", "judge": "",
                 "in_tok": ti, "out_tok": to, "calls": calls,
-                "latency_ms": round((time.perf_counter() - t0) * 1000), "err": "detector เพี้ยน"}
+                "latency_ms": round((time.perf_counter() - t0) * 1000), "err": "detector malformed"}
 
     if det == "0":
-        # ผู้พิพากษาเพิ่มประชดใหม่ไม่ได้อยู่แล้ว -> ยิงไปก็เปลี่ยนอะไรไม่ได้ ประหยัด 2 calls
+        # the judge can't add new sarcasm anyway -> firing it changes nothing, saves 2 calls
         return {"pred": "0", "detect": "0", "pros": "", "defe": "", "judge": "",
                 "in_tok": ti, "out_tok": to, "calls": calls,
                 "latency_ms": round((time.perf_counter() - t0) * 1000), "err": ""}
@@ -158,8 +159,8 @@ def main():
     todo = df.index[~df["pred"].isin(["0", "1"])].tolist()
     if LIMIT:
         todo = todo[:LIMIT]
-    print(f"gold {len(df)} ข้อ | ต้องรัน {len(todo)} ข้อ | โมเดล {MODELS[PROVIDER]}")
-    print("HYBRID: detector -> (อัยการ vs ทนาย -> ผู้พิพากษาที่ปัดตกได้อย่างเดียว)\n")
+    print(f"gold {len(df)} items | to run {len(todo)} | model {MODELS[PROVIDER]}")
+    print("HYBRID: detector -> (prosecutor vs defender -> a reject-only judge)\n")
 
     client = _make_client() if todo else None
     t0 = time.time()
@@ -168,7 +169,7 @@ def main():
         for c in COLS:
             df.at[idx, c] = str(out[c])
         flag = "!" if out["pred"] == "err" else " "
-        flip = " (พลิกทิ้ง)" if out["detect"] == "1" and out["pred"] == "0" else ""
+        flip = " (overturned)" if out["detect"] == "1" and out["pred"] == "0" else ""
         print(f"{flag}[{n}/{len(todo)}] det={out['detect']} -> {out['pred']}{flip} "
               f"({out['calls']} calls, {out['latency_ms']}ms)")
         if n % SAVE_EVERY == 0:
@@ -192,22 +193,22 @@ def main():
     bad = int((flips["label"] == "1").sum())
 
     print("\n" + "=" * 60)
-    print(f"HYBRID | วัด {len(done)} ข้อ | error {n_err}")
+    print(f"HYBRID | measured {len(done)} items | error {n_err}")
     print(f"  F1 {f1:.3f} | precision {prec:.3f} | recall {rec:.3f}")
     print(f"  TP {tp}  FP {fp}  FN {fn}  TN {tn}")
-    print(f"  ผู้พิพากษาปัดตก {len(flips)} ข้อ -> ถูก {good} (ฆ่า FP) / ผิด {bad} (ฆ่า TP)")
+    print(f"  judge rejected {len(flips)} items -> right {good} (killed FP) / wrong {bad} (killed TP)")
     print(f"  LLM calls {int(calls)} | token {int(ti)} in / {int(to)} out | ${cost:.3f}")
     if len(lat):
         print(f"  latency p50 {lat.median():.0f} ms")
-    print(f"  เวลาเดินจริง {time.time()-t0:.0f}s")
+    print(f"  wall-clock {time.time()-t0:.0f}s")
     print("=" * 60)
-    print("\nเทียบทุกระบบ (gold 127 ข้อ):")
-    print("  เอเจนต์เดี่ยว        F1 0.690 | 127 calls | $0.094")
-    print("  pipeline v2         F1 0.744 | 183 calls | $0.169  <- แชมป์เดิม")
+    print("\ncompare all systems (127-item gold):")
+    print("  single agent        F1 0.690 | 127 calls | $0.094")
+    print("  pipeline v2         F1 0.744 | 183 calls | $0.169  <- prior champ")
     print("  debate              F1 0.694 | 381 calls | $0.695")
-    print(f"  hybrid (นี่)        F1 {f1:.3f} | {int(calls)} calls | ${cost:.3f}")
-    print("\nตีความ: hybrid ชนะ v2 -> 'การไตร่ตรอง' มีค่า")
-    print("        hybrid เสมอ/แพ้ v2 -> 'ข้อจำกัด' ต่างหากที่สำคัญ ไม่ใช่ความลึก")
+    print(f"  hybrid (this)       F1 {f1:.3f} | {int(calls)} calls | ${cost:.3f}")
+    print("\ninterpretation: hybrid beats v2 -> 'deliberation' is valuable")
+    print("                hybrid ties/loses v2 -> the 'constraint' matters, not the depth")
 
 
 if __name__ == "__main__":
