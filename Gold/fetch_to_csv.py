@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-"""ดึงคอมเมนต์ไทยจากหลายลิงก์/หลายแพลตฟอร์ม รวมเป็น CSV (คอลัมน์ text) — ป้อน distillation/eval
+"""Fetch Thai comments from multiple links/platforms into one CSV (a text column) -- feeds distillation/eval
 
-เป็น "ปากทาง" ของ pipeline ขยายข้อมูล: เอา URL อะไรก็ได้ที่ fetch_social รองรับ (YouTube/Pantip/Reddit)
-มาเทข้อความดิบเป็น CSV แล้วให้ teacher ติดป้าย silver ต่อ
+The "entry point" of the data-expansion pipeline: take any URL fetch_social supports (YouTube/Pantip/Reddit)
+dump the raw text into a CSV, then have the teacher put silver labels on it
 
-*** เคล็ดสำคัญ (แก้ปัญหา cross-domain ที่ precision ตก 0.68->0.40) ***
-ดึงจาก "โดเมนที่จะเอาไปใช้จริง" (เช่นเว็บบอร์ด Pantip) ไม่ใช่แค่ Wongnai/Wisesight
--> silver จากโดเมนเป้าหมาย = สอน student ให้รู้จักโดเมนนั้น = ตรงจุดที่โมเดลเคยพัง
+*** the key trick (fixes the cross-domain problem where precision drops 0.68->0.40) ***
+fetch from "the domain you will actually deploy on" (e.g. the Pantip web board), not just Wongnai/Wisesight
+-> silver from the target domain = teaches the student that domain = exactly where the model used to fail
 
-ใช้:
+Usage:
   python fetch_to_csv.py <url1> <url2> ... --out pool.csv --limit 100
-เชนต่อ:
-  python batch_eval.py --csv pool.csv --out pool_pred.csv          # teacher ติดป้าย (ถูกครึ่งราคา)
-  python distill_label.py --pred pool_pred.csv --out silver.csv    # กรองความมั่นใจ -> silver
-  python distill_train_eval.py --silver silver.csv                 # เทรน+วัดผล OOF
+Chain next:
+  python batch_eval.py --csv pool.csv --out pool_pred.csv          # teacher labels (half price)
+  python distill_label.py --pred pool_pred.csv --out silver.csv    # filter by confidence -> silver
+  python distill_train_eval.py --silver silver.csv                 # train + eval OOF
 """
 import argparse
 import os
@@ -26,9 +26,9 @@ from fetch_social import fetch_any, UnsupportedError
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("urls", nargs="+", help="ลิงก์ YouTube/Pantip/Reddit (ใส่ได้หลายอัน)")
+    ap.add_argument("urls", nargs="+", help="YouTube/Pantip/Reddit links (multiple allowed)")
     ap.add_argument("--out", default="pool.csv")
-    ap.add_argument("--limit", type=int, default=80, help="จำนวนคอมเมนต์ต่อ URL")
+    ap.add_argument("--limit", type=int, default=80, help="number of comments per URL")
     a = ap.parse_args()
 
     import pandas as pd
@@ -37,19 +37,19 @@ def main():
         try:
             texts, plat = fetch_any(url, a.limit)
         except UnsupportedError as e:
-            print(f"ข้าม {url} — เข้าถึงฟรีไม่ได้ ({e})", file=sys.stderr)
+            print(f"skipping {url} -- not freely accessible ({e})", file=sys.stderr)
             continue
         n = 0
         for t in texts:
             if t not in seen:
                 seen.add(t); rows.append({"text": t, "source": plat, "url": url}); n += 1
-        print(f"{plat}: +{n} ข้อความ  ({url})", file=sys.stderr)
+        print(f"{plat}: +{n} texts  ({url})", file=sys.stderr)
 
     if not rows:
-        sys.exit("ไม่ได้ข้อความเลย (ลิงก์เข้าไม่ได้/ไม่มีคอมเมนต์ไทย)")
+        sys.exit("no texts at all (links inaccessible / no Thai comments)")
     pd.DataFrame(rows).to_csv(a.out, index=False, encoding="utf-8-sig")
-    print(f"เขียน {a.out} · {len(rows)} ข้อความ (unique) จาก {len(a.urls)} ลิงก์ · "
-          f"ต่อด้วย batch_eval.py --csv {a.out}")
+    print(f"wrote {a.out} · {len(rows)} texts (unique) from {len(a.urls)} links · "
+          f"continue with batch_eval.py --csv {a.out}")
 
 
 if __name__ == "__main__":

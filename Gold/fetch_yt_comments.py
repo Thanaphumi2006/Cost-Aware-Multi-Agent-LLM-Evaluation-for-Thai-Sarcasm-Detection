@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""ดึงคอมเมนต์ YouTube (ภาษาไทย) เป็นไฟล์ .txt พร้อมป้อน label_any.py — ปิด step 3 โดเมน YouTube
+"""Fetch YouTube comments (Thai) into a .txt file, ready to feed label_any.py -- closes step 3 for the YouTube domain
 
-ดึงคอมเมนต์สาธารณะจากคลิปที่ระบุ ด้วย yt-dlp -> กรองเอาเฉพาะที่มีตัวอักษรไทย
--> ตัดอันสั้น/ยาวเกิน/ซ้ำ -> เขียนทีละบรรทัดใน .txt
+Fetch public comments from the given video with yt-dlp -> keep only those containing Thai characters
+-> drop too-short/too-long/duplicates -> write one per line into the .txt
 
-ใช้เพื่อ "หาข้อความดิบ" สำหรับทดสอบข้ามโดเมนเท่านั้น (คน label เอง ด้วยเกณฑ์เดิม)
-เป็นข้อมูลสาธารณะ · ดึงมาเพื่อ validate โมเดลตัวเอง
+Used only to "gather raw text" for cross-domain testing (humans label it themselves, with the same criteria)
+Public data · fetched to validate one own model
 
-ใช้:
+Usage:
   python fetch_yt_comments.py "https://youtube.com/watch?v=XXXX" -n 200
-  python fetch_yt_comments.py URL1 URL2 URL3 -o yt_raw.txt      # หลายคลิปรวมกัน
-  แล้ว: python label_any.py yt_raw.txt   ->   python eval_domain.py yt_raw_labeled.csv
+  python fetch_yt_comments.py URL1 URL2 URL3 -o yt_raw.txt      # several videos combined
+  then: python label_any.py yt_raw.txt   ->   python eval_domain.py yt_raw_labeled.csv
 """
 import argparse
 import re
@@ -25,7 +25,7 @@ def is_thai(s, min_thai=3):
 
 
 def clean(s):
-    s = re.sub(r"\s+", " ", s).strip()      # ยุบ newline/ช่องว่าง -> คอมเมนต์ 1 = บรรทัด 1
+    s = re.sub(r"\s+", " ", s).strip()      # collapse newlines/spaces -> 1 comment = 1 line
     return s
 
 
@@ -42,22 +42,22 @@ def fetch(url, limit):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("urls", nargs="+", help="ลิงก์คลิป YouTube (ใส่ได้หลายอัน)")
-    ap.add_argument("-n", type=int, default=200, help="เป้าจำนวนคอมเมนต์ไทย (รวมทุกคลิป)")
+    ap.add_argument("urls", nargs="+", help="YouTube video links (multiple allowed)")
+    ap.add_argument("-n", type=int, default=200, help="target number of Thai comments (across all videos)")
     ap.add_argument("-o", "--out", default="yt_raw.txt")
-    ap.add_argument("--min-len", type=int, default=8, help="สั้นกว่านี้ทิ้ง (ตัวอักษร)")
-    ap.add_argument("--max-len", type=int, default=300, help="ยาวกว่านี้ทิ้ง")
+    ap.add_argument("--min-len", type=int, default=8, help="drop shorter than this (characters)")
+    ap.add_argument("--max-len", type=int, default=300, help="drop longer than this")
     a = ap.parse_args()
 
     seen, kept = set(), []
     for url in a.urls:
         if len(kept) >= a.n:
             break
-        print(f"ดึง {url} ...", file=sys.stderr, flush=True)
+        print(f"fetching {url} ...", file=sys.stderr, flush=True)
         try:
             raw = fetch(url, a.n)
         except Exception as e:
-            print(f"  พลาด: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"  failed: {type(e).__name__}: {e}", file=sys.stderr)
             continue
         n_thai = 0
         for c in raw:
@@ -69,14 +69,14 @@ def main():
             seen.add(c); kept.append(c); n_thai += 1
             if len(kept) >= a.n:
                 break
-        print(f"  ได้คอมเมนต์ไทย {n_thai} (รวม {len(kept)})", file=sys.stderr)
+        print(f"  got {n_thai} Thai comments (total {len(kept)})", file=sys.stderr)
 
     if not kept:
-        sys.exit("ไม่ได้คอมเมนต์ไทยเลย — คลิปอาจปิดคอมเมนต์ หรือคอมเมนต์ไม่ใช่ไทย")
+        sys.exit("no Thai comments at all -- the video may have comments disabled, or comments are not Thai")
     with open(a.out, "w", encoding="utf-8") as f:
         f.write("\n".join(kept))
-    print(f"\nเขียน {len(kept)} คอมเมนต์ -> {a.out}")
-    print(f"ต่อไป: python label_any.py {a.out}   (label ~150 ข้อ ให้ได้ประชด ≥30)")
+    print(f"\nwrote {len(kept)} comments -> {a.out}")
+    print(f"next: python label_any.py {a.out}   (label ~150 items to get sarcasm >=30)")
     print(f"       python eval_domain.py {a.out.replace('.txt','_labeled.csv')}")
 
 

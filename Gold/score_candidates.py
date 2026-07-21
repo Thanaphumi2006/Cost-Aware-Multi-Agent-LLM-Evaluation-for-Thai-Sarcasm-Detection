@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""ให้คะแนน P(ประชด) กับ candidate ใน to_label_next.csv ด้วย logprob -> จัดอันดับใหม่ให้ล่าเป้า positive
+"""Score P(sarcasm) for candidates in to_label_next.csv via logprob -> re-rank to hunt for positives
 
-เหตุผล: อันดับเดิมใช้ keyword signal ซึ่ง noisy (priority 2 = 142 ข้อ แยกไม่ค่อยออก)
-logprob ของโมเดลจัดอันดับดีกว่ามาก -> เอา positive candidate (P สูง) ขึ้นบน + ทำแถบก้ำกึ่ง (0.2-0.8) ให้เห็นชัด
-คอขวดคือ positive (n=30) -> อยาก label ข้อที่ "น่าจะได้ positive จริง" ก่อน
+Reason: the old ranking used a keyword signal that is noisy (priority 2 = 142 items, poorly separated)
+the model logprob ranks much better -> lift positive candidates (high P) to the top + surface the borderline band (0.2-0.8)
+the bottleneck is positives (n=30) -> we want to label items "likely to be real positives" first
 
-ใช้ gpt-4.1-mini (โมเดลที่ดีสุด+ถูกใน  finding 9) · DETECT_SYS เดิม · ~$0.03
-รัน: python score_candidates.py
+uses gpt-4.1-mini (the best + cheap model in finding 9) · the original DETECT_SYS · ~$0.03
+Run: python score_candidates.py
 """
 import math
 import os
@@ -47,7 +47,7 @@ def score_one(client, text):
 
 def main():
     if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("ต้องมี OPENAI_API_KEY")
+        sys.exit("OPENAI_API_KEY required")
     df = pd.read_csv(CSV, dtype=str).fillna("")
     from openai import OpenAI
     client = OpenAI(timeout=30.0, max_retries=3)
@@ -57,16 +57,16 @@ def main():
         try:
             p, i, o = score_one(client, text)
         except Exception as e:
-            print(f"\n  ข้อ {n} พัง: {type(e).__name__}"); p, i, o = float("nan"), 0, 0
+            print(f"\n  item {n} failed: {type(e).__name__}"); p, i, o = float("nan"), 0, 0
         probs.append(p); ti += i; to += o
         print(f"  {n}/{len(df)}", end="\r", flush=True)
 
     df["P_sarcasm"] = [round(p, 3) if p == p else "" for p in probs]
-    # แถบก้ำกึ่ง 0.2-0.8 = ข้อที่โมเดลไม่มั่นใจ = แยกระบบได้ดี + คน label ต้องตัดสินจริง
-    df["band"] = ["ก้ำกึ่ง (0.2-0.8)" if (p == p and 0.2 <= p <= 0.8)
-                  else ("น่าจะประชด (>0.8)" if (p == p and p > 0.8)
-                        else "น่าจะไม่ (<0.2)") for p in probs]
-    # จัดอันดับใหม่: P สูงก่อน (ล่า positive) -- ข้อ P สูงคือผู้สมัคร positive ที่ดีสุด
+    # borderline band 0.2-0.8 = items the model is unsure about = separates systems well + requires real human judgment
+    df["band"] = ["borderline (0.2-0.8)" if (p == p and 0.2 <= p <= 0.8)
+                  else ("likely sarcasm (>0.8)" if (p == p and p > 0.8)
+                        else "likely not (<0.2)") for p in probs]
+    # re-rank: high P first (hunt positives) -- high-P items are the best positive candidates
     df["_s"] = [p if p == p else -1 for p in probs]
     df = df.sort_values("_s", ascending=False).drop(columns="_s")
     df.to_csv(CSV, index=False, encoding="utf-8-sig")
@@ -74,10 +74,10 @@ def main():
     c = ti/1e6*0.40 + to/1e6*1.60
     hi = sum(1 for p in probs if p == p and p > 0.8)
     mid = sum(1 for p in probs if p == p and 0.2 <= p <= 0.8)
-    print(f"\nให้คะแนน {len(df)} ข้อ | ${c:.4f} | {ti} in / {to} out")
-    print(f"  น่าจะประชด (P>0.8): {hi} ข้อ  <- ผู้สมัคร positive ที่ดีสุด label ก่อน")
-    print(f"  ก้ำกึ่ง (0.2-0.8) : {mid} ข้อ  <- ต้องคนตัดสิน แยกระบบได้ดี")
-    print(f"เขียนทับ {os.path.basename(CSV)} (เรียง P มาก->น้อย, เพิ่มคอลัมน์ P_sarcasm + band)")
+    print(f"\nscored {len(df)} items | ${c:.4f} | {ti} in / {to} out")
+    print(f"  likely sarcasm (P>0.8): {hi} items  <- best positive candidates, label first")
+    print(f"  borderline (0.2-0.8) : {mid} items  <- needs human judgment, separates systems well")
+    print(f"overwrote {os.path.basename(CSV)} (sorted P high->low, added columns P_sarcasm + band)")
 
 
 if __name__ == "__main__":

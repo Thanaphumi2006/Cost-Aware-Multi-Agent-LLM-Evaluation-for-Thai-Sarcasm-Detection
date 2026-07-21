@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""ทดสอบข้ามโดเมน YouTube ครบจบในคำสั่งเดียว — fetch -> label -> eval อัตโนมัติ
+"""Cross-domain YouTube test, all in one command -- fetch -> label -> eval automatically
 
-แทนที่จะรัน 3 สคริปต์ทีละอัน สั่งครั้งเดียว:
+Instead of running 3 scripts one by one, a single command:
   python validate_yt.py "https://youtube.com/watch?v=XXXX"
 
-มันจะ:
-  1) ดึงคอมเมนต์ไทย (ข้ามถ้าดึงไว้แล้ว)
-  2) เปิดหน้า label ให้ (กด 1/0/u/b/q · บันทึกทุกครั้ง · ปิดแล้วรันซ้ำทำต่อ)
-  3) พอ label ครบพอ (ประชด ≥ เป้า) รัน eval อัตโนมัติ แล้วสรุปว่า "ใช้บน YouTube ได้ไหม"
+It will:
+  1) fetch Thai comments (skip if already fetched)
+  2) open the labeling page (press 1/0/u/b/q · saves every time · quit and rerun to resume)
+  3) once enough is labeled (sarcasm >= target), auto-run eval and conclude "does it work on YouTube"
 
-รันซ้ำคำสั่งเดิมได้เรื่อยๆ — มันจำว่าทำถึงไหนแล้ว
-ต้องมี OPENAI_API_KEY ตอนขั้น eval (ขั้น label ไม่ต้อง)
+Rerun the same command as many times as needed -- it remembers where it left off
+Needs OPENAI_API_KEY at the eval step (not needed for the label step)
 """
 import argparse
 import os
@@ -37,44 +37,44 @@ def count_pos(csv):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="ทดสอบโมเดลบนคอมเมนต์ YouTube ครบจบคำสั่งเดียว")
-    ap.add_argument("url", help="ลิงก์คลิป YouTube")
-    ap.add_argument("-n", type=int, default=200, help="จำนวนคอมเมนต์ที่ดึง (ค่าเริ่มต้น 200)")
-    ap.add_argument("--target-pos", type=int, default=30, help="ประชดขั้นต่ำก่อนจะ eval (ค่าเริ่มต้น 30)")
+    ap = argparse.ArgumentParser(description="test the model on YouTube comments, all in one command")
+    ap.add_argument("url", help="YouTube video link")
+    ap.add_argument("-n", type=int, default=200, help="number of comments to fetch (default 200)")
+    ap.add_argument("--target-pos", type=int, default=30, help="minimum sarcasm before eval (default 30)")
     ap.add_argument("--op", default="balanced", choices=["balanced", "high_recall"])
     a = ap.parse_args()
 
     base = os.path.join(HERE, f"yt_{vid(a.url)}")
     raw, labeled = base + "_raw.txt", base + "_raw_labeled.csv"
 
-    # 1) fetch (ข้ามถ้ามีแล้ว)
+    # 1) fetch (skip if already present)
     if not os.path.exists(raw):
-        print("① ดึงคอมเมนต์...\n")
+        print("① fetching comments...\n")
         r = subprocess.run([PY, os.path.join(HERE, "fetch_yt_comments.py"), a.url, "-n", str(a.n), "-o", raw])
         if r.returncode or not os.path.exists(raw):
-            sys.exit("ดึงคอมเมนต์ไม่สำเร็จ")
+            sys.exit("failed to fetch comments")
     else:
-        print(f"① มีคอมเมนต์แล้ว ({raw}) — ข้าม\n")
+        print(f"① comments already present ({raw}) -- skipping\n")
 
     # 2) label (interactive)
     npos, ntot = count_pos(labeled)
     if npos < a.target_pos:
-        print(f"② label (มีประชด {npos}/{a.target_pos} แล้ว) — เปิดหน้า label...\n")
+        print(f"② label (sarcasm {npos}/{a.target_pos} so far) -- opening the label page...\n")
         subprocess.run([PY, os.path.join(HERE, "label_any.py"), raw, "--out", labeled])
         npos, ntot = count_pos(labeled)
     else:
-        print(f"② label ครบแล้ว (ประชด {npos}) — ข้าม\n")
+        print(f"② labeling complete (sarcasm {npos}) -- skipping\n")
 
-    # 3) eval (ถ้าประชดพอ)
+    # 3) eval (if enough sarcasm)
     if npos < a.target_pos:
-        print(f"\nยัง label ประชดไม่ถึงเป้า ({npos}/{a.target_pos}) — รันคำสั่งเดิมซ้ำเพื่อ label ต่อ")
-        print("(หรือ eval เลยทั้งที่ยังน้อยก็ได้ แต่ CI จะกว้างมาก)")
+        print(f"\nnot enough sarcasm labeled yet ({npos}/{a.target_pos}) -- rerun the same command to keep labeling")
+        print("(or eval now despite the small count, but the CI will be very wide)")
         return
     if not os.environ.get("OPENAI_API_KEY"):
-        print(f"\n③ พร้อม eval แล้ว (ประชด {npos}) แต่ยังไม่มี OPENAI_API_KEY")
-        print(f"   export OPENAI_API_KEY=sk-...  แล้วรัน: python eval_domain.py {os.path.basename(labeled)}")
+        print(f"\n③ ready to eval (sarcasm {npos}) but OPENAI_API_KEY is not set")
+        print(f"   export OPENAI_API_KEY=sk-...  then run: python eval_domain.py {os.path.basename(labeled)}")
         return
-    print(f"③ eval บน YouTube (ประชด {npos} จาก {ntot})...\n")
+    print(f"③ eval on YouTube (sarcasm {npos} of {ntot})...\n")
     subprocess.run([PY, os.path.join(HERE, "eval_domain.py"), labeled, "--op", a.op])
 
 
