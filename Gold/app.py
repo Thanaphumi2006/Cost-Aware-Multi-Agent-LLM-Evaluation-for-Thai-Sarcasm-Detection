@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-"""เว็บทดลอง + เทียบ 3 ระบบตรวจจับประชดภาษาไทย
+"""Experiment web app + comparison of 3 Thai sarcasm detection systems
 
-รัน:
+Run:
   set OPENAI_API_KEY=sk-...            (PowerShell: $env:OPENAI_API_KEY="sk-...")
   C:/Users/thana/pt/Scripts/python.exe app.py
-  เปิด http://127.0.0.1:5000
+  open http://127.0.0.1:5000
 
-หมายเหตุ:
-- คีย์ API ใส่ได้ 2 ทาง: environment variable หรือ พิมพ์ในหน้าเว็บ (ช่องด้านบน)
-  ทั้งสองทางเก็บไว้ใน RAM ของโปรเซสเท่านั้น -- ไม่เขียนลงไฟล์ ไม่ฝังในโค้ด ปิดเซิร์ฟเวอร์แล้วหาย
-- เว็บนี้ผูกกับ 127.0.0.1 อย่าเปิดออกสู่เน็ต เพราะช่องใส่คีย์จะกลายเป็นช่องให้คนอื่นยิง API ด้วยคีย์เรา
-- ถ้าไม่มีคีย์ เว็บยังใช้ได้ แต่จะรันได้แค่ WangchanBERTa (ตัวที่ไม่ต้องใช้ API)
-- WangchanBERTa ที่เว็บใช้เทรนบน gold ครบทุกข้อ -> ห้ามเอาไปวัดผลบน gold
-  ถ้าพิมพ์ข้อความที่อยู่ใน gold มันจะ "จำคำตอบได้" (เว็บจะเตือนให้เอง)
+Notes:
+- the API key can be set 2 ways: an environment variable or typed on the page (the field at the top)
+  both keep it in the process RAM only -- not written to a file, not embedded in code, gone when the server stops
+- this app binds to 127.0.0.1; don't expose it to the internet, or the key field becomes a way for others to hit the API with your key
+- without a key the app still works, but only WangchanBERTa runs (the one that needs no API)
+- the WangchanBERTa the app uses was trained on all of gold -> don't evaluate it on gold
+  if you type text that is in gold it will "remember the answer" (the app warns you)
 """
 import os
 import sys
@@ -35,15 +35,15 @@ IN_P, OUT_P = PRICE_PER_MTOK["gpt"]
 
 app = Flask(__name__)
 
-# ---------- โหลดของหนักครั้งเดียวตอนสตาร์ท ----------
+# ---------- load heavy things once at startup ----------
 _gold = pd.read_csv(os.path.join(HERE, "gold.csv"), dtype=str).fillna("")
 _gold["label"] = _gold["label"].str.strip()
 _gold = _gold[_gold["label"].isin(["0", "1"])].reset_index(drop=True)
 GOLD_TEXTS = dict(zip(_gold["text"], _gold["label"]))
 
-_wcb = None       # โหลดแบบ lazy (torch หนัก)
+_wcb = None       # lazy load (torch is heavy)
 _client = None
-_api_key = os.environ.get("OPENAI_API_KEY", "").strip()   # อยู่ใน RAM เท่านั้น ไม่เขียนลงดิสก์
+_api_key = os.environ.get("OPENAI_API_KEY", "").strip()   # in RAM only, never written to disk
 
 
 def wcb():
@@ -67,7 +67,7 @@ def client():
 
 
 def mask_key(k):
-    """sk-proj-abcd...wxyz -- พอให้รู้ว่าเป็นคีย์ตัวไหน แต่ไม่เผยคีย์"""
+    """sk-proj-abcd...wxyz -- enough to tell which key it is without revealing it"""
     return f"{k[:6]}…{k[-4:]}" if len(k) > 14 else "sk-…"
 
 
@@ -79,7 +79,7 @@ def cost(i, o):
     return i / 1e6 * IN_P + o / 1e6 * OUT_P
 
 
-# ---------- ตารางผลจริงบน gold (คำนวณจาก CSV จริง ไม่ใช่เลข hardcode) ----------
+# ---------- real results table on gold (computed from actual CSVs, not hardcoded numbers) ----------
 def gold_table():
     files = [
         ("① เอเจนต์เดี่ยว (base)", "baseline_preds_gpt.csv", 127, 0.094, 751),
@@ -102,7 +102,7 @@ def gold_table():
 GOLD_ROWS = gold_table()
 
 
-# ---------- ทำนาย ----------
+# ---------- predict ----------
 def run_baseline(text):
     c = client()
     if not c:
@@ -114,15 +114,15 @@ def run_baseline(text):
 
 
 def run_multiagent(text):
-    """รันทีละด่านเอง (แทนที่จะเรียก run_pipeline รวดเดียว) เพื่อเก็บ token/เวลา/คำตัดสิน "แยกรายด่าน"
-    ตรรกะต้องเหมือน multiagent.run_pipeline ทุกประการ -- ใช้ prompt/schema ตัวเดียวกันจากไฟล์นั้นตรงๆ"""
+    """run each stage manually (instead of calling run_pipeline in one shot) to collect token/time/decision "per stage"
+    logic must match multiagent.run_pipeline exactly -- uses the same prompt/schema straight from that file"""
     c = client()
     if not c:
         return {"pred": "n/a", "note": "ไม่มี OPENAI_API_KEY"}
 
     steps = []
     t0 = time.perf_counter()
-    det_sys = multiagent.DETECT_SYS + _corrections_block(text)   # สอน multi-agent ด้วยที่คนแก้ (few-shot)
+    det_sys = multiagent.DETECT_SYS + _corrections_block(text)   # teach multi-agent with human corrections (few-shot)
     det, i1, o1 = multiagent._ask(c, det_sys, multiagent.DETECT_SCHEMA, "label", text)
     d_ms = round((time.perf_counter() - t0) * 1000)
     steps.append({
@@ -164,7 +164,7 @@ def run_multiagent(text):
 
 
 def run_debate(text):
-    """สถาปัตยกรรมที่ 2: อัยการ + ทนาย -> ผู้พิพากษา (ตัดสินใหม่ได้ทั้งสองทาง)"""
+    """architecture 2: prosecutor + defender -> judge (can re-decide both ways)"""
     c = client()
     if not c:
         return {"pred": "n/a", "note": "ไม่มี OPENAI_API_KEY"}
@@ -176,7 +176,7 @@ def run_debate(text):
 
 
 def run_hybrid(text):
-    """ระบบรวม: detector -> (อัยการ vs ทนาย -> ผู้พิพากษาที่ปัดตกได้อย่างเดียว)"""
+    """combined system: detector -> (prosecutor vs defender -> a reject-only judge)"""
     c = client()
     if not c:
         return {"pred": "n/a", "note": "ไม่มี OPENAI_API_KEY"}
@@ -213,21 +213,21 @@ def api_predict():
     in_gold = text in GOLD_TEXTS
     return jsonify({
         "text": text,
-        "gold": GOLD_TEXTS.get(text),          # None ถ้าไม่ได้อยู่ใน gold
+        "gold": GOLD_TEXTS.get(text),          # None if not in gold
         "in_gold": in_gold,
         "baseline": run_baseline(text),
         "multiagent": run_multiagent(text),
         "wangchanberta": run_wcb(text),
     })
-    # debate/hybrid ถูกถอดออกจากเว็บแล้ว (ทดลองแล้วแพ้ -- เก็บโค้ด+ผลไว้เป็นหลักฐานใน RESULTS.md)
-    # run_debate()/run_hybrid() ยังอยู่ ถ้าอยากเปิดกลับมาก็เสียบกลับได้ทันที
+    # debate/hybrid were removed from the app (they lost in experiments -- code+results kept as evidence in RESULTS.md)
+    # run_debate()/run_hybrid() still exist; to re-enable, just plug them back in
 
 
-_detectors = {}       # cache detector ต่อ operating point (โหลด client ครั้งเดียว)
+_detectors = {}       # cache a detector per operating point (load the client once)
 
 
 def detector(op):
-    """ตัวตรวจจับพร้อมใช้จริงจาก predict.py -- ใช้คีย์ที่ผู้ใช้ใส่ในหน้าเว็บ + cache ร่วมกัน"""
+    """the production-ready detector from predict.py -- uses the key the user entered + a shared cache"""
     import predict
     key = (op, _api_key)
     if key not in _detectors:
@@ -235,9 +235,9 @@ def detector(op):
     return _detectors[key]
 
 
-# ---------- guardrails: กันคนอื่นเผาคีย์เจ้าของ ตอน deploy ให้คนอื่นใช้ ----------
-# ปรับได้ด้วย env: PUBLIC_DAILY_LIMIT (ข้อ/วัน รวมทุกคน), PUBLIC_IP_HOURLY_LIMIT (ข้อ/ชม./ไอพี)
-# เครื่องตัวเอง (127.0.0.1) ไม่ติดลิมิต -> เจ้าของใช้ได้ไม่จำกัด ลิมิตมีผลเฉพาะผู้ใช้รีโมต
+# ---------- guardrails: prevent others from burning the owner's key when deployed for others ----------
+# tunable via env: PUBLIC_DAILY_LIMIT (items/day, everyone combined), PUBLIC_IP_HOURLY_LIMIT (items/hr/IP)
+# the local machine (127.0.0.1) is unlimited -> the owner is unrestricted; limits apply only to remote users
 DAILY_CAP = int(os.environ.get("PUBLIC_DAILY_LIMIT", "2000"))
 IP_HOUR_CAP = int(os.environ.get("PUBLIC_IP_HOURLY_LIMIT", "200"))
 _usage_lock = threading.Lock()
@@ -245,7 +245,7 @@ _usage = {"day": "", "day_count": 0, "ip_hour": {}}
 
 
 def _guard(n_items, ip):
-    """เช็ค+นับโควตา คืน error message ถ้าเกิน ไม่งั้น None (localhost ไม่จำกัด)"""
+    """check + count quota, return an error message if exceeded, else None (localhost unlimited)"""
     if ip in ("127.0.0.1", "::1", "localhost", None):
         return None
     n_items = max(int(n_items or 1), 1)
@@ -265,7 +265,7 @@ def _guard(n_items, ip):
     return None
 
 
-# ระบบที่หน้า /app เลือกได้ (แต่ละตัวมีมาสคอต)
+# systems selectable on the /app page (each has a mascot)
 MODELS_PUBLIC = ("balanced", "high_recall", "multiagent", "wangchanberta")
 MODEL_LABEL = {"balanced": "gpt-4.1-mini", "high_recall": "gpt-4o",
                "multiagent": "multi-agent (2 ตัว)", "wangchanberta": "WangchanBERTa (ฟรี)"}
@@ -276,20 +276,20 @@ def _dec(pred):
 
 
 def _corrections_block(text):
-    """few-shot ตัวอย่างที่คนแก้ ที่เกี่ยวกับข้อความนี้ -- เอาไปต่อท้าย prompt ของ LLM ทุกตัว"""
+    """few-shot human-corrected examples relevant to this text -- appended to every LLM's prompt"""
     import predict
     corr = predict.load_corrections()
     return predict._shots_block(predict._relevant(corr, text)) if corr else ""
 
 
 def _corr_map():
-    """dict {ข้อความ: ป้ายที่คนแก้} สำหรับ override แบบตรงตัว (ใช้ได้กับทุกโมเดล รวม WangchanBERTa)"""
+    """dict {text: human-corrected label} for exact overrides (works with all models incl. WangchanBERTa)"""
     import predict
     return {c["text"]: c["label"] for c in predict.load_corrections()}
 
 
 def _classify(model, text, review=False):
-    """ตรวจ 1 ข้อความด้วยระบบที่เลือก -> row มาตรฐาน (multiagent แถม steps ไว้ให้ animate)"""
+    """detect one text with the chosen system -> a standard row (multiagent also returns steps to animate)"""
     if model == "multiagent":
         r = run_multiagent(text)
         p = r.get("pred")
@@ -298,7 +298,7 @@ def _classify(model, text, review=False):
     if model == "wangchanberta":
         r = run_wcb(text)
         p = r.get("pred")
-        conf = r.get("conf")                                   # ความมั่นใจของคลาสที่ทาย
+        conf = r.get("conf")                                   # confidence of the predicted class
         psarc = conf if p == "1" else (1 - conf if p == "0" and conf is not None else None)
         return {"text": text, "label": p if p in ("0", "1") else None, "prob": psarc,
                 "decision": _dec(p), "note": r.get("note")}
@@ -307,7 +307,7 @@ def _classify(model, text, review=False):
 
 
 def _need_check(model):
-    """คืน error message ถ้าใช้ระบบนี้ไม่ได้ตอนนี้ (คีย์/โมเดล) ไม่งั้น None"""
+    """return an error message if this system can't be used right now (key/model), else None"""
     if model not in MODELS_PUBLIC:
         return f"ไม่รู้จักระบบ: {model}"
     if model != "wangchanberta" and not _api_key:
@@ -319,7 +319,7 @@ def _need_check(model):
 
 @app.route("/api/batch", methods=["POST"])
 def api_batch():
-    """ตรวจหลายข้อความรวดเดียว -- เลือกระบบได้ (balanced/high_recall/multiagent/wangchanberta)"""
+    """detect many texts at once -- system selectable (balanced/high_recall/multiagent/wangchanberta)"""
     body = request.json or {}
     texts = [str(t).strip() for t in body.get("texts", []) if str(t).strip()]
     model = body.get("model") or body.get("op") or "balanced"
@@ -338,7 +338,7 @@ def api_batch():
     rows = []
     corr = _corr_map()
     for t in texts:
-        if t in corr:                                  # เคยแก้ข้อนี้ตรงตัว -> ใช้ป้ายคน (ทุกโมเดล)
+        if t in corr:                                  # this item was corrected directly -> use the human label (all models)
             lab = corr[t]
             r = {"text": t, "label": lab, "prob": 1.0 if lab == "1" else 0.0,
                  "decision": _dec(lab), "from_correction": True}
@@ -358,8 +358,8 @@ def api_batch():
     return jsonify({"rows": rows, "summary": summ})
 
 
-# ให้หน้าเว็บ static (GitHub Pages / เปิดไฟล์ตรง) เรียกตัวช่วยบนเครื่องนี้ได้
-# เปิด CORS เฉพาะ endpoint นี้ endpoint เดียว -- แค่ "ดึงคอมเมนต์" ไม่แตะคีย์/โมเดลเลย
+# lets a static page (GitHub Pages / opened directly) call this machine's helper
+# enable CORS for this one endpoint only -- just "fetch comments", never touches the key/model
 _FETCH_ORIGINS = {"https://thanaphumi2006.github.io", "null"}
 
 
@@ -376,8 +376,8 @@ def _fetch_cors(resp):
 
 @app.route("/api/fetch_comments", methods=["POST", "OPTIONS"])
 def api_fetch_comments():
-    """ดึงคอมเมนต์จากลิงก์ให้หน้าเว็บ static (ไม่จำแนก ไม่ใช้คีย์ -- ฝั่งเบราว์เซอร์ให้คะแนนเอง)
-    มีไว้เพราะเบราว์เซอร์โดน YouTube/Pantip/Reddit บล็อก CORS ดึงตรงไม่ได้"""
+    """fetch comments from a link for the static page (no classification, no key -- the browser scores them)
+    exists because the browser is CORS-blocked by YouTube/Pantip/Reddit and can't fetch directly"""
     if request.method == "OPTIONS":
         return "", 204
     body = request.json or {}
@@ -402,8 +402,8 @@ def api_fetch_comments():
 
 @app.route("/api/youtube", methods=["POST"])
 def api_youtube():
-    """วางลิงก์ YouTube -> ดึงคอมเมนต์ไทย -> จับประชด -> คืนรายการ (โชว์เฉพาะที่ประชด)
-    *** โดเมน YouTube ยังไม่ได้ validate (ดู eval_domain.py) -> ผลเป็น "เดา" เตือนที่หน้าเว็บ ***"""
+    """paste a YouTube link -> fetch Thai comments -> detect sarcasm -> return a list (show only the sarcastic ones)
+    *** the YouTube domain is not validated yet (see eval_domain.py) -> results are a "guess", warned on the page ***"""
     body = request.json or {}
     url = str(body.get("url", "")).strip()
     model = body.get("model") or body.get("op") or "balanced"
@@ -422,7 +422,7 @@ def api_youtube():
     try:
         comments, plat = fs.fetch_any(url, limit)
     except fs.UnsupportedError:
-        # แพลตฟอร์มดึงอัตโนมัติไม่ได้ (Twitter/IG/ฯลฯ ต้องล็อกอิน/API) -> บอกให้วางเอง
+        # platform cannot be auto-fetched (Twitter/IG/etc. need login/API) -> tell them to paste it themselves
         return jsonify({"error": f"ดึงจาก {plat} อัตโนมัติไม่ได้ (แพลตฟอร์มนี้ต้องล็อกอิน/เสียเงิน API) "
                                  f"ก๊อปคอมเมนต์มาวางในแท็บ “อัปโหลดไฟล์” แทน (ใช้ได้กับทุกแพลตฟอร์ม)",
                         "paste_hint": True}), 422
@@ -437,7 +437,7 @@ def api_youtube():
     rows = []
     corr = _corr_map()
     for c in comments:
-        if c in corr:                                  # เคยแก้ข้อนี้ตรงตัว -> ใช้ป้ายคน (ทุกโมเดล)
+        if c in corr:                                  # this item was corrected directly -> use the human label (all models)
             lab = corr[c]
             rows.append({"text": c, "label": lab, "prob": 1.0 if lab == "1" else 0.0,
                          "decision": _dec(lab), "from_correction": True})
@@ -446,7 +446,7 @@ def api_youtube():
             rows.append(_classify(model, c))
         except Exception:
             rows.append({"text": c, "label": None, "prob": None, "decision": "error"})
-    rows.sort(key=lambda r: (r.get("decision") != "sarcasm", -(r.get("prob") or 0)))   # ประชดขึ้นก่อน
+    rows.sort(key=lambda r: (r.get("decision") != "sarcasm", -(r.get("prob") or 0)))   # sarcasm first
     summ = {"n": len(rows), "sarcasm": sum(1 for r in rows if r["decision"] == "sarcasm"),
             "model": MODEL_LABEL.get(model, model), "op": model, "platform": plat}
     return jsonify({"rows": rows, "summary": summ})
@@ -454,27 +454,27 @@ def api_youtube():
 
 @app.route("/api/correct", methods=["POST"])
 def api_correct():
-    """คนกดว่า 'โมเดลตัดสินผิด' -> เก็บคำตอบที่ถูก แล้วเอาไปเป็น few-shot ให้ครั้งต่อไป
-    หมายเหตุซื่อสัตย์: นี่คือ in-context learning (สอนผ่านตัวอย่างในโปรมป์) ไม่ใช่การเทรนโมเดลใหม่จริง"""
+    """the user marks 'the model decided wrong' -> store the correct answer and use it as few-shot next time
+    honest note: this is in-context learning (teaching via examples in the prompt), not actually retraining the model"""
     import predict
     body = request.json or {}
     text = str(body.get("text", "")).strip()
-    label = str(body.get("label", "")).strip()          # ป้ายที่ "ถูก" (ตรงข้ามกับที่โมเดลทาย)
+    label = str(body.get("label", "")).strip()          # the "correct" label (opposite of the model guess)
     if not text or label not in ("0", "1"):
         return jsonify({"error": "ต้องมี text และ label ('0'/'1')"}), 400
     try:
         n = predict.add_correction(text, label)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    for det in _detectors.values():                     # ให้ detector ที่โหลดไว้ใช้ตัวอย่างใหม่ทันที
+    for det in _detectors.values():                     # let already-loaded detectors use the new example immediately
         det.reload_corrections()
     return jsonify({"ok": True, "total": n})
 
 
 @app.route("/api/key", methods=["POST"])
 def api_key_set():
-    """รับคีย์จากหน้าเว็บ -> ยิงเช็คกับ OpenAI จริงก่อนรับ (models.list ไม่คิดเงิน)
-    เก็บไว้ใน RAM ของโปรเซสเท่านั้น -- ปิดเซิร์ฟเวอร์แล้วหาย ไม่มีการเขียนลงไฟล์"""
+    """take the key from the page -> verify it against OpenAI before accepting (models.list is free)
+    kept in process RAM only -- gone when the server stops, never written to a file"""
     global _api_key, _client
     key = (request.json or {}).get("key", "").strip()
     if not key:
@@ -484,11 +484,11 @@ def api_key_set():
 
     from openai import OpenAI
     try:
-        OpenAI(api_key=key).models.list()          # ตรวจว่าคีย์ใช้ได้จริง
+        OpenAI(api_key=key).models.list()          # check the key actually works
     except Exception as e:
         return jsonify({"ok": False, "error": f"คีย์ใช้ไม่ได้: {type(e).__name__}"}), 400
 
-    _api_key, _client = key, None                  # ล้าง client เก่า -> สร้างใหม่ด้วยคีย์นี้
+    _api_key, _client = key, None                  # clear the old client -> rebuild with this key
     _detectors.clear()
     return jsonify({"ok": True, "masked": mask_key(key)})
 
@@ -503,7 +503,7 @@ def api_key_clear():
 
 @app.route("/api/stats")
 def api_stats():
-    """จำนวนที่โมเดลเรียนจากทุกคนรวมกัน (เก็บถาวรในไฟล์เดียวบนเซิร์ฟเวอร์ -> แชร์ทุกคน)"""
+    """count of what the model learned from everyone combined (persisted in one file on the server -> shared by all)"""
     import predict
     return jsonify({"corrections": len(predict.load_corrections())})
 
@@ -529,8 +529,8 @@ def index():
 
 @app.route("/app")
 def public_app():
-    """หน้าสำหรับผู้ใช้ทั่วไป: สะอาด ง่าย ผลลัพธ์เดียวชัดๆ (ไม่มีของวิจัย)
-    ใช้ backend ตัวเดียวกับหน้า / (predict.py + endpoints เดิม)"""
+    """page for general users: clean, simple, one clear result (no research extras)
+    uses the same backend as the / page (predict.py + the existing endpoints)"""
     return render_template_string(PUBLIC_PAGE, has_key=bool(_api_key))
 
 
@@ -1082,7 +1082,7 @@ function dlCSV(){
 """
 
 
-# ================= หน้าสำหรับผู้ใช้ทั่วไป (/app) สะอาด ผลลัพธ์เดียว =================
+# ================= page for general users (/app), clean, single result =================
 PUBLIC_PAGE = r"""
 <!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1616,8 +1616,8 @@ if __name__ == "__main__":
     print(f"  WangchanBERTa  : {'พร้อม' if has_wcb() else 'ยังไม่ได้เทรน (รัน train_final_wcb.py)'}")
     print(f"  โควตาผู้ใช้รีโมต : {IP_HOUR_CAP} ข้อ/ชม./ไอพี · {DAILY_CAP} ข้อ/วันรวม (127.0.0.1 ไม่จำกัด)")
     print(f"                   ปรับได้: PUBLIC_IP_HOURLY_LIMIT, PUBLIC_DAILY_LIMIT")
-    # ตอน deploy: host ตั้ง HOST=0.0.0.0 + PORT ตามที่โฮสต์กำหนด (เช่น HF Spaces = 7860)
-    # ตอนรันในเครื่อง: default 127.0.0.1:5000 (ปลอดภัย ไม่เปิดออกเน็ต)
+    # on deploy: the host sets HOST=0.0.0.0 + PORT as the host dictates (e.g. HF Spaces = 7860)
+    # running locally: default 127.0.0.1:5000 (safe, not exposed to the internet)
     port = int(os.environ.get("PORT", "5000"))
     host = os.environ.get("HOST", "127.0.0.1")
     print(f"  หน้าผู้ใช้: http://{host}:{port}/app   ·   หน้า dev: http://{host}:{port}/")
