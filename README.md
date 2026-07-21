@@ -20,7 +20,7 @@ What you can access here:
 <details>
 <summary><b>The whole project on one board</b> (click to expand)</summary>
 <br>
-<img alt="Hand-drawn project board in six chapters: the question (is an AI team worth the money), building the 302-item human-checked exam, the experiment where every system takes the same exam, the retest that held up at 2.4x the data, what you can use today, and what's next." src="docs/story-board.png">
+<img alt="Hand-drawn project board in six chapters: the question (is an AI team worth the money), building the 595-item human-checked exam, the experiment where every system takes the same exam, the retest that held up at 4.7x the data, what you can use today, and what's next." src="docs/story-board.png">
 </details>
 
 ## The 60-second version
