@@ -1,80 +1,80 @@
-# คู่มือติดป้ายประชด/เสียดสี (ฉบับคม) ภาษาไทย
+# Sarcasm/irony labeling rubric (the sharp version), for Thai
 
-เป้าหมาย: ให้ทั้งคน (และผู้ตรวจคนที่ 2) ตัดสินตรงกันมากที่สุด
-ปัญหาที่เจอจริง: ทั้งคนและ LLM สับสน "เส้นแบ่ง" ระหว่าง ประชด vs ตำหนิตรงๆ vs รีวิวสมดุล
-คู่มือนี้ตรึงเส้นแบ่งนั้นด้วยตัวอย่างจริงจากข้อมูลของเรา
-
----
-
-## นิยาม (ตัวตัดสินหลัก)
-
-**ประชด (1) = ผู้เขียน "แกล้งชม/แกล้งขอบคุณ" ทั้งที่เจตนาจริงตรงข้าม เพื่อเหน็บ**
-
-หัวใจ = ต้องมี **การเสแสร้ง** (พูดบวก แต่หมายลบ) โดยจงใจให้ผู้อ่านจับได้
-
-> ถ้าไม่มีการเสแสร้ง = ไม่ประชด (0) เสมอ แม้เนื้อหาจะเป็นลบ
+Goal: make the human (and a second reviewer) agree as much as possible.
+The real problem: both humans and LLMs confuse the "boundary" between sarcasm vs. direct criticism vs. balanced review.
+This rubric pins that boundary with real examples from our data.
 
 ---
 
-## ต้นไม้ตัดสิน (ทำตามลำดับ)
+## Definition (the main decider)
 
-1. ผู้เขียน**พูดลบตรงๆ** (บ่น/ตำหนิ ไม่แกล้งชม) ใช่ไหม? → **0** (ตำหนิตรงๆ)
-2. ผู้เขียน**ชมจริง** ไม่มีนัยแฝง ใช่ไหม? → **0** (ชมจริงใจ)
-3. มี**ทั้งข้อดีและข้อเสียตามจริง** (รีวิวสมดุล) ใช่ไหม? → **0**
-4. แค่**เล่าเหตุการณ์/อ้างคำพูดคนอื่น** ใช่ไหม? → **0** (เว้นแต่ผู้เขียนใส่โทนเหน็บชัด)
-5. **พูดบวกแต่จริงๆหมายลบ เพื่อเหน็บ** ใช่ไหม? → **1** (ประชด)
-6. ตัดสินไม่ได้จริงๆ ถ้าไม่มีบริบทนอกข้อความ → **X**
+**Sarcasm (1) = the author "feigns praise/thanks" while genuinely meaning the opposite, to jab.**
+
+The heart of it = there must be **pretense** (saying positive, meaning negative), deliberately so the reader catches it.
+
+> If there is no pretense = not sarcasm (0), always, even if the content is negative.
 
 ---
 
-## 4 กลุ่มที่ต้องแยกให้ขาด (พร้อมตัวอย่างจริง)
+## Decision tree (follow in order)
 
-### ✅ ประชด = 1
-เสแสร้งชม/ขอบคุณ แต่สื่อแย่จริง มักมีจุดที่ "ขัดกันเอง"
+1. Does the author **state something negative directly** (complains/criticizes, no fake praise)? → **0** (direct criticism)
+2. Does the author **genuinely praise** with no hidden meaning? → **0** (sincere praise)
+3. Are there **both real pros and real cons** (a balanced review)? → **0**
+4. Is it just **recounting events / quoting someone else**? → **0** (unless the author adds a clear jabbing tone)
+5. **Saying positive but really meaning negative, to jab?** → **1** (sarcasm)
+6. Genuinely undecidable without outside context → **X**
+
+---
+
+## 4 groups to separate cleanly (with real examples)
+
+### ✅ Sarcasm = 1
+Feigned praise/thanks that actually conveys something bad; usually has a "self-contradicting" point.
 
 - *"...ไม่มีส่วนผสมให้ระคายเคืองผิว **ให้ผิวแอบงอนโมโหจนขึ้นสิว**"*
-  → ชมว่าไม่ระคายเคือง แต่บอกผิวขึ้นสิว = ขัดกันเอง = เหน็บ → **1**
+  → praises "no irritation" but says the skin broke out = self-contradiction = jab → **1**
 - *"ลบแอปโลด แถมไม่ต้องเจอกันอีกเลยนะ แอปนี้ 555"*
-  → โทนประชด/รำคาญ ("ดีใจที่ไม่ต้องเจอ") → **1**
+  → sarcastic/annoyed tone ("glad I never have to see it again") → **1**
 
-**เช็ก:** มีคำชม/ขอบคุณ + จุดที่ขัดแย้งในตัว + โทนเหน็บ → ครบ 3 = 1
+**Check:** praise/thanks + a self-contradicting point + a jabbing tone → all 3 present = 1
 
-### ❌ ตำหนิตรงๆ = 0
-บ่น/ด่าตรงๆ ไม่เสแสร้งชม แม้จะลบจัด
+### ❌ Direct criticism = 0
+Complains/insults directly, no feigned praise, even if very negative.
 
 - *"รสชาติหวานไปนิด...กระดูกอ่อนไม่ใช่กระดูกอ่อนจริงๆ คือแข็งมากกัดไม่เข้า"*
-  → ตำหนิตรงๆ ไม่มีการแกล้งชม → **0** (ห้ามให้ 1)
+  → direct criticism, no fake praise → **0** (do not label 1)
 
-**กับดัก:** "ลบ = ประชด" ผิด! ลบตรงๆ = 0
+**Trap:** "negative = sarcasm" is wrong! Direct negative = 0.
 
-### ❌ รีวิวสมดุล = 0
-ชมจริงบางจุด + ติจริงบางจุด อยู่ด้วยกันตามจริง
+### ❌ Balanced review = 0
+Some genuine praise + some genuine criticism, side by side, as-is.
 
 - *"MG รถมันคุ้มจริงๆ แต่...รถมี defect เยอะ...ช่างไม่ค่อยเก่ง เบิกอะไหล่นาน"*
-  → "คุ้มจริงๆ" ชมจริง + ติจริง = รีวิวสมดุล → **0** (ไม่ใช่เสแสร้ง)
+  → "คุ้มจริงๆ" is real praise + real criticism = balanced review → **0** (not pretense)
 
-### ❌ ชมจริงใจ = 0
-ชมแล้วหมายชมจริง แม้จะพูดเว่อร์
+### ❌ Sincere praise = 0
+Praise that means praise, even if worded over the top.
 
 - *"บรรยากาศ...ลมโกรกดีมาก พัดลมไม่ต้องเปิดเลย"*
-  → ชมลมเย็นจริง (อย่าเดาว่าแอบสื่อว่าร้อน) → **0**
+  → genuinely praising the cool breeze (don't assume it secretly means "it's hot") → **0**
 
-### ❓ ตัดสินไม่ได้ = X
-- ต้องรู้บริบทนอกข้อความ (ใครพูด/สถานการณ์) ถึงจะรู้ว่าเหน็บหรือไม่
-- ประโยคสั้น/กำกวมจนเดาเจตนาไม่ได้
-
----
-
-## กฎกันพลาด (อ่านก่อนกดทุกครั้ง)
-
-1. **ลบตรงๆ ≠ ประชด** ต้องมีการ "เสแสร้งชม" ถึงนับ 1
-2. **อย่าเดานัยแฝงเกินข้อความ** ถ้าต้องจินตนาการเองว่า "อาจจะแอบสื่อว่า..." แสดงว่าไม่ชัด → เอน 0 หรือ X
-3. **เว่อร์ ≠ ประชด** ชมเว่อร์อาจเป็นความตื่นเต้นจริง
-4. **เล่าเหตุการณ์/อ้างคำคนอื่น** ตัวมันเองไม่ใช่ประชด เว้นแต่ผู้เขียนใส่โทนเหน็บ
-5. สงสัยระหว่าง 1 กับ 0 → ถ้า "การเสแสร้ง" ไม่ชัด ให้ 0
+### ❓ Undecidable = X
+- Need outside context (who's speaking / the situation) to know whether it's a jab.
+- Sentence too short/ambiguous to guess the intent.
 
 ---
 
-## หมายเหตุคุณภาพ gold
-- ควรมีฝั่งประชด (1) อย่างน้อย ~30–40 ข้อ ไม่งั้น F1 แกว่ง
-- ถ้าเป็นไปได้ ให้คนที่ 2 ตรวจซ้ำบางส่วน แล้ววัด inter-annotator agreement
+## Anti-mistake rules (read before every keypress)
+
+1. **Direct negative ≠ sarcasm** — there must be "feigned praise" to count as 1.
+2. **Don't read hidden meaning beyond the text** — if you have to imagine "maybe it secretly means..." then it's unclear → lean 0 or X.
+3. **Over the top ≠ sarcasm** — exaggerated praise may be genuine excitement.
+4. **Recounting events / quoting others** is not itself sarcasm, unless the author adds a jabbing tone.
+5. Torn between 1 and 0 → if the "pretense" isn't clear, give 0.
+
+---
+
+## Gold-quality notes
+- Should have at least ~30-40 sarcastic (1) items, or F1 swings.
+- If possible, have a second person re-review a portion and measure inter-annotator agreement.

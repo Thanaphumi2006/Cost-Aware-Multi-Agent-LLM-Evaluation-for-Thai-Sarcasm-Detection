@@ -1,46 +1,46 @@
-# ที่มาของ gold.csv (ต้องอ้างในรายงาน)
+# Provenance of gold.csv (must be cited in the report)
 
-สรุป: **ฝั่งประชด (label=1) ไม่ได้มาจากการสุ่มตรวจ** แต่มาจากการขุดโดยมี LLM ช่วยคัดสองชั้น
-คนเป็นผู้ตัดสินป้ายสุดท้ายทุกข้อ แต่ *ข้อที่คนได้เห็น* ถูกเลือกมาโดย LLM
+Summary: **the sarcastic side (label=1) does not come from random sampling** but from LLM-assisted two-stage mining.
+A human decides every final label, but *which items the human saw* were chosen by an LLM.
 
-## สถานะปัจจุบัน
+## Current state
 
-| | จำนวน |
+| | count |
 |---|---|
-| gold.csv | 127 ข้อ |
-| ประชด (1) | 30 |
-| ไม่ประชด (0) | 97 |
-| แหล่ง | wongnai 85 / wisesight 42 |
+| gold.csv | 127 items |
+| sarcastic (1) | 30 |
+| not sarcastic (0) | 97 |
+| source | wongnai 85 / wisesight 42 |
 
-## เส้นทางของข้อมูล
+## The data's path
 
-1. **รอบแรก (สุ่ม/คีย์เวิร์ด)** `Keyword Filter for NLP Project.py` ให้คะแนนความน่าสงสัย
-   → `to_label.csv` 400 ข้อ (สงสัยสูง 60% / ปกติ 40%) → `human_review.py` (โหมด blind)
-   → gold รุ่นแรก 102 ข้อ (ประชด 14 / ไม่ประชด 88)
-   ฝั่งประชดรอบนี้ **ไม่เอียงตาม LLM** แต่เอียงตามคีย์เวิร์ด
+1. **First round (random/keyword)** `Keyword Filter for NLP Project.py` scores suspicion
+   → `to_label.csv` 400 items (high-suspicion 60% / normal 40%) → `human_review.py` (blind mode)
+   → first gold version, 102 items (14 sarcastic / 88 not).
+   The sarcastic side this round is **not biased toward an LLM** but biased toward keywords.
 
-2. **รอบขุดเพิ่ม (LLM-assisted)** ประชด 14 ข้อไม่พอวัด F1
-   - `Harvest.py` ใช้ **GPT-4o** สแกน `scored_texts.csv` 800 ข้อ (เฉพาะ wisesight, ยาว ≤150 ตัว)
-     คัดเหลือ 495 ข้อที่ GPT-4o คิดว่า "น่าจะประชด" → `harvest_to_review.csv`
-   - **Claude** อ่าน 130 ข้อบนสุดของกองนั้น แล้วคัดตาม `labeling_rubric.md` เหลือ 37 ข้อ
-     เขียนเป็น `shortlist.csv` ใช้จัดลำดับให้ `Quick_Review.py` โชว์ข้อพวกนี้ก่อน
-   - คนตรวจ (blind ต่อ `llm_conf`) 25 ข้อบนสุด → ได้ประชด 16 / ไม่ประชด 9 (hit rate 64%)
-   - รวมเข้า gold → 127 ข้อ / ประชด 30
+2. **Mining round (LLM-assisted)** 14 sarcastic items aren't enough to measure F1.
+   - `Harvest.py` uses **GPT-4o** to scan 800 items of `scored_texts.csv` (wisesight only, ≤150 chars)
+     narrowing to 495 that GPT-4o thinks "might be sarcastic" → `harvest_to_review.csv`
+   - **Claude** reads the top 130 of that pool and filters per `labeling_rubric.md` down to 37,
+     written to `shortlist.csv`, used to order `Quick_Review.py` to show these first.
+   - A human reviews (blind to `llm_conf`) the top 25 → 16 sarcastic / 9 not (hit rate 64%).
+   - Merged into gold → 127 items / 30 sarcastic.
 
-## ข้อจำกัดที่ต้องระบุในรายงาน
+## Limitations to state in the report
 
-- ประชด 16 ข้อที่เพิ่มเข้ามาคือ **ประชดที่ GPT-4o มองว่าน่าสงสัย และ Claude จัดว่าน่าจะใช่**
-  ประชดที่ LLM ทั้งสองมองข้าม จะไม่มีโอกาสเข้า gold เลย
-- ผลที่ตามมา: baseline ที่เป็น LLM (โดยเฉพาะ GPT-4o) จะได้ **recall ฝั่งประชดสูงเกินจริง**
-  เพราะถูกวัดด้วยตัวอย่างที่ตัวมันเองช่วยเลือกมา
-- วิธีบรรเทา (ยังทำได้): `harvest_to_review.csv` เหลือยังไม่ตรวจอีก 470 ข้อ
-  ถ้าไล่ตรวจกลุ่มที่ **ไม่มีสัญญาณ** (ไม่มี `555` / ไม่ยืดอักษร ท้ายคิวของ `Quick_Review.py`)
-  แล้วเก็บประชดที่เจอ จะได้ประชดที่ LLM มองไม่ออก มาถ่วงให้ gold หลากหลายขึ้น
+- The 16 sarcastic items added are **sarcasm that GPT-4o found suspicious and Claude judged likely.**
+  Sarcasm that both LLMs overlooked never has a chance to enter gold.
+- Consequence: an LLM baseline (especially GPT-4o) gets an **inflated recall on the sarcastic side**,
+  because it is measured on examples it helped select.
+- Mitigation (still possible): `harvest_to_review.csv` has 470 unreviewed items left.
+  Reviewing the group with **no cues** (no `555` / no elongation, at the tail of `Quick_Review.py`'s queue)
+  and keeping the sarcasm found there would add sarcasm the LLM can't detect, balancing the gold set.
 
-## หมายเหตุความถูกต้องของบันทึกนี้
+## A note on the accuracy of this record
 
-`shortlist.csv` ถูกลบไปแล้ว และสร้างขึ้นใหม่ให้ตรงเป๊ะไม่ได้
-(ลำดับแถวใน `harvest_to_review.csv` ถูกเขียนใหม่ ทำให้ index ที่ใช้คัดคลาดเคลื่อนตรงจุดคะแนนเสมอ)
-ดังนั้น **ระบุรายข้อไม่ได้** ว่าประชดข้อไหนมาจาก shortlist ข้อไหนมาจากลำดับ `llm_conf` ล้วน
-สิ่งที่ยืนยันได้คือ: ข้อที่คนตรวจทั้ง 25 ข้อ มี `llm_conf` อยู่ระหว่าง 0.80–0.95
-และถูกเรียงขึ้นมาโดย LLM ทั้งหมด ไม่มีข้อไหนถูกสุ่ม
+`shortlist.csv` has been deleted and cannot be recreated exactly
+(the row order in `harvest_to_review.csv` was rewritten, so the index used for filtering is always off at the score point).
+So it is **not possible to state per-item** which sarcastic item came from the shortlist vs. from pure `llm_conf` ordering.
+What can be confirmed: all 25 human-reviewed items have `llm_conf` between 0.80-0.95
+and were all surfaced by the LLM; none was random.

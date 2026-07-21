@@ -1,15 +1,15 @@
-# Observability, load test -> Prometheus -> Grafana
+# Observability: load test -> Prometheus -> Grafana
 
-ต่อ `loadtest.py` เข้ากับ Grafana เพื่อดู cost/latency/routing แบบเห็นภาพ
+Connect `loadtest.py` to Grafana to visualize cost/latency/routing.
 
-## 1. รัน load test ให้ออก Prometheus metrics
+## 1. Run the load test to emit Prometheus metrics
 
 ```powershell
 cd Gold
 C:\ve\Scripts\python.exe loadtest.py --rps 8 --duration 30 --concurrency 8 --prom metrics.prom
 ```
 
-ได้ไฟล์ `metrics.prom` รูปแบบ Prometheus textfile:
+Produces `metrics.prom` in Prometheus textfile format:
 
 ```
 sarcasm_requests_total 165
@@ -23,9 +23,9 @@ sarcasm_route_latency_seconds{route="auto",quantile="0.5"} 0.0262
 sarcasm_route_latency_seconds{route="escalated",quantile="0.5"} 0.8402
 ```
 
-## 2. ให้ Prometheus เก็บไฟล์นี้
+## 2. Have Prometheus collect this file
 
-ทางที่ง่ายที่สุดคือ **node_exporter textfile collector** (ไม่ต้องเขียน exporter เอง):
+The easiest path is the **node_exporter textfile collector** (no need to write your own exporter):
 
 ```powershell
 node_exporter.exe --collector.textfile.directory=C:\path\to\Gold
@@ -41,32 +41,32 @@ scrape_configs:
       - targets: ["localhost:9100"]
 ```
 
-> ถ้าอยากได้กราฟที่เดินตามเวลาจริง ต้องรัน `loadtest.py` ซ้ำเป็นรอบๆ (เช่นทุก 30 วิ)
-> ให้มันเขียนทับ `metrics.prom`, textfile collector จะอ่านค่าใหม่ทุกครั้งที่ Prometheus scrape
-> ไฟล์เดียวที่ไม่อัปเดต = กราฟเส้นแบน ไม่ได้แปลว่าระบบนิ่ง
+> For graphs that move in real time, run `loadtest.py` repeatedly (e.g. every 30s)
+> so it overwrites `metrics.prom`; the textfile collector reads the new values each time Prometheus scrapes.
+> A single file that never updates = a flat line, which does not mean the system is idle.
 
-## 3. import dashboard
+## 3. Import the dashboard
 
-Grafana -> Dashboards -> New -> Import -> อัปโหลด `grafana_dashboard.json` -> เลือก Prometheus datasource
+Grafana -> Dashboards -> New -> Import -> upload `grafana_dashboard.json` -> pick the Prometheus datasource.
 
-8 panel:
+8 panels:
 
-| panel | อ่านยังไง |
+| panel | how to read it |
 |---|---|
-| Escalation ratio | สัดส่วนที่ต้องจ่ายเงิน ต่ำ = ประหยัด (เขียว <30%) |
-| Cost $/นาที | ต้นทุนที่ throughput ปัจจุบัน |
-| Throughput rps | ถ้าต่ำกว่าเป้ามาก = concurrency เป็นคอขวด |
-| Errors | ควรเป็น 0 |
-| Latency percentiles | p50 เกาะเส้นทางฟรี (~26ms) หางบนคือข้อที่ escalate |
-| Latency แยกเส้นทาง | ช่องว่าง auto vs escalated = **ราคาของความไม่แน่ใจ** (~32 เท่า) |
-| Request แยกเส้นทาง | stacked สัดส่วนฟรี vs จ่าย |
-| ต้นทุนสะสม + calls | คู่กันเสมอ (1 escalation = 1 call) |
+| Escalation ratio | fraction you must pay for; low = cheap (green <30%) |
+| Cost $/min | cost at the current throughput |
+| Throughput rps | far below target = concurrency is the bottleneck |
+| Errors | should be 0 |
+| Latency percentiles | p50 rides the free path (~26ms); the upper tail is escalated items |
+| Latency by path | the auto vs escalated gap = **the price of uncertainty** (~32×) |
+| Requests by path | stacked free vs paid ratio |
+| Cumulative cost + calls | always paired (1 escalation = 1 call) |
 
-## ข้อควรระวัง
+## Caveats
 
-- **`--mock` ไม่ได้ยิง API** latency จำลองจากค่าที่วัดจริง (WCB 26ms / GPT 751ms / debate 4557ms)
-  ใช้จูน concurrency ได้ฟรีไม่จำกัดรอบ แล้วค่อยยืนยันด้วย `--live` รอบเดียว
-- **n=127 ไม่ใช่ traffic โปรดักชัน** dashboard นี้ตอบ "orchestration ถูกไหม / p95 เท่าไร"
-  ไม่ได้ตอบ "ทน 10k req/s ไหม" อย่าเคลมเกินนั้น
-- ตัวเลข **F1 ที่รายงานได้จริงมาจาก `router.py`** (leave-fold-out) ไม่ใช่จาก `loadtest.py`
-  loadtest ใช้ threshold จากทั้งชุดเพราะมันวัด *ระบบ* ไม่ได้วัด *ความแม่น*
+- **`--mock` does not call the API** — latency is simulated from measured values (WCB 26ms / GPT 751ms / debate 4557ms).
+  Use it to tune concurrency for free, unlimited times, then confirm once with `--live`.
+- **n=127 is not production traffic** — this dashboard answers "is the orchestration correct / what's p95,"
+  not "does it withstand 10k req/s." Don't claim beyond that.
+- The **reportable F1 comes from `router.py`** (leave-fold-out), not from `loadtest.py`.
+  loadtest uses a whole-set threshold because it measures the *system*, not the *accuracy*.
