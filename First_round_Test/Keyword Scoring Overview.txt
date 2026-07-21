@@ -1,62 +1,62 @@
-สคริปต์รอบที่ 1 "ระบุ / ให้คะแนน" ข้อความยังไง
+How the round-1 script "identifies / scores" text
 ================================================================
-สรุป: ไม่มีโมเดล ไม่มี AI เป็นแค่การ "นับสัญญาณด้วยกฎ" ล้วนๆ
+Summary: no model, no AI — purely "counting signals with rules"
 
 
-■ หัวใจ: อ่านทีละข้อความ แล้วบวกคะแนนเมื่อเจอสัญญาณ
+■ The core: read each text, add points when a signal is found
 ----------------------------------------------------------------
-สคริปต์มีลิสต์คำ/แพตเทิร์นที่กำหนดไว้ แล้วเช็กว่าข้อความมีสัญญาณพวกนี้ไหม
-เจออันไหนก็บวกแต้ม:
+The script has a predefined list of words/patterns and checks whether the text contains these signals.
+Each one found adds points:
 
-  สัญญาณ            | เช็กยังไง                                  | ได้กี่แต้ม
-  ------------------|--------------------------------------------|----------
-  คำชม              | มีคำใน [ดี, เยี่ยม, สุดยอด, เลิศ, ฟิน...]   |   +1
-  อิโมจิเสียดสี     | มี 🙄 🙃 👏 ✨ ไหม                          |   +2
-  หัวเราะ 555       | มีเลข 5 ติดกัน 3 ตัวขึ้นไป                  |   +1
-  ยืดตัวอักษร       | มีตัวอักษรซ้ำ 3 ตัวติด (เช่น มาก "กก")      |   +1
-  ขอบคุณ            | มีคำว่า ขอบคุณ/ขอบใจ                        |   +1
-  ชม + บริบทแย่     | มีคำชม "และ" คำลบ (รอ/นาน/พัง/แย่) พร้อมกัน |   +3  <- แรงสุด
+  signal            | how it's checked                             | points
+  ------------------|----------------------------------------------|----------
+  praise word       | contains one of [ดี, เยี่ยม, สุดยอด, เลิศ, ฟิน...] |   +1
+  sarcastic emoji   | contains 🙄 🙃 👏 ✨                          |   +2
+  laughter 555      | contains 3+ consecutive "5"s                 |   +1
+  elongation        | a letter repeated 3× in a row (e.g. มาก "กก") |   +1
+  thanks            | contains ขอบคุณ/ขอบใจ                          |   +1
+  praise + bad ctx  | a praise word "and" a negative word (รอ/นาน/พัง/แย่) together |   +3  <- strongest
 
-  คะแนนรวม = ผลบวกของทุกสัญญาณที่เจอในข้อความนั้น
+  total = sum of all signals found in that text
 
 
-■ ตัวอย่างการนับจริง
+■ A real counting example
 ----------------------------------------------------------------
-ข้อความ: "ร้านนี้ดีย์มากกก สั่งไป 40 นาทีของยังไม่มา 👏"
-  - เจอคำชม "ดี"                        -> +1
-  - เจออิโมจิ 👏                        -> +2
-  - เจอตัวอักษรซ้ำ "กกก"                -> +1
-  - เจอคำชม "ดี" + คำลบ "ไม่มา" พร้อมกัน -> +3
-  - รวม = 7  -> เกินเกณฑ์ (3) -> เข้ากอง "สงสัยสูง"
+text: "ร้านนี้ดีย์มากกก สั่งไป 40 นาทีของยังไม่มา 👏"
+  - found praise word "ดี"                    -> +1
+  - found emoji 👏                            -> +2
+  - found letter repeat "กกก"                 -> +1
+  - found praise "ดี" + negative "ไม่มา" together -> +3
+  - total = 7  -> over the threshold (3) -> goes to the "high-suspicion" pile
 
-ข้อความ: "อร่อยจริง ราคาไม่แพง จะกลับมาอีก"
-  - ไม่มีคำในลิสต์เลย -> 0 แต้ม -> กองปกติ
+text: "อร่อยจริง ราคาไม่แพง จะกลับมาอีก"
+  - no words from the list -> 0 points -> normal pile
 
 
-■ ทำไมส่วนใหญ่ได้ 0-1
+■ Why most items get 0-1
 ----------------------------------------------------------------
-เพราะข้อความทั่วไปไม่มีสัญญาณพวกนี้ (ไม่มีคำชมเว่อร์ ไม่มีอิโมจิ ไม่มี 555)
-มันเลยได้ 0 หรือมีแค่สัญญาณเดียวได้ 1 -> คนหมู่มากอยู่ตรงนี้
-ส่วนพวกที่มีหลายสัญญาณพร้อมกันถึงจะเด้งขึ้นไปคะแนนสูง และถูกดึงมาเป็นผู้ต้องสงสัย
+Because ordinary text has none of these signals (no over-the-top praise, no emoji, no 555),
+so it gets 0, or a single signal gets 1 -> this is where the majority sit.
+Only items with several signals at once shoot up to a high score and get pulled in as suspects.
 
 
-■ "ระบุ" ในที่นี้ = คัดผู้ต้องสงสัย ไม่ใช่ตัดสินว่าประชด
+■ "Identify" here = shortlist suspects, not decide sarcasm
 ----------------------------------------------------------------
-ย้ำจุดสำคัญสุด: คะแนนสูง "ไม่ได้แปลว่าประชด"
-มันแปลว่า "มีสัญญาณเยอะพอที่คนควรเอาไปดู" เท่านั้น
-ตัวตัดสินจริงว่าประชดหรือไม่ ยังต้องเป็นคนติดป้าย
+The most important point: a high score "does not mean sarcasm."
+It only means "enough signals that a human should take a look."
+The real decision of sarcastic or not is still made by a human labeler.
 
-เปรียบเทียบ: เหมือนเครื่องตรวจโลหะที่ดังเมื่อเจอโลหะ
-แต่ไม่ได้บอกว่าเป็นทองหรือเหรียญ คนต้องมาเปิดดูเอง
+Analogy: like a metal detector that beeps when it finds metal
+but doesn't say whether it's gold or a coin — a human has to open it up and check.
 
 
-■ ผลรันล่าสุด (ตีความ)
+■ Latest run (interpretation)
 ----------------------------------------------------------------
-- ข้อความส่วนใหญ่ได้ 0-1 (ไม่มีสัญญาณ) = ปกติ
-- กองคะแนนสูงคือผู้ต้องสงสัยที่ถูกดึงมา
-- คัดได้ 400 ข้อ ผสมสงสัยสูง 240 / ปกติ 160 ตามที่ตั้งไว้ = ทำงานตรงสเปก
+- Most texts get 0-1 (no signals) = normal
+- The high-score pile is the pulled-in suspects
+- Selected 400 items, mixing 240 high-suspicion / 160 normal as configured = works to spec
 
-ข้อควรระวังที่เห็นจากผล: รีวิว Wongnai เป็นข้อความยาว จึงมักมีทั้งคำชมและคำลบ
-ในเรื่องเดียวโดยธรรมชาติ (เล่าว่ารอนานแต่อาหารดี) ทำให้ถูกจับเป็น "ชม+แย่"
-ทั้งที่เป็นรีวิวปกติ ไม่ได้ประชด -> เป็นเรื่องปกติของการคัดด้วยคีย์เวิร์ด
-ตัวจริงให้คนติดป้าย 0 ไป หรือปรับสคริปต์ (ตัดข้อความยาว / เน้น Wisesight ที่สั้นกว่า)
+A caveat seen from the results: Wongnai reviews are long, so they naturally often contain both praise
+and negatives in one story (recounting a long wait but good food), getting caught as "praise+bad"
+even though they're normal reviews, not sarcasm -> this is normal for keyword filtering.
+The real fix is to have a human label them 0, or adjust the script (drop long texts / focus on the shorter Wisesight).

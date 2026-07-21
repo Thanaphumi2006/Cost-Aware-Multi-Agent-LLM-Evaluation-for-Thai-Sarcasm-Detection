@@ -1,4 +1,4 @@
-# cue เชิงคำล้วน -- ไม่ต้องใช้ torch/transformers เลย
-# Space จึงเบามาก เปิดติดในไม่กี่วินาที และรันบน CPU tier ฟรีได้สบาย
+# Lexical cues only -- no torch/transformers needed
+# So the Space is very light, boots in seconds, and runs fine on the free CPU tier
 gradio>=4.40,<5
-huggingface_hub<1  # 1.x ลบ HfFolder ที่ gradio 4.x ยังเรียกใช้ -> ImportError
+huggingface_hub<1  # 1.x removed HfFolder that gradio 4.x still calls -> ImportError

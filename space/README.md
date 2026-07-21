@@ -7,7 +7,7 @@ sdk: gradio
 app_file: app.py
 pinned: false
 license: mit
-short_description: ตรวจจับประชดภาษาไทย พร้อมบอกเหตุผล ฟรี ไม่ต้องใช้ API key
+short_description: Thai sarcasm detection with reasons, free, no API key
 ---
 
 # 🌀 Thai Sarcasm Detector
