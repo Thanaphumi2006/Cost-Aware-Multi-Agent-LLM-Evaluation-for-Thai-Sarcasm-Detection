@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
-"""ผลิต "ความน่าจะเป็น" out-of-fold ของ WangchanBERTa (ไม่ใช่แค่ 0/1)
+"""Produce out-of-fold "probabilities" for WangchanBERTa (not just 0/1)
 
-ทำไมต้องมีไฟล์นี้:
-  wangchanberta.py เก็บแค่ argmax -> ได้ป้าย 0/1 ที่ threshold 0.5 ตายตัว
-  แต่ cascade ต้องการ "คะแนน" เพื่อจะรูดหา threshold ที่ recall สูงพอจะเป็นด่านคัดกรองได้
-  (ด่านคัดกรองไม่ต้องแม่น -- ต้องไม่ปล่อยประชดหลุด ส่วนที่เกินให้ verifier ตัดทิ้งทีหลัง)
+Why this file exists:
+  wangchanberta.py stores only argmax -> 0/1 labels at a fixed 0.5 threshold
+  but cascade needs "scores" to slide the threshold to a recall high enough to be a screener
+  (a screener needn't be accurate -- it must not let sarcasm slip; the verifier trims the excess later)
 
-โปรโตคอลเหมือน wangchanberta.py เป๊ะ (5-fold × 3 seeds × 4 epochs, pos_weight เดิม)
-ต่างแค่เก็บ prob ของคลาส "ประชด" แทน argmax + เก็บว่าข้อไหนอยู่ fold ไหน
-  -> fold ใช้ตอนเลือก threshold แบบ leave-fold-out ใน cascade.py (กันเลือก threshold จากข้อที่กำลังจะทำนาย)
+Same protocol as wangchanberta.py exactly (5-fold × 3 seeds × 4 epochs, same pos_weight)
+differing only in storing the "sarcastic" class prob instead of argmax + recording each item's fold
+  -> the fold is used to choose the threshold leave-fold-out in cascade.py (avoids choosing it from the item being predicted)
 
-ทุกข้อถูกให้คะแนนโดยโมเดลที่ไม่เคยเห็นข้อนั้น -- เอาไปเทียบข้อต่อข้อกับระบบอื่นได้ตรงๆ
+Every item is scored by a model that never saw it -- compares item-by-item with the other systems directly.
 
-รัน: python wcb_oof_probs.py       (ฟรี ไม่แตะ API -- เทรน 15 โมเดล ใช้เวลาสักพัก)
+Run: python wcb_oof_probs.py       (free, no API -- trains 15 models, takes a while)
 """
 import os
 import sys
@@ -37,10 +37,10 @@ OUT_CSV = os.path.join(HERE, "wcb_oof_probs.csv")
 
 
 def device():
-    """CPU เป็นค่าเริ่มต้น -- ลอง MPS แล้ว "ช้ากว่า" CPU ชัดเจนกับโมเดล/แบตช์ขนาดนี้ (batch 8, ข้อความสั้น)
-    งานเล็กเกินกว่าจะคุ้มค่า overhead ของการโยนข้อมูลไป GPU
-    แถม CPU ยังตรงกับที่ wangchanberta.py รายงาน 0.620 ไว้ -> เทียบกันได้ตรงๆ
-    อยากลอง MPS: WCB_DEVICE=mps python wcb_oof_probs.py"""
+    """CPU by default -- tried MPS and it's clearly "slower" than CPU at this model/batch size (batch 8, short text)
+    the task is too small to be worth the overhead of shipping data to the GPU
+    plus CPU matches the 0.620 that wangchanberta.py reported -> directly comparable
+    to try MPS: WCB_DEVICE=mps python wcb_oof_probs.py"""
     want = os.environ.get("WCB_DEVICE", "cpu")
     if want == "mps" and torch.backends.mps.is_available():
         return torch.device("mps")
@@ -48,7 +48,7 @@ def device():
 
 
 def train_fold_probs(tr_texts, tr_y, te_texts, tok, pos_weight, seed, dev):
-    """เทรนบน train fold แล้วคืน P(ประชด) ของ test fold -- ก๊อป train_one_fold มาแก้ให้คืน prob"""
+    """train on the train fold and return the test fold's P(sarcastic) -- copy of train_one_fold modified to return prob"""
     torch.manual_seed(seed)
     np.random.seed(seed)
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2).to(dev)
@@ -73,7 +73,7 @@ def train_fold_probs(tr_texts, tr_y, te_texts, tok, pos_weight, seed, dev):
         for i in range(0, len(te_texts), BATCH):
             enc = tok(list(te_texts[i:i + BATCH]), truncation=True, padding=True,
                       max_length=MAX_LEN, return_tensors="pt").to(dev)
-            p = torch.softmax(model(**enc).logits, -1)[:, 1]     # P(ประชด)
+            p = torch.softmax(model(**enc).logits, -1)[:, 1]     # P(sarcastic)
             probs += p.float().cpu().tolist()
     del model
     return probs
@@ -89,8 +89,8 @@ def main():
     n_pos, n_neg = int((y == 1).sum()), int((y == 0).sum())
     pos_weight = n_neg / n_pos
     dev = device()
-    print(f"gold {len(df)} ข้อ | ประชด {n_pos} / ไม่ประชด {n_neg} | pos_weight {pos_weight:.2f}")
-    print(f"{N_FOLDS}-fold × {len(SEEDS)} seeds = {N_FOLDS*len(SEEDS)} โมเดล | device {dev}\n")
+    print(f"gold {len(df)} items | sarcastic {n_pos} / not {n_neg} | pos_weight {pos_weight:.2f}")
+    print(f"{N_FOLDS}-fold × {len(SEEDS)} seeds = {N_FOLDS*len(SEEDS)} models | device {dev}\n")
 
     tok = AutoTokenizer.from_pretrained(MODEL_NAME)
     out = df[["text", "label"]].copy()
@@ -109,7 +109,7 @@ def main():
         out[f"prob_seed{seed}"] = probs
         out[f"fold_seed{seed}"] = folds
 
-        # sanity check: argmax(prob>0.5) ต้องได้ F1 ใกล้ๆ 0.620 ที่รายงานไว้ ไม่งั้นแปลว่าเพี้ยน
+        # sanity check: argmax(prob>0.5) should give F1 near the reported 0.620, else something is wrong
         pred = [("1" if p >= 0.5 else "0") for p in probs]
         _, prec, rec, f1, (tn, fp, fn, tp) = metrics(df["label"].tolist(), pred)
         print(f"  -> seed {seed} @0.5: F1 {f1:.3f} | prec {prec:.3f} | recall {rec:.3f} "
@@ -117,9 +117,9 @@ def main():
 
     out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
     print("=" * 62)
-    print(f"เวลารวม {(time.time()-t0)/60:.1f} นาที | ค่า API $0.00")
-    print(f"บันทึก -> {OUT_CSV}")
-    print("ต่อไป: python cascade.py --dry-run   (ดูว่า threshold ไหนคุ้ม ก่อนจ่ายเงินจริง)")
+    print(f"total time {(time.time()-t0)/60:.1f} min | API cost $0.00")
+    print(f"saved -> {OUT_CSV}")
+    print("next: python cascade.py --dry-run   (see which threshold is worth it before paying)")
     print("=" * 62)
 
 

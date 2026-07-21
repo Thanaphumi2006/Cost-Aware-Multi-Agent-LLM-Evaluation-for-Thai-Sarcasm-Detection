@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""แยกผล baseline ตาม 'ที่มาของข้อ' เพื่อดู self-selection bias โดยไม่ต้องใช้โมเดลเจ้าอื่น
+"""Break the baseline results down by 'item origin' to see self-selection bias without another model
 
-แนวคิด: ประชด/ไม่ประชดใน gold มาจากสองแหล่งที่ GPT-4o "เคยเห็น" ต่างกัน
-  - กลุ่ม keyword : gold รุ่นแรก 102 ข้อ  -> คัดด้วยคีย์เวิร์ด GPT-4o ไม่เคยแตะ
-  - กลุ่ม harvest : 25 ข้อที่เพิ่งเติม     -> GPT-4o เป็นคนคัดมาเองว่า "น่าจะประชด"
-ถ้า GPT-4o ทำได้ดีกว่าอย่างชัดเจนบนกลุ่มที่ตัวเองคัด = หลักฐาน self-selection bias
+Idea: the sarcastic/not items in gold come from two sources GPT-4o "saw" differently
+  - keyword group : the first 102-item gold  -> keyword-filtered, GPT-4o never touched it
+  - harvest group : the 25 newly added       -> GPT-4o itself selected them as "probably sarcastic"
+If GPT-4o does clearly better on the group it selected = evidence of self-selection bias
 
-รัน: python analyze_baseline.py
+Run: python analyze_baseline.py
 """
 
 import os
@@ -41,30 +41,30 @@ d["stratum"] = ["keyword" if t in old_texts else "harvest" for t in d.text]
 
 print(f"n = {len(d)}  (keyword {sum(d.stratum=='keyword')} / harvest {sum(d.stratum=='harvest')})\n")
 
-# ---------- 1) เทียบกับเส้นฐานโง่ๆ ----------
+# ---------- 1) compare to dumb baselines ----------
 yt = d.label.tolist()
-print("== [1] GPT-4o ชนะการเดามั่วจริงไหม ==")
+print("== [1] does GPT-4o actually beat random guessing ==")
 for name, yp in [
-    ("ทายว่า 'ไม่ประชด' ทุกข้อ", ["0"] * len(d)),
-    ("ทายว่า 'ประชด' ทุกข้อ", ["1"] * len(d)),
+    ("guess 'not sarcastic' for all", ["0"] * len(d)),
+    ("guess 'sarcastic' for all", ["1"] * len(d)),
     ("GPT-4o zero-shot", d.pred.tolist()),
 ]:
     acc, prec, rec, f1, _ = prf(yt, yp)
     print(f"  {name:<26} acc {acc:.3f}  prec {prec:.3f}  rec {rec:.3f}  F1 {f1:.3f}")
 
-# ---------- 2) แยกตามที่มา ----------
-print("\n== [2] self-selection bias: GPT-4o เก่งกว่าบนข้อที่ตัวเองคัดไหม ==")
+# ---------- 2) split by origin ----------
+print("\n== [2] self-selection bias: is GPT-4o better on items it selected ==")
 for s in ["keyword", "harvest"]:
     g = d[d.stratum == s]
     acc, prec, rec, f1, (tn, fp, fn, tp) = prf(g.label.tolist(), g.pred.tolist())
     npos, nneg = (g.label == "1").sum(), (g.label == "0").sum()
-    print(f"\n  [{s}]  ประชด {npos} / ไม่ประชด {nneg}")
-    print(f"    recall (จับประชดได้)      : {rec:.3f}   ({tp}/{npos})")
-    print(f"    false-positive rate       : {fp/nneg if nneg else 0:.3f}   ({fp}/{nneg} ข้อที่ไม่ประชดแต่ถูกทายว่าประชด)")
+    print(f"\n  [{s}]  sarcastic {npos} / not {nneg}")
+    print(f"    recall (caught sarcasm)   : {rec:.3f}   ({tp}/{npos})")
+    print(f"    false-positive rate       : {fp/nneg if nneg else 0:.3f}   ({fp}/{nneg} non-sarcastic items predicted sarcastic)")
     print(f"    precision / F1            : {prec:.3f} / {f1:.3f}")
 
-# ---------- 3) คุมตัวแปรแหล่งข้อมูล (harvest เป็น wisesight ล้วน) ----------
-print("\n== [3] เทียบเฉพาะ wisesight (คุมความยาว/แหล่ง) ==")
+# ---------- 3) control for the source variable (harvest is all wisesight) ----------
+print("\n== [3] compare wisesight only (control for length/source) ==")
 w = d[d.source == "wisesight"]
 for s in ["keyword", "harvest"]:
     g = w[w.stratum == s]
@@ -73,10 +73,10 @@ for s in ["keyword", "harvest"]:
     _, prec, rec, f1, (tn, fp, fn, tp) = prf(g.label.tolist(), g.pred.tolist())
     npos, nneg = (g.label == "1").sum(), (g.label == "0").sum()
     fpr = fp / nneg if nneg else float("nan")
-    print(f"  [{s:<7}] ประชด {npos:>2} / ไม่ประชด {nneg:>2} | recall {rec:.3f} ({tp}/{npos}) | FPR {fpr:.3f} ({fp}/{nneg})")
+    print(f"  [{s:<7}] sarcastic {npos:>2} / not {nneg:>2} | recall {rec:.3f} ({tp}/{npos}) | FPR {fpr:.3f} ({fp}/{nneg})")
 
-# ---------- 4) bootstrap CI ของ F1 (กัน n เล็กแล้วอ่านเกินจริง) ----------
-print("\n== [4] F1 ของ GPT-4o มั่วแค่ไหน (bootstrap 2000 รอบ) ==")
+# ---------- 4) bootstrap CI of F1 (avoid over-reading at small n) ----------
+print("\n== [4] how noisy is GPT-4o's F1 (bootstrap 2000 rounds) ==")
 random.seed(42)
 rows = list(zip(yt, d.pred.tolist()))
 f1s = []
@@ -86,10 +86,10 @@ for _ in range(2000):
 f1s.sort()
 lo, hi = f1s[int(0.025 * len(f1s))], f1s[int(0.975 * len(f1s))]
 print(f"  F1 = {prf(yt, d.pred.tolist())[3]:.3f}   95% CI [{lo:.3f}, {hi:.3f}]")
-print("  -> ถ้า multi-agent ได้ F1 ไม่หลุดออกนอกช่วงนี้ ยังอ้างว่า 'ดีกว่า' ไม่ได้")
+print("  -> if multi-agent's F1 stays inside this range, you can't claim it's 'better'")
 
-# ---------- 5) FP ไปกองอยู่ที่ไหน ----------
-print("\n== [5] ข้อที่ทายผิดว่า 'ประชด' (false positive) กองอยู่ที่ไหน ==")
+# ---------- 5) where do the FPs pile up ----------
+print("\n== [5] where do the 'sarcastic' mispredictions (false positives) pile up ==")
 fp_rows = d[(d.label == "0") & (d.pred == "1")]
-print(f"  ทั้งหมด {len(fp_rows)} ข้อ")
+print(f"  total {len(fp_rows)} items")
 print(fp_rows.groupby(["source", "stratum"]).size().to_string())
