@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
-"""ระบบ ⑧ — Micro-router 3 ทาง: ประชด / ไม่ประชด / **ไม่แน่ใจ** (ส่งต่อให้ LLM)
+"""System ⑧ — 3-way micro-router: sarcastic / not sarcastic / **unsure** (escalate to the LLM)
 
-cascade.py ใช้ threshold *เดียว* -> ทุกข้อที่ WCB ว่า "ประชด" ถูกส่งไป verifier
-router.py ใช้ threshold *สองตัว* -> เก็บเฉพาะข้อที่ WCB "ไม่มั่นใจ" ไว้ให้ LLM
-  prob < lo          -> ตัดสินเอง "ไม่ประชด"  (ฟรี, 0 calls)
-  prob >= hi         -> ตัดสินเอง "ประชด"     (ฟรี, 0 calls)
-  lo <= prob < hi    -> **ไม่แน่ใจ** -> ส่งให้ GPT ตัดสิน (จ่ายเฉพาะข้อพวกนี้)
+cascade.py uses *one* threshold -> every item WCB calls "sarcastic" goes to the verifier
+router.py uses *two* thresholds -> keep only the items WCB is "unsure" about for the LLM
+  prob < lo          -> decide "not sarcastic" itself  (free, 0 calls)
+  prob >= hi         -> decide "sarcastic" itself       (free, 0 calls)
+  lo <= prob < hi    -> **unsure** -> send to GPT to decide (pay only for these)
 
-ทำไมถึงควรได้ผล: finding 14 วัดไว้แล้วว่าวิธีฟรี (regex 555 = 0.590, kNN = 0.588,
-WCB = 0.620) ชนะโมเดลเปิด 7-8B ทุกตัว -> "ชั้นฟรี" ที่ ~0.6 มีจริง
-คำถามที่เหลือคือ **ต้องจ่ายเท่าไหร่ถึงจะไต่จาก 0.62 ไป 0.727 (GPT bot) ได้**
-สคริปต์นี้ตอบด้วยการกวาด escalation budget b = 0%..100% แล้ววาด frontier
+Why it should work: finding 14 showed the free methods (regex 555 = 0.590, kNN = 0.588,
+WCB = 0.620) beat every 7-8B open model -> the "free layer" at ~0.6 is real.
+The remaining question is **how much you must pay to climb from 0.62 to 0.727 (the GPT bot)**.
+This script answers by sweeping the escalation budget b = 0%..100% and plotting the frontier.
 
-เลือก threshold ยังไงไม่ให้โกง: leave-fold-out เหมือน cascade.py เป๊ะ
-  ข้อใน fold k ใช้ (tau, delta, tau_gpt) ที่เลือกจาก "อีก 4 folds เท่านั้น"
-  -> ไม่มีข้อไหนมีส่วนกำหนด threshold ที่ตัดสินตัวมันเอง
-b = 0   -> WCB ล้วน (ฟรีทั้งหมด)
-b = 1   -> GPT ล้วน (จ่ายทุกข้อ) = ปลายทางเดียวกับ GPT bot
-ระหว่างกลางคือของใหม่ที่สคริปต์นี้วัด
+How to choose thresholds without cheating: leave-fold-out, exactly like cascade.py
+  items in fold k use (tau, delta, tau_gpt) chosen from "the other 4 folds only"
+  -> no item helps set the threshold that judges it
+b = 0   -> WCB only (all free)
+b = 1   -> GPT only (pay on every item) = the same endpoint as the GPT bot
+the middle is what this script measures
 
-การ join ไฟล์: **join ด้วยตำแหน่ง ไม่ใช่ด้วย text** (ดู HANDOFF.md -- score_lm_eval.py
-เขียนขึ้นบรรทัดใหม่ทับเป็น space ทำให้ join ด้วย text หล่นข้อ multi-line ทิ้งเงียบๆ)
-ทุกไฟล์ derive จาก gold.csv ตามลำดับ -> assert ว่า label ตรงกันก่อน แล้วค่อย index ตามตำแหน่ง
+Joining files: **join by position, not by text** (see HANDOFF.md -- score_lm_eval.py
+rewrites newlines to spaces, so a text-join silently drops multi-line items)
+every file derives from gold.csv in order -> assert the labels match first, then index by position
 
-รัน:  python router.py              (ฟรี ไม่ยิง API -- ใช้ prob ที่คำนวณไว้แล้ว)
+Run:  python router.py              (free, no API -- uses precomputed probs)
       python router.py --seeds 42 7 2024
 """
 import argparse
@@ -43,7 +43,7 @@ OUT_CSV = os.path.join(HERE, "router_frontier.csv")
 PRED_CSV = os.path.join(HERE, "multiagent_preds_gpt_router.csv")
 
 IN_P, OUT_P = PRICE_PER_MTOK["gpt"]
-# ค่าเฉลี่ยจริงของ 1 call จาก v2 (391 in / 7 out) -- ใช้ตัวเดียวกับ cascade.py จะได้เทียบกันได้
+# real average of one v2 call (391 in / 7 out) -- same value as cascade.py so they compare
 COST_PER_CALL = 391 / 1e6 * IN_P + 7 / 1e6 * OUT_P
 BUDGETS = [0.0, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.70, 1.00]
 
@@ -57,20 +57,20 @@ def f1_at(probs, y, tau):
 
 
 def best_tau(probs, y):
-    """threshold ที่ให้ F1 สูงสุดบนข้อมูลที่ให้มา (ใช้เฉพาะกับ 'อีก 4 folds')"""
+    """the threshold with the highest F1 on the given data (used only on 'the other 4 folds')"""
     cands = np.unique(np.concatenate([probs, [0.0, 1.0]]))
     return float(max(cands, key=lambda t: f1_at(probs, y, t)))
 
 
 def route(df, seed, budget, gpt_prob, tau_mode="fixed"):
-    """คืน (pred[], band[], n_escalated) -- band: 0=ไม่ประชด(ฟรี) 1=ประชด(ฟรี) 2=ไม่แน่ใจ(จ่าย)
+    """Return (pred[], band[], n_escalated) -- band: 0=not sarcastic(free) 1=sarcastic(free) 2=unsure(paid)
 
-    delta = รัศมีความไม่มั่นใจรอบ tau. ข้อที่ |prob - tau| < delta ถือว่า 'ไม่แน่ใจ'
-    เลือก delta จากอีก 4 folds ให้ได้สัดส่วน escalate = budget (uncertainty sampling มาตรฐาน)
+    delta = the uncertainty radius around tau. Items with |prob - tau| < delta count as 'unsure'
+    choose delta from the other 4 folds to get escalate fraction = budget (standard uncertainty sampling)
 
-    tau_mode: "fixed" = ใช้ 0.5 ตรงๆ | "tuned" = จูน tau แบบ leave-fold-out
-      ดีฟอลต์เป็น fixed เพราะ **วัดแล้วว่าจูนแล้วแย่ลง** ที่ n=127 (ดู --tau-mode ในผลลัพธ์)
-      จูนบนอีก 4 folds ได้ F1 0.556 / ไม่จูนเลยได้ 0.590 -> การจูนคือการ overfit ล้วนๆ ตรงนี้
+    tau_mode: "fixed" = use 0.5 directly | "tuned" = tune tau leave-fold-out
+      default is fixed because **it was measured that tuning makes it worse** at n=127 (see --tau-mode in the output)
+      tuning on the other 4 folds gives F1 0.556 / no tuning gives 0.590 -> here tuning is pure overfitting
     """
     probs = df[f"prob_seed{seed}"].values.astype(float)
     folds = df[f"fold_seed{seed}"].values
@@ -82,10 +82,10 @@ def route(df, seed, budget, gpt_prob, tau_mode="fixed"):
         held = folds == k
         rest = ~held
         tau = 0.5 if tau_mode == "fixed" else best_tau(probs[rest], y[rest])
-        # delta: ควอนไทล์ของระยะห่างจาก tau บนอีก 4 folds -> สัดส่วนที่ escalate ~= budget
+        # delta: quantile of the distance from tau on the other 4 folds -> escalate fraction ~= budget
         d_rest = np.abs(probs[rest] - tau)
         delta = float(np.quantile(d_rest, budget)) if budget > 0 else -1.0
-        tau_gpt = best_tau(gpt_prob[rest], y[rest])   # เกณฑ์ของ GPT ก็เลือก leave-fold-out เช่นกัน
+        tau_gpt = best_tau(gpt_prob[rest], y[rest])   # GPT's threshold is also chosen leave-fold-out
 
         d_held = np.abs(probs[held] - tau)
         unsure = d_held < delta
@@ -101,30 +101,30 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, nargs="+", default=[42, 7, 2024])
     ap.add_argument("--tau-mode", choices=["fixed", "tuned"], default="fixed",
-                    help="fixed=0.5 (ดีฟอลต์ ดีกว่า) | tuned=จูน leave-fold-out (overfit ที่ n นี้)")
+                    help="fixed=0.5 (default, better) | tuned=leave-fold-out (overfits at this n)")
     a = ap.parse_args()
 
     for p in (OOF_CSV, GPT_CSV):
         if not os.path.exists(p):
-            sys.exit(f"ไม่พบ {p}")
+            sys.exit(f"{p} not found")
     df = pd.read_csv(OOF_CSV, encoding="utf-8-sig")
     gpt = pd.read_csv(GPT_CSV, encoding="utf-8-sig")
 
-    # join ตามตำแหน่ง -- ยืนยันก่อนว่าสองไฟล์เรียงตรงกันจริง (ห้าม join ด้วย text)
+    # join by position -- first verify the two files are aligned (never join by text)
     if len(df) != len(gpt):
-        sys.exit(f"จำนวนแถวไม่ตรง: oof {len(df)} vs gpt {len(gpt)}")
+        sys.exit(f"row counts differ: oof {len(df)} vs gpt {len(gpt)}")
     a_lab = df["label"].astype(str).str.strip().tolist()
     b_lab = gpt["label"].astype(str).str.strip().tolist()
     if a_lab != b_lab:
-        sys.exit(f"ลำดับ label ไม่ตรงกัน -> join ตามตำแหน่งไม่ได้ ({sum(x!=y for x,y in zip(a_lab,b_lab))} ข้อต่างกัน)")
+        sys.exit(f"label order mismatch -> can't join by position ({sum(x!=y for x,y in zip(a_lab,b_lab))} differ)")
 
     df["label"] = df["label"].astype(str).str.strip()
     y = df["label"].tolist()
     gpt_prob = gpt["prob"].values.astype(float)
     n = len(df)
 
-    print(f"micro-router 3 ทาง | gold {n} ข้อ | seeds {a.seeds} | tau-mode {a.tau_mode}")
-    print(f"ราคา verifier ${COST_PER_CALL:.5f}/call (391 in / 7 out -- ค่าจริงจาก v2)\n")
+    print(f"3-way micro-router | gold {n} items | seeds {a.seeds} | tau-mode {a.tau_mode}")
+    print(f"verifier cost ${COST_PER_CALL:.5f}/call (391 in / 7 out -- real from v2)\n")
     print(f"{'budget':>7} {'escalate':>9} {'%':>6} {'F1':>6} {'prec':>6} {'rec':>6} "
           f"{'calls':>6} {'cost':>8} {'vs GPT':>7}")
     print("-" * 72)
@@ -151,8 +151,8 @@ def main():
     out = pd.DataFrame(rows)
     out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
 
-    # จุดที่รายงาน = budget *ต่ำสุด* ที่กู้กำไร F1 ได้ >= ครึ่งหนึ่งของที่ GPT ล้วนให้
-    # (ห้ามใช้ "F1 ต่อ 1 call สูงสุด" -- เกณฑ์นั้นเข้าข้าง budget เล็กที่สุดเสมอ ไม่ได้บอกอะไร)
+    # reported point = the *lowest* budget that recovers >= half the F1 gain GPT-only provides
+    # (don't use "F1 per call max" -- that criterion always favors the smallest budget, tells you nothing)
     lo_f1, hi_f1 = rows[0]["f1"], rows[-1]["f1"]
     need = lo_f1 + 0.5 * (hi_f1 - lo_f1)
     reached = [r for r in rows if r["escalated"] > 0 and r["f1"] >= need]
@@ -160,23 +160,23 @@ def main():
     pred, band = preds_at[knee["budget"]]
     pr = df[["text", "label"]].copy()
     pr["pred"] = [str(v) for v in pred]
-    pr["band"] = ["ไม่ประชด(ฟรี)" if b == 0 else "ประชด(ฟรี)" if b == 1 else "ไม่แน่ใจ->LLM"
+    pr["band"] = ["not_sarcastic(free)" if b == 0 else "sarcastic(free)" if b == 1 else "unsure->LLM"
                   for b in band]
     pr.to_csv(PRED_CSV, index=False, encoding="utf-8-sig")
 
     base_f1 = rows[0]["f1"]
     full_f1 = rows[-1]["f1"]
     print("\n" + "=" * 72)
-    print(f"b=0 (WCB ล้วน ฟรี)     F1 {base_f1:.3f} | 0 calls    | $0")
-    print(f"b=1 (GPT ล้วน)         F1 {full_f1:.3f} | {n} calls  | ${n*COST_PER_CALL:.4f}")
-    print(f"จุดคุ้มสุด b={knee['budget']:.2f}        F1 {knee['f1']:.3f} | {knee['escalated']:.0f} calls "
-          f"| ${knee['cost']:.4f}  ({100*knee['escalated']/n:.0f}% ของข้อทั้งหมด)")
+    print(f"b=0 (WCB only, free)   F1 {base_f1:.3f} | 0 calls    | $0")
+    print(f"b=1 (GPT only)         F1 {full_f1:.3f} | {n} calls  | ${n*COST_PER_CALL:.4f}")
+    print(f"sweet spot b={knee['budget']:.2f}       F1 {knee['f1']:.3f} | {knee['escalated']:.0f} calls "
+          f"| ${knee['cost']:.4f}  ({100*knee['escalated']/n:.0f}% of all items)")
     if full_f1 > base_f1:
         recovered = 100 * (knee["f1"] - base_f1) / (full_f1 - base_f1)
-        print(f"-> จ่าย {100*knee['escalated']/n:.0f}% ของราคาเต็ม ได้ {recovered:.0f}% ของกำไร F1 ที่ GPT ล้วนให้")
-    print(f"บันทึก -> {os.path.basename(OUT_CSV)} , {os.path.basename(PRED_CSV)}")
+        print(f"-> pay {100*knee['escalated']/n:.0f}% of the full price, get {recovered:.0f}% of the F1 gain GPT-only provides")
+    print(f"saved -> {os.path.basename(OUT_CSV)} , {os.path.basename(PRED_CSV)}")
     print("=" * 72)
-    print("ต่อไป: python compare_systems.py  (bootstrap + McNemar เทียบกับระบบอื่น)")
+    print("next: python compare_systems.py  (bootstrap + McNemar vs the other systems)")
 
 
 if __name__ == "__main__":
