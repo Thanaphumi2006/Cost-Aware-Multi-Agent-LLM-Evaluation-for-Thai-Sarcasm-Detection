@@ -1,41 +1,41 @@
 # -*- coding: utf-8 -*-
-"""ตรวจจับประชดภาษาไทย เวอร์ชันโฮสต์ ฟรี 100% อธิบายได้ทุกคำตอบ
+"""Thai sarcasm detection, hosted version, 100% free, every answer explainable
 
-## ทำไมเวอร์ชันนี้ "ไม่มีโมเดลนิวรัล"
+## Why this version has "no neural model"
 
-ตอนแรกตั้งใจใช้ WangchanBERTa ที่ fine-tune บน gold 127 ข้อ แต่ **วัดแล้วพบว่าใช้จริงไม่ได้**:
+The original plan was WangchanBERTa fine-tuned on the 127-item gold, but **measurement showed it doesn't work in practice**:
 
-| | บน gold (ข้อมูลที่มันเทรน) | บนประโยคใหม่ที่ไม่เคยเห็น |
+| | on gold (its training data) | on unseen new sentences |
 |---|---|---|
-| ค่าเฉลี่ย prob เมื่อ*ประชด* | 0.801 | 0.838 |
-| ค่าเฉลี่ย prob เมื่อ*ไม่ประชด* | 0.238 | 0.810 |
-| **ระยะห่าง** | **+0.563** | **+0.028** |
+| mean prob when *sarcastic* | 0.801 | 0.838 |
+| mean prob when *not sarcastic* | 0.238 | 0.810 |
+| **gap** | **+0.563** | **+0.028** |
 
-บนข้อมูลที่เทรนมันแยกได้ดี แต่บนประโยคใหม่มัน **ตอบว่า "ประชด" เกือบทุกอย่าง**
-ทดสอบด้วยประโยคใหม่ที่ชัดเจน 10 ข้อ (ประชดชัด 5 / ปกติชัด 5):
-  - WangchanBERTa: **5/10** (= เดาสุ่ม -- เพราะตอบ "ประชด" หมด)
-  - cue เชิงคำอย่างเดียว: **8/10**
-ไม่มี threshold ไหนช่วยได้ (ดีสุด 7/10 ที่ 0.85 ซึ่งไม่เสถียร)
+On its training data it separates well, but on new sentences it **answers "sarcastic" for almost everything**
+Tested on 10 clear new sentences (5 clearly sarcastic / 5 clearly normal):
+  - WangchanBERTa: **5/10** (= random guessing -- because it answers "sarcastic" for all)
+  - lexical cues alone: **8/10**
+No threshold helps (best 7/10 at 0.85, which is unstable)
 
-สาเหตุ: 127 ประโยคน้อยเกินกว่าจะเรียนรู้ "ประชด" ได้จริง มันจึงจำชุดเทรนแทน
-ตรงกับ finding 12 ที่วัดไว้แล้วว่าข้ามโดเมนแล้ว precision ตก 0.68 -> 0.40
+Cause: 127 sentences are too few to truly learn "sarcasm", so it memorizes the training set instead
+Matches finding 12, which already measured precision dropping 0.68 -> 0.40 across domains
 
-=> **เวอร์ชันโฮสต์จึงใช้ cue เชิงคำล้วน** ซึ่ง (ก) แม่นกว่าบนข้อความใหม่จริงๆ
-   (ข) อธิบายได้ทุกคำตอบ (ค) ไม่ต้องโหลดโมเดล 405 MB -> เปิดเว็บติดใน 2 วินาที
-   (ง) ตรงกับ finding 14: regex `555` ตัวเดียวได้ F1 0.590 ชนะโมเดลเปิด 7-8B ทุกตัว
+=> **so the hosted version uses purely lexical cues**, which (a) are genuinely more accurate on new text
+   (b) explain every answer (c) need no 405 MB model download -> the page loads in 2 seconds
+   (d) match finding 14: the single regex `555` gets F1 0.590, beating every 7-8B open model
 
-## สามคำตอบ ไม่ใช่สอง
-ถ้าไม่เจอ cue เลย ระบบจะตอบ **"บอกไม่ได้"** ไม่ใช่เดาว่า "ไม่ประชด"
-เพราะประชดที่ไม่มีสัญญาณผิวๆ มีจริง (เจอ 2 ใน 10 ตอนทดสอบ) การเดาจึงเป็นการโกหกผู้ใช้
-โครงสร้างนี้ตรงกับตัว router ของงานวิจัย: มั่นใจ -> ตอบ / ไม่มั่นใจ -> ยอมรับว่าไม่รู้
+## Three answers, not two
+If no cue is found, the system answers **"can't tell"** rather than guessing "not sarcastic"
+Because sarcasm with no surface signal is real (2 of 10 in testing), so guessing would be lying to the user
+This structure mirrors the research's router: confident -> answer / unsure -> admit it doesn't know
 """
 import math
 import re
 
 import gradio as gr
 
-# ---- cue: (ชื่อ, regex, lift, คำอธิบาย) · lift วัดจาก gold 127 ข้อ (finding 14) ----
-# lift > 1 = เจอแล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย · < 1 = สัญญาณไปทางตรงข้าม
+# ---- cue: (name, regex, lift, description) · lift measured from the 127-item gold (finding 14) ----
+# lift > 1 = finding it raises the sarcasm odds above average · < 1 = the signal points the other way
 CUES = [
     ("555",        r"555",       2.46, "“555” = เสียงหัวเราะ มักมาคู่กับการเหน็บ"),
     ("??",         r"[?]{2,}",   2.54, "เครื่องหมายคำถามซ้ำ = ตั้งคำถามเชิงประชด"),
@@ -52,8 +52,8 @@ def find_cues(text):
 
 
 def cue_score(hits):
-    """รวมสัญญาณด้วยผลรวมของ log(lift) -- บวก = เอนไปทางประชด, ลบ = เอนไปทางปกติ
-    ไม่ใช่โมเดลที่เทรนมา เป็นการรวม lift ที่วัดมาแล้วอย่างตรงไปตรงมา (ตรวจสอบด้วยมือได้)"""
+    """combine signals as a sum of log(lift) -- positive = leans sarcastic, negative = leans normal
+    not a trained model, just a straightforward combination of measured lifts (hand-verifiable)"""
     return sum(math.log(max(l, 0.05)) for _, l, _ in hits)
 
 
