@@ -1,41 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-ขั้นที่ 2: คนตรวจ/แก้ป้ายร่างของ LLM ทีละข้อ -> ได้ gold.csv
+Step 2: a human reviews/fixes the LLM's draft labels item by item -> produces gold.csv
 
-อินพุต : to_label_prelabeled.csv   (มี text, llm_label, llm_reason จากขั้นที่ 1)
-เอาต์พุต:
-  - to_label_reviewed.csv : ทุกข้อ + human_label (ป้ายที่คนตัดสินสุดท้าย)
-  - gold.csv              : เฉพาะข้อที่ป้าย 1/0 (ตัด X ออก) พร้อมใช้เทรน/วัดผล
+Input : to_label_prelabeled.csv   (has text, llm_label, llm_reason from step 1)
+Output:
+  - to_label_reviewed.csv : every item + human_label (the human's final label)
+  - gold.csv              : only 1/0-labeled items (X removed), ready to train/evaluate
 
-สองโหมด (ปรับที่ตัวแปร MODE ด้านล่าง):
-  - "blind": ปิดคำตอบ LLM ไว้ก่อน -> คุณตัดสินเอง -> ค่อยเฉลย
-             จบรอบจะบอก "% เห็นตรงกับ LLM" (ไว้เช็คว่าเชื่อ LLM ได้แค่ไหน + ลด bias)
-  - "fast" : โชว์คำตอบ LLM เลย -> Enter = เห็นด้วย, พิมพ์ 1/0/X = แก้
+Two modes (set via the MODE variable below):
+  - "blind": hide the LLM answer first -> you decide -> then reveal
+             at the end it reports "% agreement with the LLM" (to gauge how much to trust it + reduce bias)
+  - "fast" : show the LLM answer immediately -> Enter = agree, type 1/0/X = fix
 
-วิธีใช้ตอนพิมพ์:  1=ประชด  0=ไม่ประชด  X=ตัดสินไม่ได้  (fast: Enter=เห็นด้วยกับ LLM)
-                  s=ข้ามไว้ก่อน   q=บันทึกแล้วออก
-รันซ้ำได้: ข้อที่ทำแล้วจะถูกข้าม รันต่อได้เรื่อยๆ
+Keys:  1=sarcasm  0=not sarcasm  X=undecidable  (fast: Enter=agree with the LLM)
+                  s=skip for now   q=save and quit
+Rerunnable: completed items are skipped, keep running to continue
 
-รัน:  python human_review.py
+Run:  python human_review.py
 """
 
 import os
 import pandas as pd
 
-# ================== ปรับได้ ==================
+# ================== tunable ==================
 IN_CSV = "to_label_prelabeled.csv"
 REVIEW_CSV = "to_label_reviewed.csv"
 GOLD_CSV = "gold.csv"
-MODE = "blind"        # "blind" (แนะนำเริ่มด้วยอันนี้) หรือ "fast"
-N_LIMIT = 50          # จำนวนข้อที่จะตรวจในรอบนี้ (blind แนะนำ ~50 แล้วดู %)
-SHOW_SIGNALS = True   # โชว์สัญญาณจากขั้นคีย์เวิร์ด (ช่วยดู แต่ไม่ใช่คำตอบ)
+MODE = "blind"        # "blind" (recommended to start with) or "fast"
+N_LIMIT = 50          # how many items to review this round (blind: ~50 recommended, then check the %)
+SHOW_SIGNALS = True   # show signals from the keyword step (helpful hints, not the answer)
 # =============================================
 
 VALID = {"1", "0", "X"}
 
 
 def load():
-    """โหลด: ถ้ามีไฟล์ reviewed อยู่แล้ว = ทำต่อจากเดิม"""
+    """load: if a reviewed file already exists = resume"""
     if os.path.exists(REVIEW_CSV):
         df = pd.read_csv(REVIEW_CSV)
     else:
@@ -51,9 +51,9 @@ def save(df):
 
 
 def make_gold(df):
-    """สร้าง gold.csv จากข้อที่คนตัดสินเป็น 1/0 (ตัด X และข้อที่ยังไม่ทำออก)"""
+    """build gold.csv from human-decided 1/0 items (drop X and unfinished items)"""
     done = df[df["human_label"].isin(["1", "0"])].copy()
-    # ทิ้งคอลัมน์ label/note เดิม (ช่องว่างจากตอนติดป้าย) กันชนกับ human_label
+    # drop the old label/note columns (blank from labeling) to avoid clashing with human_label
     done = done.drop(columns=[c for c in ["label", "note"] if c in done.columns])
     done = done.rename(columns={"human_label": "label"})
     keep = [c for c in ["text", "label", "source", "suspect_score", "signals"] if c in done.columns]
@@ -62,7 +62,7 @@ def make_gold(df):
 
 
 def ask(prompt):
-    """รับอินพุตจากคน คืนค่า 1/0/X หรือ s(ข้าม)/q(ออก)"""
+    """take human input, return 1/0/X or s(skip)/q(quit)"""
     while True:
         a = input(prompt).strip().upper()
         if a in VALID or a in ("S", "Q"):
@@ -71,7 +71,7 @@ def ask(prompt):
 
 
 def ask_fast(llm):
-    """โหมด fast: Enter=เห็นด้วยกับ LLM, พิมพ์ 1/0/X=แก้, s/q"""
+    """fast mode: Enter=agree with the LLM, type 1/0/X=fix, s/q"""
     while True:
         a = input(f"   [Enter=เห็นด้วย={llm}] แก้เป็น (1/0/X) / s / q: ").strip().upper()
         if a == "":
@@ -94,8 +94,8 @@ def main():
     print(f"== โหมด: {MODE} | จะตรวจ {len(todo)} ข้อรอบนี้ ==")
     print("พิมพ์: 1=ประชด  0=ไม่ประชด  X=ตัดสินไม่ได้  s=ข้าม  q=บันทึกแล้วออก\n")
 
-    agree = 0        # เห็นตรงกับ LLM กี่ข้อ (นับเฉพาะที่ตัดสิน 1/0/X)
-    decided = 0      # ตัดสินไปกี่ข้อรอบนี้
+    agree = 0        # how many agreed with the LLM (only counting 1/0/X decisions)
+    decided = 0      # how many decided this round
     quit_now = False
 
     for n, idx in enumerate(todo, 1):
@@ -118,9 +118,9 @@ def main():
                 break
             if ans == "S":
                 continue
-            # เฉลย
+            # reveal
             same = (ans == llm)
-            mark = "✅ ตรงกับ LLM" if same else "❌ ต่างจาก LLM"
+            mark = "ตรงกับ LLM" if same else "ต่างจาก LLM"
             print(f"   -> LLM ว่า: [{llm}]  {llm_reason}")
             print(f"   -> {mark}")
             df.at[idx, "human_label"] = ans
@@ -139,7 +139,7 @@ def main():
             decided += 1
 
         if decided % 5 == 0:
-            save(df)  # เซฟทุก 5 ข้อ กันงานหาย
+            save(df)  # save every 5 items to avoid losing work
 
     save(df)
     print("\n" + "═" * 70)
