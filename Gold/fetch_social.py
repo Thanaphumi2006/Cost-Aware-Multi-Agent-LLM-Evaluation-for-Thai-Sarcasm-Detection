@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""ดึงคอมเมนต์ไทยจากลิงก์ — เฉพาะแพลตฟอร์มที่ "ฟรี ไม่ต้องล็อกอิน" เข้าถึงคอมเมนต์ได้จริง
+"""Fetch Thai comments from a link -- only platforms where comments are genuinely accessible "free, no login"
 
-รองรับ (ฟรี ไม่ต้อง API key / ไม่ต้องล็อกอิน):
-  - YouTube : yt-dlp (ชัวร์)
-  - Pantip  : public JSON ของเว็บเอง (Thai forum — ประชดเยอะ เหมาะกับงานนี้ที่สุด)
-  - Reddit  : public .json (ฟรี แต่บาง IP โดนบล็อก 403 -> best-effort)
+Supported (free, no API key / no login):
+  - YouTube : yt-dlp (reliable)
+  - Pantip  : the site own public JSON (Thai forum -- lots of sarcasm, the best fit for this task)
+  - Reddit  : public .json (free, but some IPs get 403-blocked -> best-effort)
 
-แพลตฟอร์มที่ "ตัดออก" เพราะเข้าถึงคอมเมนต์ฟรีไม่ได้ (บังคับล็อกอิน/คุกกี้/หรือ API เสียเงิน):
-  Twitter/X, Instagram, TikTok, Facebook -> โยน UnsupportedError ให้ผู้เรียกบอกผู้ใช้ "วางเอง"
+Platforms "dropped" because comments are not freely accessible (forced login/cookies/or paid API):
+  Twitter/X, Instagram, TikTok, Facebook -> raise UnsupportedError so the caller tells the user to "paste it themselves"
 
-ข้อมูลสาธารณะ ดึงมาเพื่อทดสอบโมเดลตัวเอง · กรองเฉพาะที่มีตัวอักษรไทย
+Public data, fetched to test one own model · keeps only items containing Thai characters
 """
 import json
 import re
@@ -20,11 +20,11 @@ TAG = re.compile(r"<[^>]+>")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
-SUPPORTED = ("YouTube", "Pantip", "Reddit")   # ที่โชว์ในเว็บว่าดึงได้
+SUPPORTED = ("YouTube", "Pantip", "Reddit")   # shown in the web app as fetchable
 
 
 class UnsupportedError(Exception):
-    """แพลตฟอร์มนี้เข้าถึงคอมเมนต์ฟรีไม่ได้ (ต้องล็อกอิน/API เสียเงิน)"""
+    """this platform comments are not freely accessible (needs login / paid API)"""
 
 
 def is_thai(s, min_thai=3):
@@ -56,7 +56,7 @@ def fetch_youtube(url, limit):
 def fetch_pantip(url, limit):
     m = re.search(r"pantip\.com/topic/(\d+)", url)
     if not m:
-        raise UnsupportedError("Pantip: ลิงก์ต้องเป็น pantip.com/topic/<เลข>")
+        raise UnsupportedError("Pantip: the link must be pantip.com/topic/<number>")
     tid = m.group(1)
     out = []
 
@@ -66,7 +66,7 @@ def fetch_pantip(url, limit):
         for rep in (c.get("replies") or []):
             walk(rep)
 
-    for page in range(1, 8):                       # สูงสุด ~7 หน้า (100/หน้า) พอสำหรับ limit ที่ตั้งไว้
+    for page in range(1, 8):                       # up to ~7 pages (100/page), enough for the set limit
         u = f"https://pantip.com/forum/topic/render_comments?tid={tid}&param=page{page}"
         try:
             d = json.loads(_get(u, {"X-Requested-With": "XMLHttpRequest",
@@ -136,7 +136,7 @@ _FETCHERS = {"youtube": fetch_youtube, "pantip": fetch_pantip, "reddit": fetch_r
 
 
 def fetch_any(url, limit=80):
-    """คืน (list ข้อความไทย unique, ชื่อแพลตฟอร์ม) · โยน UnsupportedError ถ้าเข้าถึงฟรีไม่ได้"""
+    """return (list of unique Thai texts, platform name) · raise UnsupportedError if not freely accessible"""
     plat = platform_of(url)
     fn = _FETCHERS.get(plat)
     if fn is None:

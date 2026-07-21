@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
-"""โหลดคีย์จากไฟล์ .env -- ให้สคริปต์หาคีย์เจอโดยไม่ต้องตั้ง env var ทั้งเครื่อง
+"""Load keys from a .env file -- so scripts find the key without setting a machine-wide env var
 
-ทำไมต้องมี: บน Windows การตั้ง env var แบบ User scope เขียนลง registry ก็จริง
-แต่ **โปรเซสที่เปิดค้างอยู่แล้วจะไม่เห็นค่าใหม่** (ต้องปิดเปิดโปรแกรมใหม่)
-ไฟล์ .env อ่านตอนรันทุกครั้ง -> ใช้ได้ทันที ไม่ต้องรีสตาร์ตอะไร
+Why it exists: on Windows, setting a User-scope env var does write to the registry
+but **already-running processes will not see the new value** (you would have to restart the program)
+the .env file is read on every run -> works immediately, no restart needed
 
-`.env` อยู่ใน .gitignore อยู่แล้ว -> คีย์ไม่หลุดขึ้น git
-ค่าที่ตั้งไว้ใน environment จริงจะ **ชนะ** ไฟล์ .env เสมอ (ไม่เขียนทับของที่มีอยู่)
+`.env` is already in .gitignore -> keys will not leak into git
+a value already set in the real environment always **wins** over the .env file (existing values are not overwritten)
 
-ใช้: import envload ไว้บนสุดของสคริปต์ที่ต้องใช้คีย์ (import เฉยๆ ก็ทำงานแล้ว)
+Usage: import envload at the top of any script needing the key (a plain import already does the work)
 """
 import os
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-# มองหา .env ทั้งในโฟลเดอร์ Gold/ และ root ของ repo
+# look for .env in both the Gold/ folder and the repo root
 _CANDIDATES = [os.path.join(_HERE, ".env"),
                os.path.join(os.path.dirname(_HERE), ".env")]
 
 
 def load(paths=None, override=False):
-    """อ่าน KEY=VALUE ทีละบรรทัด · ข้ามบรรทัดว่างและ # · ลอก quote ออกให้"""
+    """read KEY=VALUE line by line · skip blank lines and # · strip surrounding quotes"""
     found = []
     for p in (paths or _CANDIDATES):
         if not os.path.exists(p):

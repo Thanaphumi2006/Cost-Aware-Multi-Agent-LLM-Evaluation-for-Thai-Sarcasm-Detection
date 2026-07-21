@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""helper สำหรับ task thai_sarcasm ใน lm-evaluation-harness
+"""helper for the thai_sarcasm task in lm-evaluation-harness
 
-- process_docs : เติมคอลัมน์ gold (int 0/1) จาก label (str)
-- doc_to_text  : ประกอบ prompt = rubric + ข้อความ (rubric ชุดเดียวกับ DETECT_SYS ใน predict.py)
+- process_docs : add the gold column (int 0/1) from label (str)
+- doc_to_text  : build the prompt = rubric + text (same rubric as DETECT_SYS in predict.py)
 """
 import datasets
 
-# ตรงกับ DETECT_SYS ใน Gold/predict.py (ให้เทียบกับผล GPT ได้ยุติธรรม)
+# matches DETECT_SYS in Gold/predict.py (for a fair comparison with the GPT results)
 RUBRIC = (
     'ตัดสินว่าข้อความภาษาไทยนี้ "ประชด/เสียดสี" หรือไม่\n'
     "ประชด = เจตนาจริงตรงข้ามกับความหมายผิวเผิน เพื่อเหน็บหรือแสดงความไม่พอใจ"

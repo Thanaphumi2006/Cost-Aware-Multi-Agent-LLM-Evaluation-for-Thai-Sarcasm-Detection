@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""เทรน WangchanBERTa ตัวสุดท้ายบน gold ทั้ง 127 ข้อ แล้วเซฟไว้ให้เว็บเรียกใช้
+"""Train the final WangchanBERTa on all 127 gold items and save it for the web app to use
 
-ต่างจาก wangchanberta.py:
-  wangchanberta.py = 5-fold CV เพื่อ "วัดผล" (เทรน 15 โมเดลแล้วทิ้ง -- ไม่มีโมเดลเหลือ)
-  ไฟล์นี้        = เทรนตัวเดียวบนข้อมูลทั้งหมดเพื่อ "เอาไปใช้จริง"
+Different from wangchanberta.py:
+  wangchanberta.py = 5-fold CV to "evaluate" (trains 15 models then discards them -- no model kept)
+  this file       = train a single model on all the data to "actually deploy"
 
-*** เตือน ***
-โมเดลตัวนี้เห็น gold ครบทั้ง 127 ข้อตอนเทรน
-=> ห้ามเอาไปวัดผลบน gold เด็ดขาด มันจะได้คะแนนสูงปลอมๆ (เพราะจำคำตอบได้)
-   ตัวเลขที่ใช้รายงานต้องมาจาก wangchanberta.py (out-of-fold) เท่านั้น
-   ตัวนี้มีไว้ให้เว็บลองข้อความ "ใหม่" ที่ไม่อยู่ใน gold เท่านั้น
+*** warning ***
+this model saw all 127 gold items during training
+=> never evaluate it on gold; it would get falsely high scores (because it memorized the answers)
+   the reported numbers must come only from wangchanberta.py (out-of-fold)
+   this one is only for the web app to try "new" text not in gold
 
-รัน: C:/Users/thana/pt/Scripts/python.exe train_final_wcb.py
+Run: C:/Users/thana/pt/Scripts/python.exe train_final_wcb.py
 """
 import os
 import sys
@@ -42,7 +42,7 @@ def main():
 
     n_pos, n_neg = sum(y), len(y) - sum(y)
     pos_weight = n_neg / n_pos
-    print(f"เทรนบน gold ทั้งหมด {len(df)} ข้อ (ประชด {n_pos}) | pos_weight {pos_weight:.2f}")
+    print(f"training on all {len(df)} gold items (sarcasm {n_pos}) | pos_weight {pos_weight:.2f}")
 
     torch.manual_seed(SEED)
     tok = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -68,8 +68,8 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     model.save_pretrained(OUT_DIR)
     tok.save_pretrained(OUT_DIR)
-    print(f"\nเซฟแล้ว -> {OUT_DIR}  ({time.time()-t0:.0f}s)")
-    print("เตือน: โมเดลนี้เห็น gold ครบแล้ว -- ห้ามใช้วัดผลบน gold (ใช้เลขจาก wangchanberta.py)")
+    print(f"\nsaved -> {OUT_DIR}  ({time.time()-t0:.0f}s)")
+    print("warning: this model has seen all of gold -- do not evaluate on gold (use numbers from wangchanberta.py)")
 
 
 if __name__ == "__main__":

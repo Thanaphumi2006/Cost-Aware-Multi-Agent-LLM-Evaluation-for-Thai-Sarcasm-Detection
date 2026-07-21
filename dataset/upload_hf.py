@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""อัปโหลดชุดข้อมูล gold ขึ้น Hugging Face เป็น dataset สาธารณะ
+"""Upload the gold dataset to Hugging Face as a public dataset
 
-ใช้:  1) huggingface-cli login   (ครั้งเดียว ใช้ token แบบ write)
+Usage:  1) huggingface-cli login   (once, with a write token)
       2) python dataset/upload_hf.py
-สร้าง/อัปเดต repo: <username>/thai-sarcasm-gold  (แก้ชื่อได้ด้วย --repo)
+create/update repo: <username>/thai-sarcasm-gold  (change the name with --repo)
 """
 import argparse
 import os
@@ -17,14 +17,14 @@ ROOT = os.path.dirname(HERE)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default=None, help="เช่น username/thai-sarcasm-gold")
+    ap.add_argument("--repo", default=None, help="e.g. username/thai-sarcasm-gold")
     args = ap.parse_args()
 
     api = HfApi()
     user = api.whoami()["name"]
     repo_id = args.repo or f"{user}/thai-sarcasm-gold"
 
-    # เตรียมไฟล์สอง split จาก gold ปัจจุบัน (คอลัมน์ตรงตาม dataset card)
+    # prepare the two splits from the current gold (columns matching the dataset card)
     cols = ["text", "label", "source", "suspect_score", "signals"]
     for src, out in [("Gold/gold.csv", "canonical.csv"), ("Gold/gold_v2.csv", "hard.csv")]:
         df = pd.read_csv(os.path.join(ROOT, src), encoding="utf-8-sig")
@@ -42,7 +42,7 @@ def main():
         allow_patterns=["README.md", "canonical.csv", "hard.csv"],
         commit_message="Thai sarcasm gold set: canonical (127) + hard (302) splits",
     )
-    print(f"\nเสร็จ -> https://huggingface.co/datasets/{repo_id}")
+    print(f"\ndone -> https://huggingface.co/datasets/{repo_id}")
 
 
 if __name__ == "__main__":
