@@ -135,7 +135,8 @@ h1{font-size:17px;margin:0 0 4px}
 .tabs{display:flex;gap:6px}
 .tab{border:1.5px solid var(--line);background:var(--card);border-radius:20px;
 padding:6px 14px;font-size:13px;cursor:pointer}
-.tab.on{border-color:var(--gold);background:var(--gold);color:#fff}
+.tab.on{border-color:var(--gold);background:var(--gold);color:#fff;box-shadow:0 0 0 3px rgba(174,149,105,.35);font-weight:700}
+.curq{grid-column:1/-1;font-size:13px;color:var(--gold);font-weight:700;margin:-4px 0 0}
 .bar{flex:1;min-width:180px;height:10px;background:var(--line);border-radius:6px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--gold)}
 .stat{font-size:12.5px;color:var(--mut);white-space:nowrap}
@@ -223,7 +224,7 @@ color:#fff;border-radius:20px;padding:8px 20px;font-size:13px;opacity:0;transiti
 </div>
 <div class="flash" id="flash"></div>
 <script>
-let Q='harvest', IDX=null, REVEALED=false;
+let Q=localStorage.getItem('lastQueue')||'random', IDX=null, REVEALED=false;
 const $=id=>document.getElementById(id);
 // เก็บโครงการ์ดตั้งต้นไว้ -- ตอนกองไหนจบเราเขียนทับ #main ทิ้ง ถ้าไม่คืนกลับ
 // การสลับไปกองที่ยังไม่จบจะพัง (element หาย -> JS error -> หน้าค้าง)
@@ -263,7 +264,7 @@ function render(s){
   $('reveal').textContent='เผยความเห็น LLM (หลังตัดสินแล้วเท่านั้น)';
 }
 
-async function setQueue(q){Q=q;render(await api(`/api/state?queue=${Q}`));}
+async function setQueue(q){Q=q;localStorage.setItem('lastQueue',q);render(await api(`/api/state?queue=${Q}`));}
 async function label(v){if(IDX===null)return;
   render(await api('/api/label',{queue:Q,index:IDX,value:v,note:$('note').value}));
   flash({'1':'✓ ประชด','0':'✓ ไม่ประชด','X':'✓ บอกไม่ได้'}[v]);}
@@ -288,7 +289,7 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='u'||e.key==='U')undo();
   else if(e.key==='ArrowLeft')nav(-1);else if(e.key==='ArrowRight')nav(1);
 });
-setQueue('harvest');
+setQueue(Q);
 </script></body></html>"""
 
 
