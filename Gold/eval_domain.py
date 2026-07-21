@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""วัด predict.py บนข้อมูล "โดเมนใหม่" — ตอบคำถามที่ยังไม่รู้: มันข้ามโดเมนได้ไหม
+"""Measure predict.py on a "new domain" — answering the open question: does it transfer across domains?
 
-ทำไมสำคัญ: gold ทั้งหมดคือ Wongnai (รีวิวร้าน) + Wisesight (ทวีต)
-ยังไม่มีหลักฐานเลยว่าโมเดลใช้ได้กับโดเมนอื่น (ข่าว/การเมือง/สินค้าเทค/คอมเมนต์ YouTube ฯลฯ)
-นี่คือ "ความเสี่ยงที่ใหญ่สุด" ตอนเอาไป deploy จริง — ไฟล์นี้คือเครื่องมือปิดช่องนั้น
+Why it matters: all of gold is Wongnai (restaurant reviews) + Wisesight (tweets).
+There is no evidence the model works on other domains (news/politics/tech products/YouTube comments, etc.).
+This is "the biggest risk" at real deployment — this file is the tool to close that gap.
 
-*** ต้องมีข้อมูลก่อน: CSV โดเมนใหม่ที่ "คนไทย label แล้ว" (ไม่ใช่โมเดล label) ***
-    คอลัมน์: text, label (1=ประชด, 0=ไม่)  — อย่างน้อย ~30 ประชด ถึงจะมี CI ที่มีความหมาย
-    label ด้วยเกณฑ์เดียวกับ gold (การเสแสร้ง — ดู labeling_rubric.md) ไม่งั้นเทียบไม่ได้
+*** You need data first: a new-domain CSV that a "Thai human has labeled" (not model-labeled) ***
+    columns: text, label (1=sarcasm, 0=not)  — at least ~30 sarcastic for a meaningful CI
+    label by the same criteria as gold (pretense — see labeling_rubric.md) or it's not comparable
 
-ใช้:
+Usage:
   export OPENAI_API_KEY=sk-...
-  python eval_domain.py newsdomain.csv                 # วัด balanced (gpt-4.1-mini)
+  python eval_domain.py newsdomain.csv                 # measure balanced (gpt-4.1-mini)
   python eval_domain.py newsdomain.csv --op high_recall
 """
 import argparse
@@ -24,7 +24,7 @@ import pandas as pd
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# ผลบน gold (โดเมนเดิม) ไว้เทียบว่า "ตกไปเท่าไหร่เมื่อข้ามโดเมน"
+# results on gold (the original domain), to compare "how much it drops when crossing domains"
 GOLD_REF = {"balanced": dict(P=0.68, R=0.83, F1=0.75),
             "high_recall": dict(P=0.43, R=1.00, F1=0.61)}
 
@@ -48,28 +48,28 @@ def boot_f1_ci(y, p, n=5000, seed=0):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("csv", help="CSV โดเมนใหม่ (คอลัมน์ text,label) — label โดยคน")
+    ap.add_argument("csv", help="new-domain CSV (columns text,label) — human-labeled")
     ap.add_argument("--op", default="balanced", choices=["balanced", "high_recall"])
     ap.add_argument("--text-col", default="text")
     ap.add_argument("--label-col", default="label")
     a = ap.parse_args()
     if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("ต้องมี OPENAI_API_KEY")
+        sys.exit("OPENAI_API_KEY required")
 
     df = pd.read_csv(a.csv, dtype=str).fillna("")
     for c in (a.text_col, a.label_col):
         if c not in df.columns:
-            sys.exit(f"ไม่มีคอลัมน์ '{c}' (มี: {list(df.columns)})")
+            sys.exit(f"no column '{c}' (have: {list(df.columns)})")
     df[a.label_col] = df[a.label_col].str.strip()
     df = df[df[a.label_col].isin(["0", "1"])].reset_index(drop=True)
     y = df[a.label_col].astype(int).tolist()
     npos = sum(y)
     if npos < 10:
-        print(f"⚠ ประชดแค่ {npos} ข้อ — น้อยเกินไป CI จะกว้างมาก (แนะนำ ≥30)")
+        print(f"warning: only {npos} sarcastic items — too few, the CI will be very wide (recommend >=30)")
 
     import predict
     det = predict.SarcasmDetector(operating=a.op)
-    print(f"วัด {len(df)} ข้อ (ประชด {npos}) · {det.model} · จุดทำงาน {a.op}\n", flush=True)
+    print(f"measuring {len(df)} items (sarcastic {npos}) · {det.model} · operating point {a.op}\n", flush=True)
     preds = []
     for n, t in enumerate(df[a.text_col], 1):
         preds.append(det.predict(t).get("label"))
@@ -81,17 +81,17 @@ def main():
     g = GOLD_REF[a.op]
 
     print("\n" + "=" * 60)
-    print(f"โดเมนใหม่ ({os.path.basename(a.csv)}): P {P:.3f} · R {R:.3f} · F1 {F:.3f}  [95% CI {lo:.3f}–{hi:.3f}]")
+    print(f"new domain ({os.path.basename(a.csv)}): P {P:.3f} · R {R:.3f} · F1 {F:.3f}  [95% CI {lo:.3f}–{hi:.3f}]")
     print(f"  TP {tp} FP {fp} FN {fn} TN {tn} · cache hit {det.hits}/{det.hits+det.misses}")
-    print(f"gold เดิม (โดเมน Wongnai/Wisesight): P {g['P']:.2f} · R {g['R']:.2f} · F1 {g['F1']:.2f}")
+    print(f"original gold (Wongnai/Wisesight domain): P {g['P']:.2f} · R {g['R']:.2f} · F1 {g['F1']:.2f}")
     drop = g["F1"] - F
     print("-" * 60)
     if drop > 0.10:
-        print(f"⚠ F1 ตก {drop:+.3f} เมื่อข้ามโดเมน — มาก · โมเดลนี้ยัง 'ไม่ควรเชื่อ' นอกโดเมนเดิม")
+        print(f"warning: F1 dropped {drop:+.3f} crossing domains — large · this model 'should not be trusted' outside the original domain")
     elif drop > 0.05:
-        print(f"F1 ตก {drop:+.3f} — พอมี domain gap · ใช้ได้แต่ควรระวัง/ตั้ง threshold ใหม่ต่อโดเมน")
+        print(f"F1 dropped {drop:+.3f} — some domain gap · usable but be careful / re-tune the threshold per domain")
     else:
-        print(f"F1 ต่าง {drop:+.3f} — ข้ามโดเมนได้ดี (แต่ดู CI: ถ้ากว้างแปลว่ายังฟันธงไม่ได้)")
+        print(f"F1 differs {drop:+.3f} — transfers well (but check the CI: if wide, it's not conclusive)")
     print("=" * 60)
 
 
