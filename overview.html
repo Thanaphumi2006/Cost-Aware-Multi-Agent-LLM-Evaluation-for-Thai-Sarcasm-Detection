@@ -182,10 +182,52 @@ p = model.predict(text)
     </div>
   </section>
 
+  <section>
+    <h2>But that test was rigged (the honest ending)</h2>
+    <p>
+      Here's the catch. To build those tests we went hunting for sarcasm, so about <strong>1 in 4</strong>
+      sentences in them was sarcastic. Real Thai posts are nothing like that. When we grabbed
+      <strong>250 completely random</strong> ones and checked by hand, only <strong>1 in 20</strong>
+      (4.9%) was sarcastic.
+    </p>
+    <p>
+      That tiny difference wrecks everything. When sarcasm is rare, any method that “cries wolf” is
+      wrong almost every time it shouts. So we re-scored on the realistic mix:
+    </p>
+
+    <div class="bars">
+      <div class="bar-row f-free">
+        <div class="bar-top"><span class="bar-name">Checking for “555” (the hero of the last chart)</span><span class="bar-cost free">free</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:9%"><span class="bar-val" style="color:var(--ink);text-shadow:none">0.09</span></div></div>
+      </div>
+      <div class="bar-row f-paid">
+        <div class="bar-top"><span class="bar-name">OpenAI, just say the answer</span><span class="bar-cost paid">costs money</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:20%"><span class="bar-val">0.20</span></div></div>
+      </div>
+      <div class="bar-row f-mix">
+        <div class="bar-top"><span class="bar-name"><strong>OpenAI + read its confidence</strong></span><span class="bar-cost paid">costs money</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:46%"><span class="bar-val">0.46</span></div></div>
+      </div>
+    </div>
+    <p class="scale-note">these bars start at 0, so you can see how far everything fell</p>
+
+    <div class="box alt takeaway">
+      <strong class="lead">The one thing that saved it:</strong> the “555” trick fell from 0.59 to
+      <strong>0.09</strong>, and even OpenAI, left to just blurt an answer, flagged
+      <strong>1 in 3 sentences</strong> as sarcastic when only 1 in 20 really was. The only fix that
+      worked was <strong>making the AI read its own confidence</strong> before deciding, the same free
+      trick from the very first chapter. It stopped the crying-wolf and more than doubled the score,
+      for zero extra cost. On real posts, that habit is the difference between a tool that works and
+      one that doesn't.
+    </div>
+  </section>
+
   <div class="foot">
     <svg class="footsquig" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M4 12 Q 44 5 84 12 T 160 11 T 236 12 T 296 10" fill="none" stroke="#ece0c6" stroke-width="5" stroke-linecap="round"/></svg>
-    <p><strong>Worth knowing:</strong> only 127 sentences were tested, and just 30 of them were
-    sarcastic. That's a small test, so small differences between methods might only be luck.</p>
+    <p><strong>Worth knowing:</strong> the realistic test had 245 sentences but only 12 sarcastic
+    ones, so its scores show the rough level (around 0.4 to 0.5 for the best method), not an exact
+    number. The lesson holds either way: sarcasm is far rarer, and far harder to catch, than a
+    hand-picked test makes it look.</p>
   </div>
 
 </div>
