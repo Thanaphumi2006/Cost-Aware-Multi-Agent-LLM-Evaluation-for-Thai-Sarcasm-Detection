@@ -363,16 +363,20 @@ function render() {
 // ทำไมต้องมีตัวช่วย: YouTube/Pantip/Reddit บล็อกไม่ให้เบราว์เซอร์ดึงข้ามเว็บ (CORS)
 // ตัวช่วยรันบนเครื่องคุณเอง ดึงคอมเมนต์ให้ แล้วหน้านี้ให้คะแนนเองแบบฟรี -- ไม่ใช้คีย์ ไม่ส่งข้อความไปไหน
 // ลองทั้งพอร์ตปกติ (5000) และพอร์ตสำรอง (5050 -- บน Mac ที่ AirPlay ยึด 5000 ไว้)
-const HELPERS = [
-  "http://127.0.0.1:5000/api/fetch_comments",
-  "http://127.0.0.1:5050/api/fetch_comments",
-];
+// ถ้าหน้านี้ถูกเสิร์ฟจากเซิร์ฟเวอร์จริง (serve_public.py) ให้ยิงไปที่ origin เดียวกันก่อน
+// บน GitHub Pages (static ล้วน ไม่มี backend) หรือเปิดไฟล์ตรงๆ ให้ข้ามไปใช้ตัวช่วยบนเครื่อง 127.0.0.1
+const _staticHost = /\.github\.io$/i.test(location.hostname);
+const SAME_ORIGIN = (/^https?:$/.test(location.protocol) && !_staticHost) ? [location.origin] : [];
+const LOCAL_BASES = ["http://127.0.0.1:5000", "http://127.0.0.1:5050"];
+const HELPER_BASES = [...SAME_ORIGIN, ...LOCAL_BASES];
+
+const HELPERS = HELPER_BASES.map(b => b + "/api/fetch_comments");
 
 // ==== cost-aware router ====================================================
 // The free cue model answers the confident cases. Only the UNSURE ones ("บอกไม่ได้")
-// are sent to a cheap LLM (gpt-4.1-mini) via the SAME local helper -- so the paid model
-// is used sparingly. No helper / no key -> we simply keep the free "บอกไม่ได้" answer.
-const HELPER_BASES = ["http://127.0.0.1:5000", "http://127.0.0.1:5050"];
+// are sent to a cheap LLM (gpt-4.1-mini) via /api/escalate (same-origin server, or the
+// local helper) -- so the paid model is used sparingly. No backend / no key -> we keep
+// the free "บอกไม่ได้" answer. HELPER_BASES is defined above (same-origin first).
 
 // -> {available:true, decision, prob, by} | {available:false, reason} | null (no helper reachable)
 async function askAI(text) {

@@ -11,9 +11,12 @@ Platforms "dropped" because comments are not freely accessible (forced login/coo
 
 Public data, fetched to test one own model · keeps only items containing Thai characters
 """
+import ipaddress
 import json
 import re
+import socket
 import urllib.request
+from urllib.parse import urlparse
 
 THAI = re.compile(r"[฀-๿]")
 TAG = re.compile(r"<[^>]+>")
@@ -21,6 +24,13 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 SUPPORTED = ("YouTube", "Pantip", "Reddit")   # shown in the web app as fetchable
+
+# registrable domains we are willing to fetch from, matched against the REAL hostname (not a substring).
+# substring matching was an SSRF hole: "http://169.254.169.254/reddit.com" is not reddit -- its host is a
+# metadata IP. Parsing the host and matching exact-or-subdomain closes that.
+_DOMAINS = {"youtube": ("youtube.com", "youtu.be"),
+            "pantip": ("pantip.com",),
+            "reddit": ("reddit.com", "redd.it")}
 
 
 class UnsupportedError(Exception):
@@ -40,7 +50,25 @@ def clean(s):
     return re.sub(r"\s+", " ", TAG.sub(" ", s or "")).strip()
 
 
+def _assert_public_host(url):
+    """defence in depth for the direct-urlopen fetchers (pantip/reddit): even though the host is
+    already domain-allowlisted, refuse if it resolves to a private/loopback/link-local address
+    (guards against a DNS answer pointing inward). Raises FetchError on anything non-public."""
+    host = _host_of(url)
+    if not host:
+        raise FetchError("bad url")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        raise FetchError("cannot resolve host")
+    for *_, sockaddr in infos:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise FetchError("refusing to fetch a non-public address")
+
+
 def _get(url, extra=None):
+    _assert_public_host(url)
     h = {"User-Agent": UA}
     if extra:
         h.update(extra)
@@ -145,22 +173,23 @@ def fetch_reddit(url, limit):
 
 
 # ---------- dispatch ----------
+def _host_of(url):
+    return (urlparse(url).hostname or "").lower().rstrip(".")
+
+
+def _matches(host, domains):
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
 def platform_of(url):
-    u = url.lower()
-    if "youtu" in u:
-        return "youtube"
-    if "pantip.com" in u:
-        return "pantip"
-    if "reddit.com" in u or "redd.it" in u:
-        return "reddit"
-    if "twitter.com" in u or "x.com" in u:
-        return "twitter"
-    if "instagram.com" in u:
-        return "instagram"
-    if "tiktok.com" in u:
-        return "tiktok"
-    if "facebook.com" in u or "fb.watch" in u:
-        return "facebook"
+    """map a URL to a supported platform by its real hostname (exact or subdomain match).
+    anything else -> 'other' (raised as UnsupportedError). This is a security boundary, not just UX."""
+    if urlparse(url).scheme not in ("http", "https"):
+        return "other"
+    host = _host_of(url)
+    for plat, domains in _DOMAINS.items():
+        if _matches(host, domains):
+            return plat
     return "other"
 
 

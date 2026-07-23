@@ -219,8 +219,13 @@ python multiagent.py          # two-agent pipeline
 python compare_systems.py     # all systems + the statistics
 ```
 
-The web page keeps your API key in server memory only (never written to disk), and runs on `127.0.0.1`. If you host it
-for other people, it has per-user rate limits so a shared link cannot drain your key.
+The web page keeps your API key in server memory only (never written to disk), and runs on `127.0.0.1`.
+
+**Hosting it publicly?** Don't expose `app.py` — it has a key-input box and batch/correction endpoints
+that must stay local. Use **`Gold/serve_public.py`** instead: a minimal server that mounts only the
+demo page plus the fetch and escalate endpoints, takes the key from the environment only, allowlists
+fetch hosts (SSRF-safe), rate-limits and size-caps every request, and sets hardening headers. Full
+deployment runbook (gunicorn/waitress + HTTPS reverse proxy): [`Gold/HOSTING.md`](Gold/HOSTING.md).
 
 ## What is in here
 
@@ -234,7 +239,9 @@ Gold/
   wangchanberta.py       the free local model (5-fold cross-validation)
   compare_systems.py     paired bootstrap + McNemar
   predict.py             the deployable tool (the research conclusion, packaged up)
-  app.py                 the web demo (developer page at /, doodle user page at /app)
+  app.py                 the web demo (developer page at /, doodle user page at /app) — LOCAL only
+  serve_public.py        hardened server for public hosting (safe subset of app.py) — see HOSTING.md
+  HOSTING.md             how to expose the demo safely (WSGI + HTTPS proxy, SSRF/rate-limit notes)
   cascade_eval.py        finding 21: offline eval of the cue → WCB → LLM cascade (free, no API)
   cue_cutoff_cv.py       finding 21: cross-validated cue cut-off, the F1 0.63 → 0.81 win (free)
   wcb_calibration_check.py  finding 21: shows the deployed WCB tier's threshold doesn't transfer

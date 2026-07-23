@@ -18,5 +18,9 @@ transformers>=4.40,<5   # 5.x drops the load_in_4bit passthrough the eval script
 sentencepiece>=0.2      # WangchanBERTa's tokenizer is SentencePiece
 protobuf>=4.0           # transformers needs it to load that tokenizer
 
+# ---- optional: public hosting (serve_public.py, see Gold/HOSTING.md) ----
+# gunicorn>=21        # Linux/macOS WSGI server
+# waitress>=3.0       # Windows WSGI server
+
 # ---- optional: the Hugging Face Space demo (space/) ----
 # gradio>=4.40,<5
