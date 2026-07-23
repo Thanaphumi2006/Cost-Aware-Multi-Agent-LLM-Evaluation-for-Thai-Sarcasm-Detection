@@ -30,7 +30,9 @@ flagship stays within a 0.05 F1 band, making a cheap single agent statistically 
 from a flagship pipeline at one-eleventh the cost. We further establish a \$0 floor: three
 independent free methods (a 3-character regex, an embedding kNN, and a fine-tuned Thai transformer)
 all converge at F1 $\approx$ 0.59, and show a three-way confidence router that retains 95\% of
-flagship quality at 40\% of the cost. Expanding the gold set $4.7\times$ (595 items, 104 positive)
+flagship quality at 40\% of the cost. In the deployed cascade the pattern recurs once more: a free
+abstention threshold on the lexical tier (F1 $0.627 \to 0.806$ at 42\% of the calls) beats inserting
+a trained model tier, which a constant-output control ties exactly. Expanding the gold set $4.7\times$ (595 items, 104 positive)
 with adversarially plausible negatives narrows the pipeline-vs-tuned-baseline confidence interval
 from 0.186 to 0.056 wide and preserves the null result, with the point estimate now favouring the
 single agent ($-0.019$, 91\% chance the pipeline is not better) at $2.96\times$ the cost. At that
@@ -168,6 +170,23 @@ leave-fold-out \emph{underperforms} not tuning at all (0.556 vs.\ 0.590) at this
 sample sizes, a tunable knob is a liability, and the 0.071 ``gain'' from tuning on the full set is
 leakage.
 
+\subsection{The deployed cascade: a free abstention knob beats a model tier}
+The shipped tool escalates only cue-uncertain items to the LLM. Does inserting the fine-tuned
+WangchanBERTa as a free middle tier (cue $\to$ WangchanBERTa $\to$ GPT) improve it? Measured offline
+on the 127-item set with leakage-free out-of-fold WangchanBERTa probabilities and cached gpt-4.1-mini
+scores, the outcome splits into a real lever and an inert one. The lever is a free \emph{abstention}
+threshold on the cue tier: letting the lexical model answer only when its combined log-lift exceeds
+$\log 2.46$ (one strong cue) and escalating the rest lifts F1 from 0.627 to \textbf{0.806} while
+paying for 42\% of the calls, above GPT-on-everything (0.746) at under half its cost and stable under
+cross-validation ($0.802 \pm 0.023$). The inert component is the model tier itself: replacing every
+WangchanBERTa decision with the constant ``not sarcastic'' under identical routing yields an
+\emph{identical} 0.806; the middle tier's paired $\Delta$F1 over cue$\to$GPT is 0.000; its answers
+are not seed-stable (0.769 / 0.806 / 0.806 across three seeds); and the confident-negative threshold
+calibrated out-of-fold does not transfer. On ten unseen sentences the deployed model's sarcasm
+probability never falls below 0.37, so the tier fires on none of them. This is a third instance of
+the paper's pattern: a free knob that gates the confidence already present outperforms inserting an
+additional model.
+
 \subsection{Replication at 4.7$\times$ the data}\label{sec:repl}
 
 \begin{table}[h]\centering\small
@@ -254,8 +273,11 @@ transferable part.
 On a task chosen to favor deliberation, multi-agent LLM systems did not separate from a single agent
 that simply reads its own confidence, while costing 1.8--7.4$\times$ more. The result replicated at
 double the data with threefold-tighter intervals. Before adding agents, exhaust the one you have:
-read its confidence, tune with leakage-free protocol, and choose the cheapest sufficient model.
-Architecture is a question to ask after the information already purchased has been spent.
+read its confidence, tune with leakage-free protocol, and choose the cheapest sufficient model. The
+same economy governs a deployed cascade's cheap tiers: a free abstention threshold on the lexical
+screener beat inserting a trained model between it and the LLM, which a constant-output control
+matched exactly. Architecture is a question to ask after the information already purchased has been
+spent.
 
 \begin{thebibliography}{9}\small
 \bibitem{du2023} Du, Y., Li, S., Torralba, A., Tenenbaum, J.~B., and Mordatch, I. (2023).
