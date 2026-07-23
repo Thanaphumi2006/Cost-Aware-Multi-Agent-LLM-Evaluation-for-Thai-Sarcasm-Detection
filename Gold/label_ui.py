@@ -327,7 +327,15 @@ def run_server(port):
 
     @app.get("/")
     def page():
-        return PAGE
+        html = PAGE
+        if "domain" in QUEUES:                          # DOMAIN_LABEL_FILE set -> add its tab and land on it
+            n = len(load("domain")[0])
+            html = html.replace(
+                "<button class=\"tab\" id=\"tab-random\" onclick=\"setQueue('random')\">random (250)</button>",
+                "<button class=\"tab\" id=\"tab-random\" onclick=\"setQueue('random')\">random (250)</button>\n"
+                f"      <button class=\"tab\" id=\"tab-domain\" onclick=\"setQueue('domain')\">domain ({n})</button>")
+            html = html.replace("||'random'", "||'domain'")
+        return html
 
     @app.get("/api/state")
     def api_state():
