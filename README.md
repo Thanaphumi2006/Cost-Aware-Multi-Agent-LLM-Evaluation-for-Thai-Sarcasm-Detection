@@ -15,7 +15,7 @@ What you can access here:
 - **[One-minute visual overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** of what the system does and how each method scored, for readers without an ML background. (Same file: [`overview.html`](overview.html))
 - **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
 - **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo (pictured below).
-- **[Full findings, 1 to 20](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
+- **[Full findings, 1 to 21](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
 
 <details>
 <summary><b>The whole project on one board</b> (click to expand)</summary>
@@ -48,7 +48,8 @@ intervals, not a single lucky run.
 Paste Thai text, get a verdict, **sarcastic / not sarcastic / can't tell**, with the reason shown.
 Or paste a **YouTube / Pantip / Reddit link**: with the local helper running (`python Gold/app.py`,
 which fetches what browsers cannot due to CORS), the page pulls the thread's comments and scores
-them all, free, cue-only, nothing sent to any server.
+them all — free and cue-only by default, with nothing leaving your machine unless you click to
+escalate an unclear comment to the paid model.
 
 ![Live demo: typing three Thai sentences into the detector. A sarcastic review lights up the cues 555 and elongated letters; sincere praise comes back genuine; a bare "อะไรนะ" gets "can't tell" instead of a guess.](docs/demo-typing.gif)
 
@@ -69,21 +70,32 @@ the Python one, currently **12/12**.
 Source: <a href="overview.html">overview.html</a>, open it locally for the live version.
 </details>
 
-Two deliberate differences from the local app. It runs on **lexical cues only**: a fine-tuned
-WangchanBERTa was trained and then cut, because it scored **5/10 on unseen sentences versus 8/10 for
-the cues**, with 127 training examples it memorised the set instead of learning sarcasm
-(see [`space/README.md`](space/README.md) for the numbers). And it answers **"can't tell"** when no
-cue is present rather than guessing, since sarcasm without surface markers is real.
+Two deliberate differences from the local app. It runs on **lexical cues only** (a fine-tuned
+WangchanBERTa can't run in a browser, and in any case it scored **5/10 on unseen sentences versus 8/10
+for the cues** — with 127 training examples it memorised the set instead of learning sarcasm, see
+[`space/README.md`](space/README.md) and finding 21). And it answers **"can't tell"** whenever no
+*strong* cue is present rather than guessing — the cue only commits when its signal clears
+`|score| ≥ log(2.46)`, which is the change that lifts F1 from 0.63 to 0.81 (finding 21). Everything
+weaker is left for the escalation path when you attach the local helper.
 
 ## The interactive app (local, with GPT)
 
-Run it locally with `python Gold/app.py` (see [Run it](#run-it)) and open the doodle-styled page at
-`http://127.0.0.1:5000/app`. This is the full version *with* the paid GPT path, it binds to
-`127.0.0.1` on purpose, because an API-key box on a public URL is a way for strangers to spend your
-money. You can:
+Run it locally with `python Gold/app.py` (see [Run it](#run-it)); it binds to `127.0.0.1` on purpose,
+because an API-key box on a public URL is a way for strangers to spend your money. Two pages:
 
-- **Paste Thai text or a link** (YouTube, Pantip, Reddit) and get a clear sarcasm / not-sarcasm verdict with a
-  confidence bar.
+**`/app` — the clean demo** (the same [`app.html`](app.html) that's hosted on GitHub Pages, served locally so
+links and GPT work). It runs a **cost-aware cascade**, drawn as a little hand-drawn animation on the page:
+
+1. **cue** (free, in your browser) answers only when a surface signal is *strong enough* (`|score| ≥ log(2.46)`);
+2. **WangchanBERTa** (free, on your machine) clears items it's confident aren't sarcastic;
+3. **gpt-4.1-mini** (paid) is called only for what both free tiers couldn't settle.
+
+The cue cut-off in step 1 is the measured win (F1 0.63 → 0.81 at ~42% of the LLM cost, finding 21); steps 2–3 are
+the escalation path, and each tier degrades gracefully — no helper falls back to cue-only, no key falls back to
+"can't tell". Paste Thai text or a **YouTube / Pantip / Reddit** link and every comment runs the same cascade.
+
+**`/` — the developer page**, for comparing systems side by side. You can:
+
 - **Pick a helper model,** each drawn as a little character: a fast cheap one, a thorough expensive one, a two-agent
   team (with an animated workflow), and the free offline model.
 - **Teach it when it is wrong.** Press "wrong" on a result and the correction sticks: it is saved, and used to get
@@ -117,7 +129,7 @@ range stays inside a 0.05 F1 band, with the best score belonging to one of the c
 (gpt-4.1-mini, F1 0.727, $0.015) is statistically tied with the flagship two-agent pipeline (gpt-4o, F1 0.744, $0.169)
 at **one eleventh of the cost.**
 
-Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 20).
+Full numbers, confidence intervals, and McNemar counts are in **[`Gold/RESULTS.md`](Gold/RESULTS.md)** (findings 1 to 21).
 
 **Replicated at 4.7x the data (finding 19).** The gold set was later expanded to 595 items
 (104 sarcastic, labeled blind via `Gold/label_ui.py`) and the core systems re-run. Two results:
@@ -153,7 +165,8 @@ This is the part I care about most, and the part that makes the result more than
 - **Confidence intervals everywhere.** With only 30 sarcastic examples, a bare number is meaningless. Every claim
   carries an interval, and I say plainly when the data cannot resolve a difference.
 - **I report what does not work.** The cascade idea (a free model screening for the expensive one) failed, and it is
-  written up as a finding, not hidden.
+  written up as a finding, not hidden (finding 6, and re-measured one tier deeper in finding 21, where a free-constant
+  control ties the WangchanBERTa tier exactly).
 
 ## Honest limitations (read before citing anything)
 
@@ -216,12 +229,15 @@ Gold/
   compare_systems.py     paired bootstrap + McNemar
   predict.py             the deployable tool (the research conclusion, packaged up)
   app.py                 the web demo (developer page at /, doodle user page at /app)
+  cascade_eval.py        finding 21: offline eval of the cue → WCB → LLM cascade (free, no API)
+  cue_cutoff_cv.py       finding 21: cross-validated cue cut-off, the F1 0.63 → 0.81 win (free)
+  wcb_calibration_check.py  finding 21: shows the deployed WCB tier's threshold doesn't transfer
   eval_domain.py         measure the model on any labeled domain, with confidence intervals
   gold_v2.csv            the expanded 302-item hard set (67 sarcastic)
   label_ui.py            keyboard labeling tool (harvest / batch400 / random queues)
   random_to_label.csv    250 uniformly random texts, unlabeled, for honest absolute scores
   gold_random.csv        250 uniformly random texts, human-labeled: the honest 4.9%-sarcastic test set
-  RESULTS.md             the full write-up, findings 1 to 20
+  RESULTS.md             the full write-up, findings 1 to 21
 dataset/
   README.md              Hugging Face dataset card for the gold set (two splits)
   upload_hf.py           builds the splits and uploads them (needs huggingface-cli login)

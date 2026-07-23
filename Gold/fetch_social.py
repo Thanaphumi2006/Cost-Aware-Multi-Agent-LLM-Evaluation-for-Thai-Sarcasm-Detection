@@ -27,6 +27,11 @@ class UnsupportedError(Exception):
     """this platform comments are not freely accessible (needs login / paid API)"""
 
 
+class FetchError(Exception):
+    """a supported platform (YouTube/Pantip/Reddit) that failed for a fixable reason
+    (missing yt-dlp, network hiccup, 403, comments off) -- NOT a login/paid-API wall"""
+
+
 def is_thai(s, min_thai=3):
     return len(THAI.findall(s)) >= min_thai
 
@@ -43,12 +48,39 @@ def _get(url, extra=None):
 
 
 # ---------- YouTube ----------
+# YouTube now gates playback behind a Proof-of-Origin (PO) token: without one, every
+# client returns UNPLAYABLE / "The page needs to be reloaded". The fix is (a) use the
+# "web" client, which consumes a PO token, and (b) run a local PO-token provider
+# (bgutil, on 127.0.0.1:4416) that yt-dlp's bundled plugin talks to automatically.
+POT_URL = "http://127.0.0.1:4416/ping"
+
+
+def _pot_provider_up():
+    try:
+        urllib.request.urlopen(POT_URL, timeout=2)
+        return True
+    except Exception:
+        return False
+
+
 def fetch_youtube(url, limit):
-    import yt_dlp
+    try:
+        import yt_dlp
+    except ImportError:
+        raise FetchError("YouTube needs yt-dlp -- run: pip install yt-dlp")
     opts = {"getcomments": True, "skip_download": True, "quiet": True, "no_warnings": True,
-            "extractor_args": {"youtube": {"comment_sort": ["top"], "max_comments": [str(limit * 3)]}}}
-    with yt_dlp.YoutubeDL(opts) as y:
-        info = y.extract_info(url, download=False)
+            "ignore_no_formats_error": True,        # we only want comments -> don't fail if no video format is offered
+            "extractor_args": {"youtube": {"player_client": ["web"],       # the client that uses a PO token
+                                           "comment_sort": ["top"], "max_comments": [str(limit * 3)]}}}
+    try:
+        with yt_dlp.YoutubeDL(opts) as y:
+            info = y.extract_info(url, download=False)
+    except Exception:
+        # the usual cause today is a missing PO token -> point the user at the helper instead of a bare error
+        if not _pot_provider_up():
+            raise FetchError("YouTube needs the PO-token helper running (bgutil on port 4416). "
+                             "Pantip works without it.")
+        raise
     return [c.get("text", "") for c in (info.get("comments") or [])]
 
 
@@ -56,7 +88,7 @@ def fetch_youtube(url, limit):
 def fetch_pantip(url, limit):
     m = re.search(r"pantip\.com/topic/(\d+)", url)
     if not m:
-        raise UnsupportedError("Pantip: the link must be pantip.com/topic/<number>")
+        raise FetchError("Pantip: the link must be pantip.com/topic/<number>")
     tid = m.group(1)
     out = []
 
@@ -73,7 +105,7 @@ def fetch_pantip(url, limit):
                                     "Referer": f"https://pantip.com/topic/{tid}"}).read().decode("utf-8-sig"))
         except Exception as e:
             if page == 1:
-                raise UnsupportedError(f"Pantip: {type(e).__name__}")
+                raise FetchError(f"Pantip: {type(e).__name__}")
             break
         coms = d.get("comments") or []
         if not coms:
@@ -140,13 +172,13 @@ def fetch_any(url, limit=80):
     plat = platform_of(url)
     fn = _FETCHERS.get(plat)
     if fn is None:
-        raise UnsupportedError(plat)          # twitter/instagram/tiktok/facebook/other
+        raise UnsupportedError(plat)          # twitter/instagram/tiktok/facebook/other: login/paid-API wall
     try:
         raw = fn(url, limit)
-    except UnsupportedError:
+    except (UnsupportedError, FetchError):
         raise
-    except Exception as e:
-        raise UnsupportedError(f"{plat}: {type(e).__name__}")
+    except Exception as e:                    # supported platform, fixable failure -> not a login wall
+        raise FetchError(f"{plat}: {type(e).__name__}")
 
     seen, out = set(), []
     for c in raw:

@@ -22,6 +22,7 @@ import time
 import pandas as pd
 from flask import Flask, jsonify, render_template_string, request
 
+import envload  # noqa: F401  -- loads OPENAI_API_KEY from .env on import (so escalation works with no manual export)
 import baseline
 import multiagent
 import multiagent_debate
@@ -31,6 +32,9 @@ from baseline import PRICE_PER_MTOK, metrics
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 WCB_DIR = os.path.join(HERE, "wcb_model")
+WCB_NEG = 0.17    # cascade tier 2: below this P(sarcastic), WangchanBERTa answers "not sarcastic" for free.
+                  # derived from the out-of-fold probs -- every gold item it answers under this cut is a true 0.
+                  # there is deliberately no upper cut: WCB is never confidently *sarcastic* (cascade_eval.py)
 IN_P, OUT_P = PRICE_PER_MTOK["gpt"]
 
 app = Flask(__name__)
@@ -188,6 +192,15 @@ def run_hybrid(text):
             "detect": r["detect"], "pros": r["pros"], "defe": r["defe"],
             "judge": r["judge"], "skipped": skipped,
             "flipped": (r["detect"] == "1" and r["pred"] == "0"), "err": r["err"]}
+
+
+def wcb_prob(text):
+    """P(sarcastic) from the deployed WangchanBERTa -- the middle tier of the cascade.
+    run_wcb() returns only the winning class's confidence; the router needs the sarcastic side."""
+    tok, mdl, torch = wcb()
+    with torch.no_grad():
+        enc = tok([text], truncation=True, padding=True, max_length=256, return_tensors="pt")
+        return float(torch.softmax(mdl(**enc).logits[0], -1)[1])
 
 
 def run_wcb(text):
@@ -359,13 +372,14 @@ def api_batch():
 
 
 # lets a static page (GitHub Pages / opened directly) call this machine's helper
-# enable CORS for this one endpoint only -- just "fetch comments", never touches the key/model
+# enabled only for the two "public demo" endpoints: fetch comments, and escalate one unsure text to the cheap LLM
 _FETCH_ORIGINS = {"https://thanaphumi2006.github.io", "null"}
+_CORS_PATHS = {"/api/fetch_comments", "/api/escalate"}
 
 
 @app.after_request
 def _fetch_cors(resp):
-    if request.path == "/api/fetch_comments":
+    if request.path in _CORS_PATHS:
         origin = request.headers.get("Origin", "")
         if origin in _FETCH_ORIGINS or origin.startswith("http://127.0.0.1") or origin.startswith("http://localhost"):
             resp.headers["Access-Control-Allow-Origin"] = origin
@@ -392,12 +406,62 @@ def api_fetch_comments():
     try:
         comments, plat = fs.fetch_any(url, limit)
     except fs.UnsupportedError:
-        return jsonify({"error": "แพลตฟอร์มนี้ดึงอัตโนมัติไม่ได้ (ต้องล็อกอิน/เสียเงิน API)"}), 422
+        return jsonify({"error": "แพลตฟอร์มนี้ดึงอัตโนมัติไม่ได้ (ต้องล็อกอิน/เสียเงิน API) "
+                                 "รองรับเฉพาะ YouTube · Pantip · Reddit"}), 422
+    except fs.FetchError as e:                      # supported platform, fixable reason -> show the real cause
+        return jsonify({"error": str(e)}), 502      # (the page already prefixes "ดึงคอมเมนต์ไม่สำเร็จ:")
     except Exception as e:
-        return jsonify({"error": f"ดึงไม่สำเร็จ: {type(e).__name__}"}), 502
+        return jsonify({"error": f"{type(e).__name__}"}), 502
     if not comments:
         return jsonify({"error": "ไม่พบคอมเมนต์ภาษาไทยจากลิงก์นี้"}), 404
     return jsonify({"comments": comments, "platform": plat})
+
+
+@app.route("/api/escalate", methods=["POST", "OPTIONS"])
+def api_escalate():
+    """cost-aware cascade, tiers 2 and 3. Tier 1 (the lexical cue model) already ran in the browser and
+    was UNSURE about this text, so it lands here:
+        tier 2  WangchanBERTa on this machine -- free, offline, and only allowed to say "not sarcastic"
+        tier 3  gpt-4.1-mini  -- the paid model, reached only by what survived both free tiers
+    only the uncertain minority reaches tier 3, so the paid model is used sparingly -- the core idea of the research.
+    degrades gracefully at every step: no model / no key / any error -> {available: false} and the page
+    simply keeps its free 'บอกไม่ได้' answer."""
+    if request.method == "OPTIONS":
+        return "", 204
+    text = str((request.json or {}).get("text", "")).strip()
+    if not text:
+        return jsonify({"error": "empty"}), 400
+    corr = _corr_map()
+    if text in corr:                                    # a human already corrected this exact text -> trust it
+        lab = corr[text]
+        return jsonify({"available": True, "label": lab, "decision": _dec(lab),
+                        "prob": 1.0 if lab == "1" else 0.0, "by": "human"})
+
+    # --- tier 2: WangchanBERTa as a one-sided negative filter (free, offline) ---
+    # measured on the leak-free out-of-fold probs (see cascade_eval.py): the only region where WCB is
+    # confidently right is the low end -- every item it answers below WCB_NEG is a true "not sarcastic".
+    # it is never confidently sarcastic, so there is no upper cut-off. everything else falls through to the LLM.
+    if has_wcb():
+        try:
+            pw = wcb_prob(text)
+            if pw < WCB_NEG:
+                return jsonify({"available": True, "label": "0", "decision": "not_sarcasm",
+                                "prob": pw, "by": "WangchanBERTa (ฟรี)", "tier": "wcb"})
+        except Exception:
+            pass                                        # model missing/broken -> just fall through to the LLM
+
+    # --- tier 3: the paid LLM, only for what survived both free tiers ---
+    if not _api_key:                                    # WCB deferred but there is no key -> stay cue-only
+        return jsonify({"available": False, "reason": "no_key"})
+    gerr = _guard(1, request.remote_addr)               # remote users are rate-limited; localhost is unlimited
+    if gerr:
+        return jsonify({"available": False, "reason": "quota", "error": gerr})
+    try:
+        r = _classify("balanced", text)                 # one gpt-4.1-mini call w/ logprobs -> P(sarcastic)
+    except Exception as e:
+        return jsonify({"available": False, "reason": "error", "error": type(e).__name__})
+    return jsonify({"available": True, "label": r.get("label"), "decision": r.get("decision"),
+                    "prob": r.get("prob"), "by": MODEL_LABEL["balanced"]})
 
 
 @app.route("/api/youtube", methods=["POST"])
@@ -426,6 +490,8 @@ def api_youtube():
         return jsonify({"error": f"ดึงจาก {plat} อัตโนมัติไม่ได้ (แพลตฟอร์มนี้ต้องล็อกอิน/เสียเงิน API) "
                                  f"ก๊อปคอมเมนต์มาวางในแท็บ “อัปโหลดไฟล์” แทน (ใช้ได้กับทุกแพลตฟอร์ม)",
                         "paste_hint": True}), 422
+    except fs.FetchError as e:                      # supported platform, fixable reason -> show the real cause
+        return jsonify({"error": f"ดึงจาก {plat} ไม่สำเร็จ: {e}"}), 502
     except Exception as e:
         return jsonify({"error": f"ดึงไม่สำเร็จ: {type(e).__name__}"}), 502
     if not comments:
@@ -529,9 +595,10 @@ def index():
 
 @app.route("/app")
 def public_app():
-    """page for general users: clean, simple, one clear result (no research extras)
-    uses the same backend as the / page (predict.py + the existing endpoints)"""
-    return render_template_string(PUBLIC_PAGE, has_key=bool(_api_key))
+    """page for general users: serves the exact same demo published on GitHub (app.html)
+    one text-or-link box, cue-only scoring in the browser; links are fetched via /api/fetch_comments"""
+    with open(os.path.join(HERE, "..", "app.html"), encoding="utf-8") as f:
+        return f.read()
 
 
 PAGE = r"""
@@ -1077,533 +1144,6 @@ function dlCSV(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='sarcasm_predictions.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
-</script>
-</div></body></html>
-"""
-
-
-# ================= page for general users (/app), clean, single result =================
-PUBLIC_PAGE = r"""
-<!doctype html><html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ประชดหรือเปล่า?</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --paper:#fbf4e4; --card:#fffdf7; --ink:#34302a; --ink2:#6b6357; --dot:#ece0c6;
-  --blue:#4a86e8; --yellow:#ffd84d; --yellow-d:#f2c33a;
-  --sar:#e2593f; --sar-bg:#ffe7e1; --not:#38a05d; --not-bg:#e3f4e9;
-  --disp:'Itim','Comic Sans MS',cursive; --body:'Mali','Comic Sans MS',cursive;
-}
-*{box-sizing:border-box}
-body{margin:0;color:var(--ink);font-family:var(--body);line-height:1.6;-webkit-font-smoothing:antialiased;
-  background-color:var(--paper);
-  background-image:radial-gradient(var(--dot) 1.6px,transparent 1.6px);background-size:24px 24px}
-.wrap{max-width:640px;margin:0 auto;padding:clamp(26px,7vw,58px) clamp(16px,4vw,24px) 90px}
-/* ---- doodle primitives ---- */
-.box{background:var(--card);border:2.6px solid var(--ink);
-  border-radius:255px 14px 225px 16px/16px 225px 15px 255px;
-  box-shadow:5px 5px 0 var(--ink)}
-.box.alt{border-radius:14px 235px 16px 225px/220px 15px 235px 16px}
-h1{font-family:var(--disp);font-size:clamp(38px,10vw,62px);margin:0;text-align:center;line-height:1;
-  color:var(--ink);letter-spacing:.5px}
-.squiggle{display:block;width:min(300px,72%);height:20px;margin:2px auto 0}
-.tag{font-family:var(--body);color:var(--ink2);text-align:center;margin:14px auto 0;max-width:34ch;
-  font-size:clamp(15px,3.4vw,18px)}
-.shared{font-family:var(--body);font-size:13px;color:var(--ink);text-align:center;margin:12px auto 0;
-  max-width:fit-content;background:var(--yellow);border:2.2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
-  border-radius:14px 8px 14px 8px;padding:6px 14px;display:none}
-.shared.on{display:block}
-.spark{position:absolute;pointer-events:none}
-.head{position:relative}
-.pick-title{font-family:var(--disp);font-size:clamp(19px,4.5vw,23px);text-align:center;color:var(--ink);margin-top:34px}
-.models{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-.model{background:var(--card);cursor:pointer;text-align:center;font-family:var(--body);
-  border:2.6px solid var(--ink);border-radius:225px 16px 255px 14px/14px 255px 16px 225px;
-  box-shadow:4px 4px 0 var(--ink);padding:16px 10px 13px;transition:transform .09s,box-shadow .09s,border-color .09s}
-.model:nth-child(2){border-radius:16px 225px 14px 255px/255px 14px 225px 16px}
-.model .mascot{width:66px;height:66px}
-.model .mname{font-family:var(--disp);font-size:20px;margin-top:5px;color:var(--ink);line-height:1.1}
-.model .mdesc{font-size:12.5px;color:var(--ink2);margin-top:2px}
-.model:not(.sel):hover{background:#fffdf0;transform:translateY(-2px)}
-.model.sel{border-color:var(--blue);box-shadow:5px 6px 0 var(--blue);transform:translateY(-3px) rotate(-1deg)}
-.model .tick{font-family:var(--body);font-weight:700;font-size:12px;color:var(--blue);height:14px;margin-top:5px}
-.panel{padding:clamp(20px,4.5vw,30px);margin-top:20px}
-/* ---- multi-agent workflow animation ---- */
-.flowbox{margin-top:16px;padding:20px 12px;text-align:center}
-.flowrow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:nowrap}
-.node{flex:none;width:104px;padding:12px 8px;background:var(--card);border:2.6px solid var(--ink);
-  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;box-shadow:3px 3px 0 var(--ink)}
-.node .nface{width:40px;height:40px}
-.node .nname{font-family:var(--disp);font-size:14px;color:var(--ink);line-height:1.15;margin-top:3px}
-.node .nsay{font-family:var(--body);font-size:12px;margin-top:4px;min-height:16px;color:var(--ink2)}
-.node.work{border-color:var(--blue);box-shadow:3px 3px 0 var(--blue);animation:bob .6s ease-in-out infinite}
-.node.done1{border-color:var(--sar);box-shadow:3px 3px 0 var(--sar)} .node.done1 .nsay{color:var(--sar);font-weight:700}
-.node.done0{border-color:var(--not);box-shadow:3px 3px 0 var(--not)} .node.done0 .nsay{color:var(--not);font-weight:700}
-.node.skip{opacity:.5;border-style:dashed}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-.wire{position:relative;flex:none;width:46px;height:26px}
-.wire svg{position:absolute;inset:0;width:100%;height:100%}
-.packet{position:absolute;top:7px;left:0;width:11px;height:11px;border-radius:50%;background:var(--yellow);
-  border:2px solid var(--ink)}
-.wire.run .packet{animation:fly 1s linear infinite}
-@keyframes fly{0%{left:-2px;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:38px;opacity:0}}
-.flowcap{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:14px;min-height:18px}
-.miniflow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-family:var(--body);font-size:12.5px}
-.chip{padding:3px 9px;border:2px solid var(--ink);border-radius:10px 6px 10px 6px;background:#fff}
-.chip.s1{background:var(--sar-bg);color:var(--sar)} .chip.s0{background:var(--not-bg);color:var(--not)}
-.chip.skip{opacity:.55;border-style:dashed}
-.arrowc{color:var(--ink2);font-weight:700}
-label,.hint{font-family:var(--body)}
-textarea,input[type=text],input[type=password]{width:100%;padding:15px;font-family:var(--body);font-size:16px;
-  color:var(--ink);background:#fffef9;border:2.4px dashed var(--ink);border-radius:18px 10px 20px 10px/10px 20px 10px 18px}
-textarea{min-height:110px;resize:vertical}
-input:focus,textarea:focus{outline:none;border-style:solid;border-color:var(--blue);box-shadow:3px 3px 0 var(--blue)}
-.hint{font-size:13.5px;color:var(--ink2);margin:9px 4px 0}
-.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
-button{font-family:var(--disp);cursor:pointer;border:2.6px solid var(--ink);color:var(--ink);
-  padding:12px 24px;font-size:18px;border-radius:16px 9px 18px 9px/9px 18px 9px 16px;
-  box-shadow:3px 3px 0 var(--ink);transition:transform .05s,box-shadow .05s}
-button:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
-.go{background:var(--yellow);flex:1;min-width:150px} .go:hover{background:var(--yellow-d)}
-.go:disabled{opacity:.6;cursor:wait}
-.file{font-family:var(--body);font-size:13px;color:var(--ink2)}
-.file::file-selector-button{font-family:var(--body);border:2.2px solid var(--ink);background:#fff;
-  border-radius:12px 7px 12px 7px;padding:7px 12px;cursor:pointer;box-shadow:2px 2px 0 var(--ink);margin-right:8px}
-/* ---- results ---- */
-.result{margin-top:14px;padding:18px 20px;background:var(--card);border:2.6px solid var(--ink);
-  border-radius:225px 16px 255px 14px/14px 255px 16px 225px;box-shadow:4px 4px 0 var(--ink)}
-.result:nth-child(even){border-radius:16px 225px 14px 255px/255px 14px 225px 16px;transform:rotate(-.5deg)}
-.result:nth-child(odd){transform:rotate(.4deg)}
-.verdict{display:flex;align-items:center;gap:11px;font-family:var(--disp);font-size:26px}
-.dot{width:16px;height:16px;border-radius:50%;border:2.4px solid var(--ink);flex:none}
-.sar .dot{background:var(--sar)} .notx .dot{background:var(--not)}
-.sar .verdict,.sar.verdict{color:var(--sar)} .notx .verdict,.notx.verdict{color:var(--not)}
-.txt{font-size:16px;color:var(--ink);margin:10px 0 0}
-.meter{height:12px;border-radius:8px;background:#fff;border:2.2px solid var(--ink);overflow:hidden;margin-top:14px}
-.meter>span{display:block;height:100%}
-.conf{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:7px;display:flex;justify-content:space-between}
-.rowline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
-.pill{font-family:var(--disp);display:inline-block;padding:5px 15px;font-size:15px;border:2.4px solid var(--ink);
-  border-radius:16px 8px 16px 8px/8px 16px 8px 16px;box-shadow:2px 2px 0 var(--ink)}
-.pill.sar{background:var(--sar-bg);color:var(--sar)} .pill.notx{background:var(--not-bg);color:var(--not)}
-.wrongbtn{font-family:var(--body);font-weight:600;padding:6px 13px;font-size:13px;background:#fff;color:var(--ink);
-  border:2.2px solid var(--ink);border-radius:12px 7px 12px 7px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
-.wrongbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
-.learned{font-family:var(--body);color:var(--not);font-weight:700;font-size:13.5px}
-.fbtns{display:inline-flex;gap:6px}
-.fbtn{font-family:var(--body);font-weight:700;font-size:12px;padding:5px 13px;border:2.2px solid var(--ink);
-  border-radius:11px 6px 11px 6px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
-.fbtn.yes{background:var(--not-bg);color:var(--not)} .fbtn.no{background:var(--sar-bg);color:var(--sar)}
-.fbtn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
-.warn{font-family:var(--body);font-size:14px;color:#8a3320;background:var(--sar-bg);border:2.4px solid var(--sar);
-  border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--sar)}
-.ok{font-family:var(--body);font-size:14px;color:var(--not);background:var(--not-bg);border:2.4px solid var(--not);
-  border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--not)}
-.keybar{padding:16px 18px;margin-top:24px}
-.keybar .actions{margin-top:12px}
-.keybar button{font-size:16px;padding:10px 18px}
-.pagerow{display:flex;justify-content:center;gap:12px;align-items:center;margin-top:20px}
-.pagerow button{background:#fff;font-size:15px;padding:9px 16px}
-.pagerow button:disabled{opacity:.4;cursor:default;box-shadow:1px 1px 0 var(--ink)}
-.sp{display:inline-block;width:15px;height:15px;border:2.4px solid var(--ink);border-top-color:transparent;
-  border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:8px}
-@keyframes s{to{transform:rotate(360deg)}}
-.foot{font-family:var(--body);text-align:center;color:var(--ink2);font-size:13px;margin-top:36px}
-.note{font-family:var(--body);font-size:13.5px;color:var(--ink2);text-align:center;margin-top:18px;
-  max-width:40ch;margin-left:auto;margin-right:auto}
-/* ---- research panel (toggle) ---- */
-.rbtn{display:block;margin:28px auto 0;background:#fff}
-.research{display:none;margin-top:16px;padding:clamp(18px,4vw,26px)}
-.research.show{display:block}
-.rh{font-family:var(--disp);font-size:20px;color:var(--ink);margin:20px 0 5px}
-.rh:first-child{margin-top:0}
-.rp{font-family:var(--body);font-size:14px;color:var(--ink);text-wrap:pretty}
-.rtable{width:100%;border-collapse:collapse;font-family:var(--body);font-size:13.5px;margin-top:4px}
-.rtable th,.rtable td{padding:8px 9px;border-bottom:2px dashed var(--ink);text-align:right}
-.rtable th:first-child,.rtable td:first-child{text-align:left}
-.rtable th{font-family:var(--disp);font-size:15px;color:var(--ink)}
-.rtable tr.hi td{background:var(--yellow)}
-.rlist{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:10px}
-.rlist li{font-family:var(--body);font-size:14px;padding-left:23px;position:relative;color:var(--ink);text-wrap:pretty}
-.rlist li::before{content:"";position:absolute;left:2px;top:8px;width:9px;height:9px;border-radius:50%;
-  background:var(--blue);border:2px solid var(--ink)}
-.rlist.warn-list li::before{background:var(--sar)}
-.rsrc{font-family:var(--body);font-size:13px;color:var(--ink2);margin-top:18px;text-align:center}
-/* visual bars */
-.bars{margin-top:6px}
-.brow{display:flex;align-items:center;gap:9px;margin-top:10px}
-.bname{flex:0 0 40%;font-family:var(--body);font-size:12.5px;text-align:right;line-height:1.15}
-.btrack{flex:1;height:21px;background:#fff;border:2.4px solid var(--ink);border-radius:11px 6px 11px 6px;overflow:hidden}
-.bfill{height:100%;border-right:2.4px solid var(--ink)}
-.bval{flex:0 0 auto;font-family:var(--disp);font-size:14px;min-width:40px;text-align:left}
-.bscale{font-family:var(--body);font-size:11px;color:var(--muted,#93a0b0);text-align:right;margin-top:6px}
-/* versus hero */
-.vs{display:flex;align-items:stretch;gap:9px;margin-top:8px}
-.vscard{flex:1;background:#fff;border:2.6px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
-  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;padding:14px 8px;text-align:center}
-.vscard.win{background:var(--yellow)}
-.vmasc{width:46px;height:46px}
-.vsname{font-family:var(--disp);font-size:15px;margin-top:2px;line-height:1.1}
-.vsf1{font-family:var(--disp);font-size:24px;margin-top:5px}
-.vscost{font-family:var(--body);font-size:12px;color:var(--ink2);margin-top:2px}
-.vscard.win .vscost{color:#8a6d1a;font-weight:700}
-.vsmid{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;padding:0 2px}
-.vseq{font-family:var(--disp);font-size:28px;color:var(--ink);line-height:1}
-.vseqt{font-family:var(--body);font-size:10.5px;color:var(--ink2);max-width:58px;line-height:1.2;margin-top:2px}
-</style></head><body><div class="wrap">
-
-<div class="head">
-  <svg class="spark" style="left:6%;top:-6px;width:34px;height:34px" viewBox="0 0 40 40"><path d="M20 3 L23 16 L36 20 L23 24 L20 37 L17 24 L4 20 L17 16 Z" fill="none" stroke="#f2c33a" stroke-width="2.6" stroke-linejoin="round"/></svg>
-  <svg class="spark" style="right:8%;top:18px;width:26px;height:26px" viewBox="0 0 40 40"><path d="M20 5 L23 17 L35 20 L23 23 L20 35 L17 23 L5 20 L17 17 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/></svg>
-  <h1>ประชดหรือเปล่า?</h1>
-  <svg class="squiggle" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 Q 38 3 74 12 T 148 12 T 222 12 T 297 10" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round"/></svg>
-  <p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วมาดูกันว่า “ประชด” ไหม</p>
-  <div class="shared" id="shared"></div>
-</div>
-
-{% if not has_key %}
-<div class="box keybar alt">
-  <div class="hint" style="margin:0;font-size:15px">ใส่ OpenAI API key ครั้งเดียวเพื่อเริ่มเล่น</div>
-  <div class="actions">
-    <input type="password" id="k" placeholder="sk-..." autocomplete="off" style="flex:1">
-    <button id="ksave" onclick="saveKey()" style="background:#fff">บันทึก</button>
-  </div>
-  <div id="kmsg"></div>
-</div>
-{% endif %}
-
-<div class="pick-title">เลือกผู้ช่วยของคุณ</div>
-<div class="models">
-  <button class="model sel" data-op="balanced" onclick="pickModel('balanced',this)">
-    <svg class="mascot" viewBox="0 0 72 72">
-      <path d="M20 22 L15 7 L31 18 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M52 22 L57 7 L41 18 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/>
-      <circle cx="36" cy="39" r="22" fill="#ffd84d" stroke="#34302a" stroke-width="2.6"/>
-      <circle cx="28" cy="37" r="3" fill="#34302a"/><circle cx="44" cy="37" r="3" fill="#34302a"/>
-      <path d="M32 45 Q36 49 40 45" fill="none" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M8 39 L23 41 M10 45 L24 45" stroke="#34302a" stroke-width="2" stroke-linecap="round"/>
-      <path d="M64 39 L49 41 M62 45 L48 45" stroke="#34302a" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-    <div class="mname">น้องแมวไว</div>
-    <div class="mdesc">เร็ว ประหยัด</div>
-    <div class="tick">กำลังใช้</div>
-  </button>
-  <button class="model" data-op="high_recall" onclick="pickModel('high_recall',this)">
-    <svg class="mascot" viewBox="0 0 72 72">
-      <path d="M23 15 L18 5 L29 13 Z" fill="#bcd7f7" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M49 15 L54 5 L43 13 Z" fill="#bcd7f7" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M36 11 C55 11 58 30 56 44 C54 59 46 63 36 63 C26 63 18 59 16 44 C14 30 17 11 36 11 Z" fill="#d6e8fb" stroke="#34302a" stroke-width="2.6"/>
-      <circle cx="27" cy="34" r="10" fill="#fff" stroke="#34302a" stroke-width="2.4"/>
-      <circle cx="45" cy="34" r="10" fill="#fff" stroke="#34302a" stroke-width="2.4"/>
-      <circle cx="27" cy="34" r="3.4" fill="#34302a"/><circle cx="45" cy="34" r="3.4" fill="#34302a"/>
-      <path d="M36 34 L35.5 34" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M32 44 L36 51 L40 44 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/>
-    </svg>
-    <div class="mname">คุณนกฮูก</div>
-    <div class="mdesc">ละเอียด จับครบ</div>
-    <div class="tick"></div>
-  </button>
-  <button class="model" data-op="multiagent" onclick="pickModel('multiagent',this)">
-    <svg class="mascot" viewBox="0 0 72 72">
-      <circle cx="25" cy="35" r="15" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4"/>
-      <circle cx="21" cy="33" r="2.3" fill="#34302a"/><circle cx="29" cy="33" r="2.3" fill="#34302a"/>
-      <path d="M21 40 Q25 43 29 40" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
-      <circle cx="12" cy="47" r="5" fill="none" stroke="#34302a" stroke-width="2.2"/><line x1="15.5" y1="50.5" x2="19" y2="54" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
-      <circle cx="48" cy="35" r="15" fill="#a8e0c0" stroke="#34302a" stroke-width="2.4"/>
-      <circle cx="44" cy="33" r="2.3" fill="#34302a"/><circle cx="52" cy="33" r="2.3" fill="#34302a"/>
-      <path d="M44 40 Q48 43 52 40" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M55 45 L59 49 L65 41" fill="none" stroke="#38a05d" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div class="mname">คู่หูสองตรวจ</div>
-    <div class="mdesc">คัดกรอง แล้วตรวจซ้ำ</div>
-    <div class="tick"></div>
-  </button>
-  <button class="model" data-op="wangchanberta" onclick="pickModel('wangchanberta',this)">
-    <svg class="mascot" viewBox="0 0 72 72">
-      <line x1="36" y1="15" x2="36" y2="7" stroke="#34302a" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="36" cy="6" r="3.4" fill="#ffd84d" stroke="#34302a" stroke-width="2.2"/>
-      <rect x="15" y="16" width="42" height="35" rx="11" fill="#cfe3f5" stroke="#34302a" stroke-width="2.6"/>
-      <rect x="9" y="28" width="6" height="11" rx="2" fill="#cfe3f5" stroke="#34302a" stroke-width="2.2"/>
-      <rect x="57" y="28" width="6" height="11" rx="2" fill="#cfe3f5" stroke="#34302a" stroke-width="2.2"/>
-      <circle cx="28" cy="31" r="4.2" fill="#34302a"/><circle cx="44" cy="31" r="4.2" fill="#34302a"/>
-      <rect x="26" y="40" width="20" height="5" rx="2.5" fill="none" stroke="#34302a" stroke-width="2.2"/>
-    </svg>
-    <div class="mname">น้องหุ่นไทย</div>
-    <div class="mdesc">ฟรี ไม่ต้องต่อเน็ต</div>
-    <div class="tick"></div>
-  </button>
-</div>
-
-<div class="box panel">
-  <textarea id="inp" placeholder="พิมพ์หรือวางข้อความตรงนี้ (หลายบรรทัดก็ได้) หรือวางลิงก์ YouTube / Pantip / Reddit"></textarea>
-  <div class="hint">วางลิงก์ = ดึงคอมเมนต์มาตรวจให้ · หลายบรรทัด = ตรวจทีละบรรทัด</div>
-  <div class="actions">
-    <button class="go" id="go" onclick="analyze()">ตรวจเลย!</button>
-    <input type="file" id="file" accept=".csv,.txt" class="file">
-  </div>
-  <div id="out"></div>
-</div>
-
-<p class="note">ผลลัพธ์เป็น “การเดา” ของ AI ไม่ใช่คำตัดสินสุดท้าย เห็นว่าผิดก็กด “ตัดสินผิด” ช่วยให้มันเก่งขึ้นได้</p>
-<button class="rbtn" onclick="toggleResearch(this)">ดูเบื้องหลังงานวิจัย</button>
-<div class="research box" id="research">
-  <div class="rh">โปรเจกต์นี้ศึกษาอะไร</div>
-  <div class="rp">คำถาม: ใช้ AI หลายตัวช่วยกัน (multi-agent) คุ้มกว่า AI ตัวเดียวไหม สำหรับงานตรวจจับประชดภาษาไทย
-    วัด 4 อย่างพร้อมกัน คือ ความแม่น (F1), ราคา, เวลา, และจำนวนครั้งที่เรียก AI บนข้อมูลชุดเดียวกัน 127 ข้อ
-    (เป็นประชดจริง 30 ข้อ) เทียบด้วยสถิติแบบ paired bootstrap และ McNemar</div>
-
-  <div class="rh">หัวใจของงานวิจัย</div>
-  <div class="rp" style="margin-bottom:8px">AI ตัวเดียวที่ถูกกว่า ทำได้พอๆ กับ AI 2 ตัวที่แพงกว่า</div>
-  <div class="vs">
-    <div class="vscard win">
-      <svg class="vmasc" viewBox="0 0 72 72"><path d="M20 22 L15 7 L31 18 Z" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/><path d="M52 22 L57 7 L41 18 Z" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4" stroke-linejoin="round"/><circle cx="36" cy="39" r="21" fill="#ffd1a8" stroke="#34302a" stroke-width="2.6"/><circle cx="28" cy="37" r="2.7" fill="#34302a"/><circle cx="44" cy="37" r="2.7" fill="#34302a"/><path d="M32 45 Q36 49 40 45" fill="none" stroke="#34302a" stroke-width="2.2" stroke-linecap="round"/></svg>
-      <div class="vsname">น้องแมวไว</div>
-      <div class="vsf1">0.727</div>
-      <div class="vscost">$0.015 ถูกกว่า 11 เท่า</div>
-    </div>
-    <div class="vsmid"><div class="vseq">&asymp;</div><div class="vseqt">คุณภาพพอกัน</div></div>
-    <div class="vscard">
-      <svg class="vmasc" viewBox="0 0 72 72"><circle cx="26" cy="36" r="14" fill="#ffd1a8" stroke="#34302a" stroke-width="2.4"/><circle cx="22" cy="34" r="2.2" fill="#34302a"/><circle cx="30" cy="34" r="2.2" fill="#34302a"/><path d="M22 41 Q26 44 30 41" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/><circle cx="47" cy="36" r="14" fill="#a8e0c0" stroke="#34302a" stroke-width="2.4"/><circle cx="43" cy="34" r="2.2" fill="#34302a"/><circle cx="51" cy="34" r="2.2" fill="#34302a"/><path d="M43 41 Q47 44 51 41" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>
-      <div class="vsname">AI 2 ตัว</div>
-      <div class="vsf1">0.744</div>
-      <div class="vscost">$0.169</div>
-    </div>
-  </div>
-
-  <div class="rh">คะแนนความแม่น (F1) ของแต่ละระบบ</div>
-  <div class="bars">
-    <div class="brow"><div class="bname">WangchanBERTa (ฟรี)</div><div class="btrack"><div class="bfill" style="width:30%;background:#cfe3f5"></div></div><div class="bval">0.62</div></div>
-    <div class="brow"><div class="bname">AI เดี่ยว</div><div class="btrack"><div class="bfill" style="width:61%;background:#ffd1a8"></div></div><div class="bval">0.69</div></div>
-    <div class="brow"><div class="bname">Debate (3 ตัว)</div><div class="btrack"><div class="bfill" style="width:63%;background:#f4b6ab"></div></div><div class="bval">0.69</div></div>
-    <div class="brow"><div class="bname">AI เดี่ยว + ปรับเกณฑ์</div><div class="btrack"><div class="bfill" style="width:76%;background:#ffd84d"></div></div><div class="bval">0.73</div></div>
-    <div class="brow"><div class="bname">AI 2 ตัว (คู่หูสองตรวจ)</div><div class="btrack"><div class="bfill" style="width:84%;background:#a8e0c0"></div></div><div class="bval">0.74</div></div>
-    <div class="bscale">ยิ่งแท่งยาว ยิ่งแม่น (แต่ต่างกันน้อยมาก เพราะข้อมูลมีแค่ 127 ข้อ)</div>
-  </div>
-
-  <div class="rh">สรุปสั้นๆ</div>
-  <ul class="rlist">
-    <li><b>เพิ่ม AI ไม่ได้ช่วยชัดเจน</b> AI 2-3 ตัวแพงกว่าหลายเท่า แต่ไม่ได้ชนะ AI เดี่ยวอย่างมีนัยสำคัญ</li>
-    <li><b>ตัวที่สำคัญคือ "เลือกโมเดล"</b> ไม่ใช่ "จำนวน AI" โมเดลถูกทำได้พอๆ กับโมเดลแพง</li>
-    <li><b>เพดานอยู่ที่ข้อมูล</b> ประชดมีแค่ 30 ข้อ เลยยังฟันธงกันไม่ได้เต็มที่</li>
-  </ul>
-
-  <div class="rh">ข้อควรระวัง</div>
-  <ul class="rlist warn-list">
-    <li>อย่าดู accuracy: ข้อมูลเอียง 76/24 เดาว่า "ไม่ประชด" ทุกข้อก็ได้ 0.76 แล้ว</li>
-    <li>ประชดในชุดข้อมูลบางส่วนถูก AI ช่วยขุดมา ทำให้ recall อาจสูงเกินจริง</li>
-    <li>วัดผลบนรีวิวร้าน + ทวีตเท่านั้น โดเมนอื่น (YouTube, ข่าว) ยังไม่ได้ทดสอบ</li>
-  </ul>
-
-  <div class="rsrc">รายละเอียดเต็ม พร้อมช่วงความเชื่อมั่นและสถิติ อยู่ใน Gold/RESULTS.md (finding 1 ถึง 11)</div>
-</div>
-
-<div class="foot">~ ตรวจจับประชดภาษาไทย ~</div>
-
-<script>
-const $=i=>document.getElementById(i);
-function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-
-async function saveKey(){
-  const key=$('k').value.trim(); if(!key){$('k').focus();return}
-  $('ksave').disabled=true; $('ksave').innerHTML='<span class="sp"></span>';
-  $('kmsg').innerHTML='';
-  try{
-    const r=await fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
-    const d=await r.json();
-    if(d.ok){ $('kmsg').innerHTML='<div class="ok">พร้อมใช้งานแล้ว</div>'; setTimeout(()=>location.reload(),700); }
-    else { $('kmsg').innerHTML='<div class="warn">'+d.error+'</div>'; $('ksave').disabled=false; $('ksave').textContent='บันทึก'; }
-  }catch(e){ $('kmsg').innerHTML='<div class="warn">ต่อเซิร์ฟเวอร์ไม่ได้</div>'; $('ksave').disabled=false; $('ksave').textContent='บันทึก'; }
-}
-
-$('file').addEventListener('change',async e=>{
-  const f=e.target.files[0]; if(!f)return;
-  const t=await f.text();
-  const lines=t.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  // ตัด header ถ้ามีคอลัมน์ text
-  if(lines[0]&&lines[0].toLowerCase().split(',').includes('text')) lines.shift();
-  $('inp').value=lines.map(l=>l.replace(/^"|"$/g,'')).join('\n');
-});
-
-let _rows=[], _page=1; const PP=5;
-let _op='balanced';
-function pickModel(op,el){
-  _op=op;
-  document.querySelectorAll('.model').forEach(m=>{m.classList.remove('sel'); m.querySelector('.tick').textContent='';});
-  el.classList.add('sel'); el.querySelector('.tick').textContent='กำลังใช้';
-}
-function isURL(s){return /^https?:\/\//i.test(s)}
-
-// ---- multi-agent workflow animation (loading) ----
-const F1='<svg class="nface" viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#ffd1a8" stroke="#34302a" stroke-width="2.2"/><circle cx="16" cy="18" r="2" fill="#34302a"/><circle cx="24" cy="18" r="2" fill="#34302a"/><path d="M16 24 Q20 27 24 24" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>';
-const F2='<svg class="nface" viewBox="0 0 40 40"><circle cx="20" cy="20" r="13" fill="#a8e0c0" stroke="#34302a" stroke-width="2.2"/><circle cx="16" cy="18" r="2" fill="#34302a"/><circle cx="24" cy="18" r="2" fill="#34302a"/><path d="M16 24 Q20 27 24 24" fill="none" stroke="#34302a" stroke-width="2" stroke-linecap="round"/></svg>';
-function node(name,face,cls,say){return `<div class="node ${cls||''}"><div>${face}</div><div class="nname">${name}</div><div class="nsay">${say||''}</div></div>`;}
-function wire(run){return `<div class="wire ${run?'run':''}"><svg viewBox="0 0 46 26" preserveAspectRatio="none"><path d="M2 13 Q 23 4 44 13" fill="none" stroke="#34302a" stroke-width="2.4" stroke-dasharray="4 4" stroke-linecap="round"/></svg><div class="packet"></div></div>`;}
-function showFlowLoading(){
-  $('out').innerHTML=`<div class="flowbox box" style="box-shadow:none;border:none">
-    <div class="flowrow">
-      ${node('ผู้คัดกรอง',F1,'work','กำลังอ่าน...')}
-      ${wire(true)}
-      ${node('ผู้ตรวจซ้ำ',F2,'work','รอรับงาน')}
-    </div>
-    <div class="flowcap"><span class="sp" style="border-color:#34302a;border-top-color:transparent"></span>คู่หูสองเกลอกำลังช่วยกันตรวจ...</div>
-  </div>`;
-}
-function miniflow(steps){
-  if(!steps||steps.length<2)return '';
-  const s1=steps[0], s2=steps[1];
-  const t1=s1.said==='1'?'ประชด':'ไม่ประชด', c1=s1.said==='1'?'chip s1':'chip s0';
-  let mid;
-  if(!s2.ran){ mid='<span class="arrowc">›</span><span class="chip skip">ไม่ต้องตรวจซ้ำ</span>'; }
-  else { const t2=s2.said==='0'?'ปัดตก':'ยืนยัน', c2=s2.said==='0'?'chip s0':'chip s1';
-    mid='<span class="arrowc">›</span><span class="'+c2+'">ตรวจซ้ำ: '+t2+'</span>'; }
-  return '<div class="miniflow"><span class="'+c1+'">คัดกรอง: '+t1+'</span>'+mid+'</div>';
-}
-
-async function analyze(){
-  const raw=$('inp').value.trim(); if(!raw){$('inp').focus();return}
-  $('go').disabled=true; $('go').innerHTML='<span class="sp"></span>กำลังตรวจ...';
-  $('out').innerHTML='';
-  if(_op==='multiagent') showFlowLoading();
-  const lines=raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  try{
-    if(lines.length===1 && isURL(lines[0])){
-      const r=await fetch('/api/youtube',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({url:lines[0],limit:80,op:_op})});
-      const d=await r.json();
-      if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
-      else { _rows=d.rows; _page=1; _labels={}; _lastChanged=-1; renderList(); }
-    } else {
-      const r=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({texts:lines,op:_op})});
-      const d=await r.json();
-      if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; }
-      else { _rows=d.rows; _page=1; renderCards(); }
-    }
-  }catch(e){ $('out').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>'; }
-  $('go').disabled=false; $('go').textContent='ตรวจ';
-}
-
-function verdictBits(r){
-  const sar=r.decision==='sarcasm';
-  const pct=r.prob==null?null:Math.round((sar?r.prob:1-r.prob)*100);
-  return {sar,pct,word:sar?'ประชด':'ไม่ประชด',cls:sar?'sar':'notx',
-    col:sar?'var(--sar)':'var(--not)'};
-}
-async function markWrong(i,btn){
-  const r=_rows[i]; if(!r||r.corrected)return;
-  const correct=r.decision==='sarcasm'?'0':'1';
-  btn.disabled=true; btn.textContent='กำลังจำ...';
-  try{
-    const resp=await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:r.text,label:correct})});
-    if((await resp.json()).ok){ r.corrected=true; (_isList?renderList:renderCards)(); loadStats(); }
-    else { btn.disabled=false; btn.textContent='ตัดสินผิด'; }
-  }catch(e){ btn.disabled=false; btn.textContent='ตัดสินผิด'; }
-}
-// ---- link feedback: ถูก/ผิด -> เก็บ label + วัด F1 + วิเคราะห์ใหม่ ----
-let _labels={}, _lastChanged=-1;
-async function markFeedback(i,agree){
-  const r=_rows[i]; const m=r.decision==='sarcasm'?'1':'0';
-  const t=agree?m:(m==='1'?'0':'1');
-  _labels[r.text]={m:m,t:t}; r.fb=agree?'agree':'wrong';
-  renderList();
-  try{ await fetch('/api/correct',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({text:r.text,label:t})}); loadStats(); }catch(e){}
-}
-function linkF1(){
-  const L=Object.values(_labels); if(!L.length)return null;
-  let tp=0,fp=0,fn=0,ok=0;
-  L.forEach(x=>{const mp=x.m==='1',tt=x.t==='1';
-    if(mp&&tt)tp++; if(mp&&!tt)fp++; if(!mp&&tt)fn++; if(mp===tt)ok++;});
-  const f1=(2*tp+fp+fn)?(2*tp/(2*tp+fp+fn)):1;
-  return {n:L.length,ok:ok,f1:f1};
-}
-async function reanalyzeLink(){
-  const texts=_rows.map(r=>r.text);
-  const old={}; _rows.forEach(r=>old[r.text]=r.decision);
-  $('out').innerHTML='<div class="ok"><span class="sp" style="border-color:#38a05d;border-top-color:transparent"></span>วิเคราะห์ใหม่ด้วยสิ่งที่คุณสอน...</div>';
-  try{
-    const rr=await fetch('/api/batch',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({texts:texts,model:_op})});
-    const d=await rr.json();
-    if(d.error){ $('out').innerHTML='<div class="warn">'+d.error+'</div>'; return; }
-    _rows=d.rows.map(x=>({...x, fb:_labels[x.text]?( _labels[x.text].t===(x.decision==='sarcasm'?'1':'0')?'agree':'wrong'):undefined}));
-    let ch=0; _rows.forEach(r=>{ if(old[r.text]!==undefined && old[r.text]!==r.decision) ch++; });
-    _lastChanged=ch; _page=1; renderList();
-  }catch(e){ $('out').innerHTML='<div class="warn">ผิดพลาด: '+e+'</div>'; }
-}
-let _isList=false;
-function renderCards(){
-  _isList=false;
-  $('out').innerHTML=_rows.map((r,i)=>{
-    const v=verdictBits(r);
-    const learned=r.corrected?'<span class="learned">จำแล้ว</span>'
-      :`<button class="wrongbtn" onclick="markWrong(${i},this)">ตัดสินผิด</button>`;
-    const meter=v.pct==null?'':`<div class="meter"><span style="width:${v.pct}%;background:${v.col}"></span></div>
-      <div class="conf" style="justify-content:flex-start">มั่นใจ ${v.pct}%</div>`;
-    return `<div class="result">
-      <div class="verdict ${v.cls}"><span class="dot"></span>${v.word}</div>
-      <div class="txt">“${esc(r.text)}”</div>
-      ${miniflow(r.steps)}
-      ${meter}
-      <div class="conf" style="justify-content:flex-end;margin-top:10px">${learned}</div>
-    </div>`;
-  }).join('');
-}
-function renderList(){
-  _isList=true;
-  const s=_rows.filter(r=>r.decision==='sarcasm').length;
-  const pages=Math.max(1,Math.ceil(_rows.length/PP));
-  if(_page>pages)_page=pages;
-  const slice=_rows.slice((_page-1)*PP,_page*PP);
-  const items=slice.map(r=>{
-    const i=_rows.indexOf(r); const v=verdictBits(r);
-    let fb;
-    if(r.fb==='agree') fb='<span class="learned">คุณ: ถูกแล้ว</span>';
-    else if(r.fb==='wrong') fb='<span class="learned" style="color:var(--sar)">คุณ: ตัดสินผิด</span>';
-    else fb=`<span class="fbtns"><button class="fbtn yes" onclick="markFeedback(${i},true)">ถูก</button>`
-      +`<button class="fbtn no" onclick="markFeedback(${i},false)">ผิด</button></span>`;
-    return `<div class="result" style="background:${v.sar?'var(--sar-bg)':'#fff'}">
-      <div class="txt" style="margin:0">${esc(r.text)}</div>
-      ${miniflow(r.steps)}
-      <div class="rowline"><span class="pill ${v.cls}">${v.word}</span>
-        ${v.pct==null?'':`<span class="conf" style="margin:0">มั่นใจ ${v.pct}%</span>`}${fb}</div>
-    </div>`;
-  }).join('');
-  const pager = _rows.length>PP?`<div class="pagerow">
-    <button ${_page<=1?'disabled':''} onclick="_page--;renderList()">ก่อนหน้า</button>
-    <span class="conf">หน้า ${_page}/${pages}</span>
-    <button ${_page>=pages?'disabled':''} onclick="_page++;renderList()">ถัดไป</button></div>`:'';
-  const f=linkF1();
-  const f1box = f?`<div class="ok" style="text-align:center">
-    คุณตรวจแล้ว <b>${f.n}</b> ข้อ · โมเดลถูก <b>${f.ok}/${f.n}</b> · <b>F1 = ${f.f1.toFixed(2)}</b>
-    <div style="font-size:12px;color:var(--ink2);margin-top:4px">กด "ถูก/ผิด" ที่แต่ละข้อเพื่อวัดคะแนน แล้วสอนโมเดลไปในตัว</div></div>`:'';
-  const changed = _lastChanged>=0?`<div class="ok" style="background:var(--not-bg);border-color:var(--not);text-align:center">
-    วิเคราะห์ใหม่แล้ว เปลี่ยนคำตัดสินไป <b>${_lastChanged}</b> ข้อ หลังเรียนจากที่คุณสอน</div>`:'';
-  const relearn = Object.keys(_labels).length?`<button class="go" style="margin-top:12px;width:100%" onclick="reanalyzeLink()">วิเคราะห์ใหม่ด้วยสิ่งที่คุณสอน (${Object.keys(_labels).length} ข้อ)</button>`:'';
-  $('out').innerHTML=`<div class="ok" style="background:var(--brand-soft);color:var(--ink);border-color:#cbd9f3;text-align:center">
-    ดึงมา ${_rows.length} คอมเมนต์ · ที่คิดว่าประชด ${s} ข้อ</div>
-    ${changed}${f1box}
-    <div class="list">${items}</div>${pager}${relearn}`;
-}
-function toggleResearch(btn){
-  const on=$('research').classList.toggle('show');
-  btn.textContent = on ? 'ซ่อนงานวิจัย' : 'ดูเบื้องหลังงานวิจัย';
-  if(on) $('research').scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-async function loadStats(){
-  try{
-    const d=await(await fetch('/api/stats')).json();
-    const el=$('shared');
-    if(d.corrections>0){ el.textContent='โมเดลนี้เรียนจากทุกคนไปแล้ว '+d.corrections+' ครั้ง (จำถาวร แชร์ทุกคน)'; el.classList.add('on'); }
-    else el.classList.remove('on');
-  }catch(e){}
-}
-loadStats();
-$('inp').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')analyze()});
 </script>
 </div></body></html>
 """

@@ -113,7 +113,68 @@ details li strong{color:var(--ink)}
 
 .foot{text-align:center;color:var(--ink2);font-size:13px;margin-top:36px}
 a{color:var(--blue)}
-@media (prefers-reduced-motion:reduce){.sp{animation:none}}
+@media (prefers-reduced-motion:reduce){.sp{animation:none}
+  .token,.s1,.s2,.s3{animation:none}
+  .token{top:14%}}
+
+/* ---- AI ช่วยตัดสิน (router: ใช้ก็ต่อเมื่อ cue ไม่ชัด) ---- */
+.aibtn{background:#eaf1fe;border-color:var(--blue);box-shadow:3px 3px 0 var(--blue);
+  font-size:15px;margin-top:14px;padding:9px 16px}
+.aibtn:hover{background:#dce8fd}
+.aibtn:disabled{opacity:.6;cursor:wait}
+.aihelp{margin-top:12px;padding:14px 16px;background:#eef4fe;border:2.6px solid var(--blue);
+  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;box-shadow:3px 3px 0 var(--blue)}
+.aihelp .verdict{font-size:22px}
+.aibadge{display:inline-block;font-family:var(--body);font-size:11.5px;font-weight:700;color:#fff;
+  background:var(--blue);border:2px solid var(--ink);border-radius:9px 5px 9px 5px;
+  padding:1px 8px;margin-left:2px;vertical-align:3px}
+.pill.ai{background:#e6eefc;color:var(--blue);border-color:var(--blue)}
+
+/* ---- วิธีทำงาน: การ์ตูนไหลผ่าน 3 ชั้น (cute animation) ---- */
+.flow label{display:block}
+.flowsub{font-size:13.5px;color:var(--ink2);margin:5px 0 18px}
+.flowdiag{position:relative;padding-left:36px}
+.rail{position:absolute;left:14px;top:10px;bottom:10px;width:0;border-left:3px dashed var(--ink);opacity:.5}
+.token{position:absolute;left:5px;top:14%;width:19px;height:19px;border-radius:50%;
+  background:var(--yellow);border:2.6px solid var(--ink);box-shadow:2px 2px 0 var(--ink);
+  z-index:3;animation:flowmove 7s ease-in-out infinite}
+@keyframes flowmove{
+  0%      {top:-2%; opacity:0; background:var(--yellow)}
+  5%      {top:6%;  opacity:1; background:var(--yellow)}
+  14%,22% {top:14%; background:var(--yellow)}
+  34%,44% {top:50%; background:var(--not)}
+  60%,72% {top:86%; background:var(--blue)}
+  90%     {top:102%; opacity:1; background:var(--blue)}
+  95%,100%{top:102%; opacity:0}
+}
+.stage{position:relative;background:var(--card);border:2.6px solid var(--ink);padding:11px 15px;
+  border-radius:20px 10px 22px 10px/10px 22px 10px 20px;box-shadow:4px 4px 0 var(--ink)}
+.stage:nth-of-type(2){border-radius:10px 22px 10px 20px/20px 10px 22px 10px}
+.s1{animation:pulse1 7s ease-in-out infinite}
+.s2{animation:pulse2 7s ease-in-out infinite}
+.s3{animation:pulse3 7s ease-in-out infinite}
+@keyframes pulse1{0%,11%,26%,100%{box-shadow:4px 4px 0 var(--ink);transform:none}
+  18%{box-shadow:6px 6px 0 var(--yellow-d);transform:translate(-1px,-1px) rotate(-.5deg)}}
+@keyframes pulse2{0%,31%,49%,100%{box-shadow:4px 4px 0 var(--ink);transform:none}
+  39%{box-shadow:6px 6px 0 var(--not);transform:translate(-1px,-1px) rotate(.5deg)}}
+@keyframes pulse3{0%,55%,78%,100%{box-shadow:4px 4px 0 var(--ink);transform:none}
+  66%{box-shadow:6px 6px 0 var(--blue);transform:translate(-1px,-1px) rotate(-.5deg)}}
+.stitle{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-size:18px}
+.snum{flex:none;width:27px;height:27px;display:grid;place-items:center;font-family:var(--disp);
+  font-size:16px;border:2.4px solid var(--ink);border-radius:50%;background:#fff}
+.s1 .snum{background:var(--yellow)} .s2 .snum{background:var(--not-bg);color:var(--not)}
+.s3 .snum{background:#e6eefc;color:var(--blue)}
+.costtag{margin-left:auto;font-family:var(--body);font-size:11.5px;font-weight:700;
+  border:2px solid var(--ink);border-radius:9px 5px 9px 5px;padding:1px 9px;white-space:nowrap}
+.free{background:var(--not-bg);color:var(--not)} .paid{background:#e6eefc;color:var(--blue)}
+.sdesc{font-size:13px;color:var(--ink2);margin:5px 0 0}
+.sdesc code{background:#fff;border:1.6px solid var(--dot);border-radius:5px;padding:0 4px;font-size:12px}
+.conn{padding:7px 0 7px 2px}
+.branch{display:flex;align-items:center;gap:7px;font-size:12.5px;margin:2px 0}
+.branch .arr{font-family:var(--disp);font-weight:700}
+.branch.out .arr{color:var(--not)} .branch.out{color:var(--not)}
+.branch.down .arr{color:var(--ink2)} .branch.down{color:var(--ink2)}
+.s3 .sdesc{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -124,16 +185,13 @@ a{color:var(--blue)}
     <svg class="spark" style="right:6%;top:16px;width:26px;height:26px" viewBox="0 0 40 40"><path d="M20 5 L23 17 L35 20 L23 23 L20 35 L17 23 L5 20 L17 17 Z" fill="#ffd84d" stroke="#34302a" stroke-width="2.2" stroke-linejoin="round"/></svg>
     <h1>ประชดหรือเปล่า?</h1>
     <svg class="squiggle" viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 Q 38 3 74 12 T 148 12 T 222 12 T 297 10" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round"/></svg>
-    <p class="tag">วางข้อความไทย หรือลิงก์ (YouTube · Pantip · Reddit) แล้วมาดูกันว่า “ประชด” ไหม พร้อมเหตุผลทุกคำตอบ</p>
-    <div class="freebadge">ฟรี 100% · ทำงานในเบราว์เซอร์ · ข้อความที่พิมพ์ไม่ถูกส่งไปไหน</div>
+    <div class="freebadge">ฟรีและทำงานในเบราว์เซอร์ · ข้อความไม่ออกจากเครื่อง เว้นแต่สองชั้นแรกตอบไม่ได้แล้วคุณกดให้ AI ช่วย</div>
   </div>
 
   <div class="box panel">
     <label for="inp">ข้อความ หรือลิงก์</label>
     <textarea id="inp" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555&#10;หรือวางลิงก์กระทู้ Reddit เช่น https://www.reddit.com/r/Thailand/comments/..."
               autocomplete="off" spellcheck="false"></textarea>
-    <div class="hint">พิมพ์ข้อความ = ตรวจทันที · วางลิงก์ YouTube / Pantip / Reddit แล้วกด “ตรวจเลย!”
-      = ดึงคอมเมนต์มาตรวจให้ทั้งกระทู้ (ต้องเปิดตัวช่วยบนเครื่องก่อน: <code>python Gold/app.py</code>)</div>
     <div class="actions">
       <button class="go" id="go">ตรวจเลย!</button>
     </div>
@@ -145,18 +203,58 @@ a{color:var(--blue)}
     <p class="note" style="margin-top:0">พิมพ์ข้อความด้านบน ผลลัพธ์จะขึ้นตรงนี้ทันที</p>
   </div>
 
+  <div class="box panel flow">
+    <label>ระบบทำงานยังไง?</label>
+    <p class="flowsub">ชั้นฟรีตอบก่อน เหลือเฉพาะที่ไม่ชัดจึงค่อยเสียเงิน</p>
+    <div class="flowdiag">
+      <div class="rail"></div>
+      <span class="token" aria-hidden="true"></span>
+
+      <div class="stage s1">
+        <div class="stitle"><span class="snum">①</span>cue เชิงคำ<span class="costtag free">ฟรี · เบราว์เซอร์</span></div>
+        <p class="sdesc">มองหาสัญญาณผิวๆ เช่น <code>555</code> · สระยืด · <code>??</code></p>
+      </div>
+      <div class="conn">
+        <div class="branch out"><span class="arr">→</span> ชัด · ตอบเลย</div>
+        <div class="branch down"><span class="arr">↓</span> ไม่ชัด · ส่งต่อ</div>
+      </div>
+
+      <div class="stage s2">
+        <div class="stitle"><span class="snum">②</span>WangchanBERTa<span class="costtag free">ฟรี · ในเครื่อง</span></div>
+        <p class="sdesc">โมเดลเล็ก ตัดข้อที่มั่นใจว่า “ไม่ประชด” ออก</p>
+      </div>
+      <div class="conn">
+        <div class="branch out"><span class="arr">→</span> มั่นใจ · ตอบเลย</div>
+        <div class="branch down"><span class="arr">↓</span> ไม่ชัด · ส่งต่อ</div>
+      </div>
+
+      <div class="stage s3">
+        <div class="stitle"><span class="snum">③</span>GPT · gpt-4.1-mini<span class="costtag paid">เสียเงิน</span></div>
+        <p class="sdesc">อ่านความหมายจริง ให้คำตอบสุดท้าย</p>
+      </div>
+    </div>
+  </div>
+
   <details class="box alt">
     <summary>อ่านก่อนเชื่อผลลัพธ์</summary>
     <ul>
       <li><strong>ระบบนี้อ่านแค่ “สัญญาณผิวๆ” ไม่ได้เข้าใจภาษา</strong> ประชดที่เขียนแนบเนียนโดยไม่มี
-          <code>555</code> / สระยืด / <code>??</code> ระบบจะตอบว่า <strong>บอกไม่ได้</strong> ไม่ใช่ตอบว่าไม่ประชด</li>
-      <li><strong>ความแม่นยำราว F1 0.59</strong> วัดบนชุดข้อมูล 127 ประโยค GPT-4o ได้ราว 0.73
-          งานนี้ยากจริงสำหรับทุกวิธี</li>
+          <code>555</code> / สระยืด / <code>??</code> ระบบจะตอบว่า <strong>บอกไม่ได้</strong> ไม่ใช่ตอบว่าไม่ประชด
+ ตอนนั้นถ้าเปิดตัวช่วยไว้ จะกดให้ <strong>AI ช่วยอ่านความหมาย</strong>ต่อได้</li>
+      <li><strong>ทำงานแบบ “cascade” 3 ชั้น ประหยัดต้นทุน</strong> ① cue ฟรีในเบราว์เซอร์ตอบเฉพาะตอนสัญญาณ<em>แรงพอ</em>
+          → ② <strong>WangchanBERTa</strong> บนเครื่อง (ฟรี ออฟไลน์) ตัดเคสที่มั่นใจว่า “ไม่ประชด” ออก
+          → ③ เหลือเท่าไรจึงส่งให้ GPT (gpt-4.1-mini) นี่คือหัวใจของงานวิจัย: จ่ายเฉพาะตอนจำเป็น</li>
+      <li><strong>ให้ cue “เงียบ” เมื่อสัญญาณอ่อน คือจุดที่ช่วยได้จริง</strong> เดิม cue ฟันธงทุกครั้งที่เจอสัญญาณ
+          ได้ F1 0.63 (บนรีวิว Wongnai precision เหลือ 0.19) · พอตั้งเกณฑ์ให้ตอบเฉพาะตอนมั่นใจ ได้ <strong>F1 0.81</strong>
+          โดยใช้ LLM เพียง ~42% ของข้อความ <em>สูงกว่า</em>การส่งให้ GPT ทุกข้อ (0.75) ทั้งที่จ่ายน้อยกว่าครึ่ง</li>
       <li><strong>สัญญาณมาจากภาษาโซเชียลไทย</strong> (รีวิว Wongnai + ทวีต Wisesight)
           กับข้อความทางการหรือคนละโดเมนจะแม่นน้อยลงมาก (วัดแล้ว: precision ตก 0.68 → 0.40)</li>
-      <li><strong>ทำไมไม่ใช้โมเดล AI?</strong> ลองแล้ว fine-tune WangchanBERTa บนข้อมูลชุดนี้
-          แล้ววัดได้ว่า <strong>แย่กว่า</strong>: บนประโยคใหม่โมเดลตอบ “ประชด” เกือบทุกอย่าง (ถูก 5/10 = เดาสุ่ม)
-          ส่วน cue เชิงคำได้ <strong>8/10</strong> · 127 ประโยคน้อยเกินกว่าโมเดลจะเรียนรู้ประชดได้จริง</li>
+      <li><strong>WangchanBERTa อยู่ชั้นกลาง แต่ทำได้แค่ “ตัดข้อที่ไม่ประชด” เท่านั้น</strong>
+          จากการวัดแบบ out-of-fold: ช่วงเดียวที่โมเดลนี้มั่นใจแล้วถูกจริงคือฝั่ง <em>ไม่ประชด</em>
+          (P(ประชด) &lt; 0.17) จึงตั้งให้ตอบได้ด้านเดียว ไม่มีเกณฑ์ฝั่ง “ประชด” เพราะมันไม่เคยมั่นใจฝั่งนั้นเลย</li>
+      <li><strong>ข้อควรระวังที่ตรงไปตรงมา</strong> เมื่อวัดจริง ชั้น WangchanBERTa <strong>แทบไม่เพิ่มความแม่นยำ</strong>:
+          ถ้าแทนคำตอบของมันด้วยการเดา “ไม่ประชด” ฟรีๆ ได้ F1 เท่ากันเป๊ะ (0.806)
+          ประโยชน์ที่เหลือคือ<em>ลดจำนวนครั้งที่ต้องเรียก LLM</em> · 127 ประโยคน้อยเกินกว่าโมเดลจะเรียนรู้ประชดได้จริง</li>
       <li><strong>ทำไมลิงก์ต้องมี “ตัวช่วย”?</strong> YouTube/Pantip/Reddit บล็อกไม่ให้หน้าเว็บอื่นดึงข้อมูล
           ของพวกเขาตรงๆ (CORS) ตัวช่วย <code>python Gold/app.py</code> รันบนเครื่องคุณเอง
           ดึงคอมเมนต์ให้ แล้วหน้านี้ให้คะแนนเองแบบฟรี ข้อมูลไม่ออกจากเครื่อง</li>
@@ -205,10 +303,15 @@ const go  = document.getElementById("go");
 
 const isUrl = t => /^https?:\/\/\S+$/i.test(t.trim());
 
+// cue จะ "ฟันธง" ก็ต่อเมื่อสัญญาณแรงพอ (อย่างน้อยเท่ากับ cue เด่นหนึ่งตัว เช่น "555")
+// วัดจาก gold 127 ข้อ: ถ้าปล่อยให้ cue ตอบทุกครั้งที่เจอสัญญาณ precision ตกเหลือ 0.19 บนรีวิว Wongnai
+// ตั้งเกณฑ์นี้แล้ว F1 ขึ้นจาก 0.627 -> 0.806 · ข้อที่สัญญาณอ่อนจะถูกส่งต่อให้ชั้นถัดไปแทน (WangchanBERTa -> LLM)
+const CUE_CUT = Math.log(2.46);
+
 function verdictOf(text) {
   const hits = findCues(text);
   const s = cueScore(hits);
-  if (hits.length === 0) return { cls: "unk", label: "บอกไม่ได้", s, hits };
+  if (hits.length === 0 || Math.abs(s) < CUE_CUT) return { cls: "unk", label: "บอกไม่ได้", s, hits };
   return s > 0 ? { cls: "sar", label: "น่าจะประชด", s, hits }
                : { cls: "notx", label: "น่าจะไม่ประชด", s, hits };
 }
@@ -229,7 +332,7 @@ function render() {
   const strength = Math.min(Math.abs(v.s) / 3, 1);
 
   let noteTxt;
-  if (v.cls === "unk") noteTxt = "ไม่พบสัญญาณผิวๆ ที่ระบบรู้จักเลย ระบบนี้อ่านจาก cue เชิงคำเท่านั้น จึงตอบไม่ได้ <strong>และจะไม่เดาให้</strong>";
+  if (v.cls === "unk") noteTxt = "cue เชิงคำไม่พบสัญญาณที่รู้จัก จึงยังฟันธงไม่ได้ (ไม่เดาสุ่ม) ให้ <strong>AI ช่วยอ่านความหมาย</strong>ได้ ถ้าเปิดตัวช่วยไว้";
   else if (v.cls === "sar") noteTxt = "พบสัญญาณที่มักปรากฏในข้อความประชด";
   else noteTxt = "พบสัญญาณที่มักปรากฏในข้อความปกติ (ไม่ประชด)";
 
@@ -249,6 +352,9 @@ function render() {
     html += `</tbody></table>
              <p class="conf">“2.46×” = พบ cue นี้แล้วโอกาสเป็นประชดสูงกว่าค่าเฉลี่ย 2.46 เท่า (วัดจาก 127 ประโยค)</p>`;
   }
+  if (v.cls === "unk")
+    html += `<button class="aibtn" onclick="escalateTyped(this)">ให้ AI ช่วยตัดสิน (cue ไม่ชัด)</button>
+             <div id="aislot"></div>`;
   out.className = "box alt result " + v.cls;
   out.innerHTML = html;
 }
@@ -261,6 +367,110 @@ const HELPERS = [
   "http://127.0.0.1:5000/api/fetch_comments",
   "http://127.0.0.1:5050/api/fetch_comments",
 ];
+
+// ==== cost-aware router ====================================================
+// The free cue model answers the confident cases. Only the UNSURE ones ("บอกไม่ได้")
+// are sent to a cheap LLM (gpt-4.1-mini) via the SAME local helper -- so the paid model
+// is used sparingly. No helper / no key -> we simply keep the free "บอกไม่ได้" answer.
+const HELPER_BASES = ["http://127.0.0.1:5000", "http://127.0.0.1:5050"];
+
+// -> {available:true, decision, prob, by} | {available:false, reason} | null (no helper reachable)
+async function askAI(text) {
+  let unavailable = null;
+  for (const base of HELPER_BASES) {
+    try {
+      const r = await fetch(base + "/api/escalate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!d) continue;                       // not our helper (e.g. AirPlay on :5000) -> next port
+      if (d.available) return d;
+      unavailable = d;                        // helper is there but no key / over quota
+    } catch { /* no helper on this port -> try next */ }
+  }
+  return unavailable;                         // {available:false,...} if a helper answered, else null
+}
+
+const aiCls   = dec => dec === "sarcasm" ? "sar" : dec === "not_sarcasm" ? "notx" : "unk";
+const aiLabel = dec => dec === "sarcasm" ? "น่าจะประชด" : dec === "not_sarcasm" ? "น่าจะไม่ประชด" : "บอกไม่ได้";
+
+// typed single sentence: cue said "บอกไม่ได้" -> ask the AI helper for this one text
+async function escalateTyped(btn) {
+  const text = inp.value.trim();
+  if (!text) return;
+  const slot = document.getElementById("aislot");
+  btn.disabled = true;
+  slot.innerHTML = '<p class="note" style="margin:10px 0 0"><span class="sp"></span>กำลังให้ AI ช่วยตัดสิน…</p>';
+  const d = await askAI(text);
+  if (d === null) {
+    slot.innerHTML = '<p class="note" style="margin:10px 0 0">ยังไม่ได้เปิดตัวช่วยบนเครื่อง '
+      + '(<code>python Gold/app.py</code>) จึงยังใช้ AI ไม่ได้ ตอนนี้ตอบด้วย cue อย่างเดียว</p>';
+    btn.disabled = false; return;
+  }
+  if (!d.available) {
+    slot.innerHTML = '<p class="note" style="margin:10px 0 0">ตัวช่วยทำงานอยู่ แต่ยังไม่มีคีย์ AI '
+      + 'ตั้งค่า <code>OPENAI_API_KEY</code> ในไฟล์ <code>.env</code> เพื่อให้ AI ช่วยตอน cue ไม่ชัด</p>';
+    btn.disabled = false; return;
+  }
+  const cls = aiCls(d.decision), lab = aiLabel(d.decision);
+  const pct = d.prob == null ? null : Math.round(d.prob * 100);
+  const wcb = d.tier === "wcb";     // ชั้นที่ 2 ตอบเอง -- ฟรี ออฟไลน์ ข้อความไม่ออกจากเครื่อง
+  btn.style.display = "none";
+  slot.innerHTML =
+    `<div class="aihelp ${cls}">
+       <div class="verdict"><span class="dot"></span>${lab}
+         <span class="aibadge">${wcb ? "โมเดลในเครื่องตัดสิน" : "AI ช่วยตัดสิน"}</span></div>
+       <p class="note" style="margin-top:8px">${wcb
+         ? `cue ไม่ชัด จึงส่งต่อให้ <strong>${esc(d.by)}</strong> ซึ่งมั่นใจพอว่า<strong>ไม่ประชด</strong> `
+           + `จึงไม่ต้องเรียก AI แบบเสียเงิน${pct == null ? "" : ` · โอกาสประชด ${pct}%`}`
+         : `cue ไม่ชัด และโมเดลในเครื่องก็ยังไม่มั่นใจ จึงส่งให้ AI (<strong>${esc(d.by || "gpt")}</strong>) `
+           + `ช่วยอ่านความหมาย${pct == null ? "" : ` · มั่นใจว่าประชด ${pct}%`}`}</p>
+       <p class="conf">${wcb
+         ? "ตัดสินด้วยโมเดลบนเครื่องคุณเอง ข้อความไม่ถูกส่งออกไปไหน และไม่มีค่าใช้จ่าย"
+         : "ข้อความถูกส่งไป OpenAI ผ่านตัวช่วยบนเครื่องคุณ เฉพาะตอนสองชั้นแรกตอบไม่ได้เท่านั้น"}</p>
+     </div>`;
+}
+
+// link results: escalate only the "บอกไม่ได้" comments, one by one
+let _linkResults = [];
+async function escalateLink(btn) {
+  btn.disabled = true;
+  const note = document.getElementById("linkai_note");
+  const todo = _linkResults.map((r, i) => ({ i, t: r.t })).filter(x => _linkResults[x.i].v.cls === "unk");
+  let done = 0, stop = null;
+  for (const it of todo) {
+    btn.textContent = `กำลังให้ AI ช่วย… ${done}/${todo.length}`;
+    const d = await askAI(it.t);
+    if (d === null) { stop = "nohelper"; break; }
+    // ไม่มีคีย์ = ชั้น LLM ใช้ไม่ได้ แต่ WangchanBERTa ในเครื่องยังตอบข้ออื่นได้ จึงทำต่อ ไม่ break
+    if (!d.available) { stop = "nokey"; continue; }
+    const cls = aiCls(d.decision), lab = aiLabel(d.decision);
+    const pill = document.getElementById("pi" + it.i);
+    if (pill) {
+      pill.className = "pill " + cls;
+      pill.innerHTML = `${lab} <span class="aibadge">${d.tier === "wcb" ? "ในเครื่อง" : "AI"}</span>`;
+    }
+    _linkResults[it.i].v.cls = cls;
+    done++;
+  }
+  const c = { sar: 0, notx: 0, unk: 0 };
+  _linkResults.forEach(r => c[r.v.cls]++);
+  document.getElementById("sum_sar").textContent = `ประชด ${c.sar}`;
+  document.getElementById("sum_notx").textContent = `ไม่ประชด ${c.notx}`;
+  document.getElementById("sum_unk").textContent = `บอกไม่ได้ ${c.unk}`;
+  if (stop) {
+    btn.disabled = false;
+    btn.textContent = `ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${c.unk} ข้อ)`;
+    if (note) note.innerHTML = stop === "nohelper"
+      ? "ยังไม่ได้เปิดตัวช่วยบนเครื่อง (<code>python Gold/app.py</code>) ยังใช้ AI ไม่ได้"
+      : "ตัวช่วยทำงานอยู่ แต่ยังไม่มีคีย์ AI (ตั้ง <code>OPENAI_API_KEY</code> ใน <code>.env</code>)";
+  } else {
+    btn.style.display = "none";
+    if (note) note.textContent = `AI ช่วยตัดสินไปแล้ว ${done} ข้อ (ทั้งหมดที่ cue ไม่ชัด) · ส่งเฉพาะอันที่ไม่ชัด จึงประหยัด`;
+  }
+}
+// ===========================================================================
 
 async function callHelper(raw) {
   for (const helper of HELPERS) {
@@ -293,22 +503,27 @@ async function analyzeLink(raw) {
     const n = { sar: 0, notx: 0, unk: 0 };
     results.forEach(r2 => n[r2.v.cls]++);
 
+    results.sort((a, b) => b.v.s - a.v.s);
+    _linkResults = results;
     let html = `<div class="verdict"><span class="dot"></span>ตรวจแล้ว ${results.length} คอมเมนต์ (${esc(data.platform || "ลิงก์")})</div>
       <div class="sumline">
-        <span class="pill sar">ประชด ${n.sar}</span>
-        <span class="pill notx">ไม่ประชด ${n.notx}</span>
-        <span class="pill unk">บอกไม่ได้ ${n.unk}</span>
+        <span class="pill sar" id="sum_sar">ประชด ${n.sar}</span>
+        <span class="pill notx" id="sum_notx">ไม่ประชด ${n.notx}</span>
+        <span class="pill unk" id="sum_unk">บอกไม่ได้ ${n.unk}</span>
       </div>
-      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง ไม่ใช้ AI</p><div>`;
-    results.sort((a, b) => b.v.s - a.v.s);
-    for (const { t, v } of results) {
+      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง</p>`;
+    if (n.unk > 0)
+      html += `<button class="aibtn" id="linkai" onclick="escalateLink(this)">ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${n.unk} ข้อ)</button>
+        <p class="conf" id="linkai_note">คอมเมนต์ที่ cue ตอบ “บอกไม่ได้” จะถูกส่งต่อทีละอัน <strong>WangchanBERTa ในเครื่อง</strong>ตัดสินก่อน (ฟรี) เหลือเฉพาะอันที่ยังไม่มั่นใจจึงเรียก AI (gpt-4.1-mini)</p>`;
+    html += `<div>`;
+    results.forEach(({ t, v }, i) => {
       const cueNames = v.hits.map(c => esc(c.name)).join(" · ");
-      html += `<div class="citem">
-        <span class="pill ${v.cls}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
+      html += `<div class="citem" id="ci${i}">
+        <span class="pill ${v.cls}" id="pi${i}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
         <p class="ctxt">${esc(t.length > 220 ? t.slice(0, 219) + "…" : t)}</p>
         ${cueNames ? `<p class="cwhy">cue ที่เจอ: ${cueNames}</p>` : ""}
       </div>`;
-    }
+    });
     html += "</div>";
     out.className = "box alt result";
     out.innerHTML = html;
@@ -329,8 +544,12 @@ async function analyzeLink(raw) {
 
 go.addEventListener("click", () => {
   const text = inp.value.trim();
-  if (isUrl(text)) analyzeLink(text);
-  else render();
+  if (isUrl(text)) { analyzeLink(text); return; }
+  render();                                          // instant free cue verdict
+  if (text && verdictOf(text).cls === "unk") {       // unsure -> let the AI help (one cheap call)
+    const b = out.querySelector(".aibtn");
+    if (b) escalateTyped(b);
+  }
 });
 
 const chips = document.getElementById("chips");

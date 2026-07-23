@@ -695,6 +695,49 @@ the problem is **rare class + over-flagging**, which is fixed by one free thing 
 (0.4-0.5, not 0.7), not a precise point · this set (`Gold/gold_random.csv`) is the project's first test set whose distribution
 matches the real world, and can be used to measure the absolute performance of any system.
 
+**21. The demo cascade, measured: a cue *cut-off* is the real win (F1 0.63 → 0.81); a WangchanBERTa middle tier is inert**
+
+The live demo runs a 2-tier router: the free lexical cue answers, and only "can't tell" items escalate to gpt-4.1-mini.
+The natural next question was whether inserting WangchanBERTa as a free middle tier — `cue → WCB → LLM` — earns its keep.
+Measured entirely offline (`cascade_eval.py`, `cue_cutoff_cv.py`, `wcb_calibration_check.py`): the 127-item gold,
+Finding 6's **leak-free** WCB out-of-fold probs (3 seeds), and cached gpt-4.1-mini probs at the deployed threshold 0.095.
+Two results, one useful and one negative.
+
+**21.1 The win is making the *cue* abstain when its signal is weak.** Today the cue answers on every hit, which is the
+mistake: it answers 101/127 items but at F1 0.627, and on the Wongnai review domain its precision is **0.19** — it fires
+on a lone `ครับ` or one stretched vowel and commits. Require `|cueScore| ≥ log(2.46)` ("one strong cue must fire") before
+the cue is allowed to answer, and route the rest to the escalation path:
+
+| Config (127-item gold) | P | R | F1 | LLM calls |
+|---|---|---|---|---|
+| cue answers every hit (today) | 0.491 | 0.867 | 0.627 | 26 (20%) |
+| LLM only | 0.676 | 0.833 | 0.746 | 127 (100%) |
+| **cue abstains unless `\|score\| ≥ log(2.46)` → LLM** | **0.730** | 0.900 | **0.806** | 53 (42%) |
+
+Accuracy on the items the cue answers rises **0.733 → 0.919**. The cut-off is not tuned — `log(2.46) ≈ 0.90` is literally
+"one strong cue." Chosen honestly by 5-fold CV (train-folds only, 20 repeats) it holds out-of-sample at **F1 0.802 ± 0.023**.
+It beats LLM-only on F1 while spending under half the calls. Domain split: Wongnai precision **0.227 → 0.833**
+(F1 0.333 → 0.714), Wisesight F1 0.792 → 0.815 — it fixes the broken domain without hurting the good one.
+
+**21.2 The WangchanBERTa middle tier adds nothing — proven by a control.** With the fixed screener, 53 items reach a
+would-be WCB tier (double the 26 it gets today). Sweeping every possible WCB "defer band", the best 3-tier F1 is **0.806** —
+*exactly* the no-WCB number. Replacing WCB's decisions with a free constant `"not sarcastic"` under the same ordering
+also scores **0.806**. WCB beats that constant in only 9 of 54 bands, and every one of them is a band where the overall F1
+is *worse* (0.774). It isn't seed-stable either (0.769 / 0.806 / 0.806). Paired bootstrap of `cue → WCB → LLM` minus
+`cue → LLM` at the best band: ΔF1 = 0.000. This is Finding 6 one tier deeper: WCB doesn't filter, it just adds a step.
+Its confident region is one-sided (it is *never* confidently sarcastic) and dominated by the majority class, which is free.
+
+**21.3 And the deployable model doesn't even transfer.** For completeness the tier was built anyway: `train_final_wcb.py`
+trains a model on all 127 items, and `app.py` gates it at `WCB_NEG = 0.17` (below that P(sarcastic), answer "not sarcastic"
+for free). But that cut was calibrated on *out-of-fold* probs. On 10 fresh sentences the deployed model has never seen, its
+P(sarcastic) **never drops below 0.367** (`wcb_calibration_check.py`), so the tier fires on **0/10** real inputs — and its
+two highest "sarcastic" scores go to plainly sincere reviews, so no recalibrated cut would separate them. The middle tier
+is inert in deployment, exactly as 21.2 predicted.
+
+**Shipped:** the cue cut-off (21.1) — it lives in the browser, needs no dependencies, and is the part that moves accuracy.
+The WCB tier (21.2–21.3) is left in `app.py` behind a graceful-degradation guard as a documented negative result, not a
+feature. If you want the demo lean, delete `wcb_prob()` and the tier-2 block in `api_escalate`; the cut-off carries the win.
+
 ## Thesis conclusion (revised after findings 7-12)
 
 **Before:** "multi-agent (recall-preserving verifier) genuinely helps but marginally (+0.054, cost 1.80×)"
@@ -765,6 +808,13 @@ There's a precision/recall tension a single verifier can't fully resolve → roo
 - `loadtest.py` / `loadtest_result.json` / `loadtest_requests.csv` — load test (finding 18)
   `--mock` (default) free · `--live` real · `--prom` emits a Prometheus textfile
 - `grafana_dashboard.json` — 8-panel dashboard (escalation ratio / $ per minute / latency by path)
+
+**Added in finding 21 (the demo cascade, measured):**
+- `cascade_eval.py` — offline eval of `cue → LLM`, `cue → WCB → LLM`, `WCB → LLM`, and the free-constant control
+  (reuses `wcb_oof_probs.csv` + `frontier_probs_gpt-4.1-mini.csv`) · **free, no API, no training**
+- `cue_cutoff_cv.py` — 5-fold cross-validated choice of the cue cut-off (the F1 0.63 → 0.81 win) · free
+- `wcb_calibration_check.py` — shows the deployed model's `WCB_NEG=0.17` cut does not transfer to unseen text
+  (needs `wcb_model/` + torch)
 
 ## Running the web app
 
