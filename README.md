@@ -191,12 +191,17 @@ work, which is the usual reason the web demo will not start.
 ```bash
 python3 -m venv .venv              # first time only
 source .venv/bin/activate          # do this in every new terminal (Windows: .venv\Scripts\activate)
-pip install openai pandas numpy scikit-learn flask yt-dlp   # add torch transformers for the free model
+pip install -r requirements.txt    # pinned, validated set (includes torch for the WangchanBERTa tier)
 
-export OPENAI_API_KEY=sk-...       # Windows: set OPENAI_API_KEY=sk-...
+export OPENAI_API_KEY=sk-...       # Windows: set OPENAI_API_KEY=sk-...  (or put it in .env)
 
+python Gold/train_final_wcb.py     # once: builds Gold/wcb_model/ (404 MB, not in the repo). ~11 min on CPU.
 python Gold/app.py                 # web demo at http://127.0.0.1:5000  (user page: /app)
 ```
+
+The `train_final_wcb.py` step is only needed for the WangchanBERTa middle tier; skip it and the
+cascade degrades gracefully to cue → GPT. Everything else (the cue cut-off, link fetching, GPT
+escalation) works without it.
 
 Once the demo is running, other commands (in the same activated terminal):
 

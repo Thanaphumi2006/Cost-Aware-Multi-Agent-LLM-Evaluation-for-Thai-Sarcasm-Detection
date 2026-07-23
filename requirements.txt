@@ -1,14 +1,22 @@
-# Core: research pipeline + web demo (see "Run it" in README.md)
+# Pinned to a validated, working set (see "Run it" in README.md).
+# Install everything:  pip install -r requirements.txt
+
+# ---- core: research pipeline + web demo ----
 openai>=1.40
 pandas>=2.0
-numpy>=1.24
+numpy>=1.24,<2          # <2 is required by torch 2.2.x below (torch built against NumPy 1.x crashes on 2.x)
 scikit-learn>=1.3
 flask>=3.0
-yt-dlp>=2024.8.6
+yt-dlp>=2024.8.6        # link fetching (YouTube/Pantip/Reddit); YouTube needs a recent build
 
-# Optional, only for the free local model (WangchanBERTa):
-# torch
-# transformers
+# ---- WangchanBERTa tier (middle tier of the cascade, /api/escalate) ----
+# in production per project decision; without these the tier degrades gracefully to cue -> LLM.
+# the model weights themselves are NOT in the repo (404 MB, gitignored) -- build once with:
+#   python Gold/train_final_wcb.py            -> writes Gold/wcb_model/
+torch>=2.2,<2.3
+transformers>=4.40,<5   # 5.x drops the load_in_4bit passthrough the eval scripts rely on
+sentencepiece>=0.2      # WangchanBERTa's tokenizer is SentencePiece
+protobuf>=4.0           # transformers needs it to load that tokenizer
 
-# Optional, only for the Hugging Face Space demo (space/):
+# ---- optional: the Hugging Face Space demo (space/) ----
 # gradio>=4.40,<5
