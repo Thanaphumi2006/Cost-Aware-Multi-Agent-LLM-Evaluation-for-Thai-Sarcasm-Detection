@@ -102,6 +102,22 @@ the escalation path, and each tier degrades gracefully — no helper falls back 
   similar cases right next time. (This is in-context learning from examples, not retraining the model, and the
   interface says so honestly.)
 
+## Unattended use (auto-labelling, auto-reply)
+
+If the system must act **without a human in the loop**, precision matters more than coverage, and thresholding the
+LLM alone will not give it: gpt-4.1-mini's false positives are as confident as its true ones, so precision is stuck
+near 0.68 at every threshold. **[`Gold/autolabel.py`](Gold/autolabel.py)** solves it with an AND-gate: it auto-acts
+only when two independent signals (the lexical cue and the LLM) agree, and sends everything else to a review queue.
+
+```bash
+python Gold/autolabel.py --csv comments.csv --out labelled.csv        # text[,label] -> decisions
+```
+
+On the 127-item gold set this auto-labels **52%** of items (precision **0.90** for sarcastic, **0.96** for
+not-sarcastic) and defers the other 48% to a human, rather than mislabelling them. It is cost-aware: the LLM is
+called only on the items the cue tier is confident about. The precision figures rest on few positives (wide CIs);
+the mechanism (act only on agreement) is the durable part.
+
 ## The finding, in one table
 
 All systems, same 127 items, same measurement code:
@@ -239,6 +255,7 @@ Gold/
   wangchanberta.py       the free local model (5-fold cross-validation)
   compare_systems.py     paired bootstrap + McNemar
   predict.py             the deployable tool (the research conclusion, packaged up)
+  autolabel.py           unattended high-precision auto-labelling (cue AND LLM must agree, else defer)
   app.py                 the web demo (developer page at /, doodle user page at /app) — LOCAL only
   serve_public.py        hardened server for public hosting (safe subset of app.py) — see HOSTING.md
   HOSTING.md             how to expose the demo safely (WSGI + HTTPS proxy, SSRF/rate-limit notes)
