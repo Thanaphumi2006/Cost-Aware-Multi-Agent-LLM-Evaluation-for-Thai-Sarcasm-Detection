@@ -114,8 +114,8 @@ def do_calibrate(name, csv):
     cue = np.array([cue_decide(t) for t in df["text"]], dtype=object)
     cue_full = np.array([0 if c is None else int(c) for c in cue])   # never-escalate floor (None->0)
     n_cue = int((cue != None).sum())                                 # noqa: E711
-    report_row(f"cue-only floor (answers {n_cue}/{n})", y, cue_full, 0, n)
-    report_row(f"LLM @ deployed t={T_DEPLOY:.3f}", y, (probs >= T_DEPLOY).astype(int), n, n)
+    f_cue = report_row(f"cue-only floor (answers {n_cue}/{n})", y, cue_full, 0, n)
+    f_deploy = report_row(f"LLM @ deployed t={T_DEPLOY:.3f}", y, (probs >= T_DEPLOY).astype(int), n, n)
 
     # ---- the calibration: leave-fold-out tuned threshold on this domain ----
     from sklearn.model_selection import StratifiedKFold
@@ -131,19 +131,33 @@ def do_calibrate(name, csv):
         pred[te] = (probs[te] >= t).astype(int); taus.append(t)
     f_tuned = report_row(f"LLM @ domain-tuned ({folds}-fold)", y, pred, n, n)
 
-    # single deployable threshold (chosen on all domain data -- the value to actually ship)
+    # the in-sample optimum -- only worth shipping if it ALSO wins out-of-fold (f_tuned), else it overfits
     grid = np.unique(probs)
     t_ship = float(max(grid, key=lambda x: prf(y, (probs >= x).astype(int))[2]))
-    f_deploy = prf(y, (probs >= T_DEPLOY).astype(int))[2]
+    spread = max(taus) - min(taus)
 
     print("\n=== what to do ===")
-    print(f"  per-fold thresholds: {', '.join(f'{t:.3f}' for t in taus)}  (spread shows stability)")
-    print(f"  honest domain F1 (leave-fold-out): {f_tuned:.3f}   vs deployed threshold: {f_deploy:.3f}")
-    print(f"  -> deploy threshold  t = {t_ship:.3f}  for domain '{name}'")
-    print( "     set it in predict.py OPERATING['balanced']['t'], or pass operating point per call.")
-    if f_tuned <= f_deploy + 0.01:
-        print("     (note: tuning barely moved F1 here -- the deployed 0.095 already fits this domain.)")
-    print( "     you can also skip tuning and just use the demo's 'correct it' button, which adapts in-context.")
+    print(f"  per-fold thresholds: {', '.join(f'{t:.3f}' for t in taus)}  (spread {spread:.3f})")
+    print(f"  honest domain F1 (leave-fold-out): {f_tuned:.3f}   vs deployed t={T_DEPLOY:.3f}: {f_deploy:.3f}")
+
+    reliable = npos >= 15 and spread <= 0.30            # enough positives + a stable choice across folds
+    if f_tuned >= f_deploy + 0.02 and reliable:
+        print(f"  -> RE-TUNE. Deploy t = {t_ship:.3f} for '{name}': +{f_tuned - f_deploy:.3f} F1 out-of-sample.")
+        print( "     set it in predict.py OPERATING['balanced']['t'] (or pass an operating point per call).")
+    elif f_tuned < f_deploy - 0.02:
+        extra = (f" -- the in-sample pick t={t_ship:.3f} overfits"
+                 if abs(t_ship - T_DEPLOY) > 0.001 else "")
+        print(f"  -> KEEP the default t = {T_DEPLOY:.3f}. Re-tuning did not survive cross-validation "
+              f"(out-of-fold F1 {f_tuned:.3f} < {f_deploy:.3f}){extra}.")
+    else:
+        print(f"  -> KEEP the default t = {T_DEPLOY:.3f}. Re-tuning did not beat it on this domain.")
+    if npos < 15:
+        print(f"     caveat: only {npos} sarcastic items -> every threshold here is noisy. Label more of the "
+              "rare class before trusting any domain-specific number.")
+    if f_cue >= f_deploy - 0.005:
+        print(f"     note: the FREE cue tier already matches/beats the paid model here (F1 {f_cue:.3f} vs "
+              f"{f_deploy:.3f}) -> on this domain you may not need to escalate at all.")
+    print( "     zero-setup alternative: skip tuning and use the demo's 'correct it' button (adapts in-context).")
 
 
 def main():
