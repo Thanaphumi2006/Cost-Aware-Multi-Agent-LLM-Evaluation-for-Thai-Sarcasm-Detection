@@ -28,6 +28,10 @@ QUEUES = {
     # a truly random queue from the raw pool (no filter) -- for readable absolute numbers
     "random": (os.path.join(HERE, "random_to_label.csv"), "label"),
 }
+# label an arbitrary domain file (from calibrate_domain.py --fetch): DOMAIN_LABEL_FILE=domain_x_labeled.csv
+_domain_file = os.environ.get("DOMAIN_LABEL_FILE", "").strip()
+if _domain_file:
+    QUEUES["domain"] = (os.path.abspath(_domain_file), "label")
 GOLD = os.path.join(HERE, "gold.csv")
 GOLD_V2 = os.path.join(HERE, "gold_v2.csv")
 

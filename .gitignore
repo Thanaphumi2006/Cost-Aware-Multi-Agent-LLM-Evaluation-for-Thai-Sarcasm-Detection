@@ -40,6 +40,7 @@ Gold/ft_train.jsonl
 # คอมเมนต์โดเมนที่ดึงมา validate (ข้อมูลสาธารณะคนอื่น + regenerable)
 Gold/domain_*_raw.txt
 Gold/domain_*_labeled.csv
+Gold/domain_*_probs.csv
 
 # ไฟล์ batch ที่ batch_eval.py สร้าง (regenerable)
 *.batch.jsonl

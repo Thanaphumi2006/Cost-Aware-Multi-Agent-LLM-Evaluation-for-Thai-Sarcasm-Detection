@@ -815,6 +815,8 @@ There's a precision/recall tension a single verifier can't fully resolve → roo
 - `cue_cutoff_cv.py` — 5-fold cross-validated choice of the cue cut-off (the F1 0.63 → 0.81 win) · free
 - `wcb_calibration_check.py` — shows the deployed model's `WCB_NEG=0.17` cut does not transfer to unseen text
   (needs `wcb_model/` + torch)
+- `calibrate_domain.py` / `CALIBRATE.md` — the applied answer to finding 12: collect → label → re-tune the
+  escalation threshold on your own domain, using the exact deployed scorer · scores once (cached), then free to re-analyse
 
 ## Running the web app
 

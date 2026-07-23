@@ -179,8 +179,9 @@ This is the part I care about most, and the part that makes the result more than
 - **It does not transfer cleanly to other domains.** I validated this: on a hand-labeled sample of 55 Pantip comments,
   precision fell from 0.68 to 0.40, because the model flags genuine praise as sarcasm (9 false positives), while recall
   stayed high. So outside reviews and tweets it cries wolf on sincere praise. Use it on similar content, or label a
-  sample of your target domain and re-tune (the web app's "correct it" button does this). Full write-up: finding 12 in
-  `Gold/RESULTS.md`.
+  sample of your target domain and re-tune: **`Gold/calibrate_domain.py`** does the collect → label → re-tune loop
+  end to end (runbook: [`Gold/CALIBRATE.md`](Gold/CALIBRATE.md)), or use the web app's "correct it" button for a
+  zero-setup in-context version. Full write-up: finding 12 in `Gold/RESULTS.md`.
 
 ## Run it
 
@@ -233,6 +234,8 @@ Gold/
   cue_cutoff_cv.py       finding 21: cross-validated cue cut-off, the F1 0.63 → 0.81 win (free)
   wcb_calibration_check.py  finding 21: shows the deployed WCB tier's threshold doesn't transfer
   eval_domain.py         measure the model on any labeled domain, with confidence intervals
+  calibrate_domain.py    collect → label → re-tune the threshold for YOUR domain (see CALIBRATE.md)
+  CALIBRATE.md           the per-domain calibration runbook (the make-or-break step for real use)
   gold_v2.csv            the expanded 302-item hard set (67 sarcastic)
   label_ui.py            keyboard labeling tool (harvest / batch400 / random queues)
   random_to_label.csv    250 uniformly random texts, unlabeled, for honest absolute scores
