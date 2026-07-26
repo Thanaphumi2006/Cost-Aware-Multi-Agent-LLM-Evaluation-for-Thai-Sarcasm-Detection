@@ -25,6 +25,7 @@ import time
 
 from flask import Flask, jsonify, request
 
+import envload  # noqa: F401  -- load OPENAI_API_KEY from .env if present; an explicit env var still wins
 import fetch_social as fs
 import predict
 

@@ -201,23 +201,35 @@ This is the part I care about most, and the part that makes the result more than
 
 ## Run it
 
-Use a virtual environment. Your system `python` may be a different one (for example Anaconda) where Flask does not
-work, which is the usual reason the web demo will not start.
+**One command (macOS/Linux):**
+
+```bash
+./setup.sh          # makes .venv, installs pinned deps, builds the WCB model once, serves at :8000/app
+```
+
+`setup.sh` reproduces the full cascade (cue → WangchanBERTa → GPT) and survives reboots. It reads
+`OPENAI_API_KEY` from `.env` (or the environment); without it, escalation stays cue/WCB-only and the
+server still runs. `PORT=8000`, `PYTHON=python3.11`, and `--no-serve` (set up without launching) are
+supported. The first run trains `Gold/wcb_model/` (~10–15 min on CPU, not in the repo); later runs skip it.
+
+<details><summary><b>Manual setup</b> (or Windows)</summary>
 
 ```bash
 python3 -m venv .venv              # first time only
-source .venv/bin/activate          # do this in every new terminal (Windows: .venv\Scripts\activate)
+source .venv/bin/activate          # every new terminal (Windows: .venv\Scripts\activate)
 pip install -r requirements.txt    # pinned, validated set (includes torch for the WangchanBERTa tier)
 
 export OPENAI_API_KEY=sk-...       # Windows: set OPENAI_API_KEY=sk-...  (or put it in .env)
 
 python Gold/train_final_wcb.py     # once: builds Gold/wcb_model/ (404 MB, not in the repo). ~11 min on CPU.
-python Gold/app.py                 # web demo at http://127.0.0.1:5000  (user page: /app)
+python Gold/serve_public.py --port 8000   # user demo at http://127.0.0.1:8000/app
+# or:  python Gold/app.py          # the developer page at :5000/  (LOCAL only)
 ```
 
 The `train_final_wcb.py` step is only needed for the WangchanBERTa middle tier; skip it and the
 cascade degrades gracefully to cue → GPT. Everything else (the cue cut-off, link fetching, GPT
 escalation) works without it.
+</details>
 
 Once the demo is running, other commands (in the same activated terminal):
 
