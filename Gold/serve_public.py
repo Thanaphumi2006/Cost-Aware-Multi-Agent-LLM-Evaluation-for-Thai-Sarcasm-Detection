@@ -41,8 +41,9 @@ MAX_TEXT = int(os.environ.get("PUBLIC_MAX_TEXT", "2000"))       # chars per esca
 FETCH_LIMIT_CAP = int(os.environ.get("PUBLIC_FETCH_LIMIT", "80"))
 DAILY_CAP = int(os.environ.get("PUBLIC_DAILY_LIMIT", "2000"))   # escalate calls/day, everyone combined
 IP_HOUR_CAP = int(os.environ.get("PUBLIC_IP_HOURLY_LIMIT", "60"))
-WCB_NEG = 0.17   # cascade tier 2 cut-off -- MUST match app.py (finding 21). Below this P(sarcastic),
-                 # WangchanBERTa answers "not sarcastic" for free; it is never confidently sarcastic.
+WCB_NEG = 0.50   # cascade tier 2 cut-off -- MUST match app.py. Below this P(sarcastic), WangchanBERTa answers
+                 # "not sarcastic" for free. 0.50 fires on ~17% of new text to cut LLM cost, at some recall cost
+                 # (it clears some real sarcasm). Lower toward 0.17 to prioritise recall over saving calls.
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024   # reject oversized POST bodies outright

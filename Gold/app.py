@@ -32,9 +32,11 @@ from baseline import PRICE_PER_MTOK, metrics
 sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 WCB_DIR = os.path.join(HERE, "wcb_model")
-WCB_NEG = 0.17    # cascade tier 2: below this P(sarcastic), WangchanBERTa answers "not sarcastic" for free.
-                  # derived from the out-of-fold probs -- every gold item it answers under this cut is a true 0.
-                  # there is deliberately no upper cut: WCB is never confidently *sarcastic* (cascade_eval.py)
+WCB_NEG = 0.50    # cascade tier 2: below this P(sarcastic), WangchanBERTa answers "not sarcastic" for free.
+                  # raised from 0.17 so the tier actually fires on new text (~17% of items) and cuts LLM cost.
+                  # trade-off measured on 305 fresh YT comments: the "not sarcastic" calls are ~0.83 precise but
+                  # it wrongly clears some real sarcasm (a recall cost). Lower toward 0.17 to prioritise catching
+                  # sarcasm over saving calls. There is no upper cut: WCB is never confidently *sarcastic*.
 IN_P, OUT_P = PRICE_PER_MTOK["gpt"]
 
 app = Flask(__name__)
