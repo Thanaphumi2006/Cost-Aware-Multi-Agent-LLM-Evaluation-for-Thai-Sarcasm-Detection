@@ -738,6 +738,41 @@ is inert in deployment, exactly as 21.2 predicted.
 The WCB tier (21.2–21.3) is left in `app.py` behind a graceful-degradation guard as a documented negative result, not a
 feature. If you want the demo lean, delete `wcb_prob()` and the tier-2 block in `api_escalate`; the cut-off carries the win.
 
+**22. Cross-domain reality on fresh user-labelled data: precision collapses to 0.20 on political YouTube comments**
+
+A live end-to-end run of the calibration workflow (`calibrate_domain.py`, `autolabel.py`) on a domain the model has never
+seen: 305 Thai comments scraped from a single political / election YouTube video, labelled **blind by a human**
+(57 sarcastic, 18.7\% base rate). This is the third cross-domain point after finding 12 (Pantip, precision 0.68 → 0.40),
+and it is the worst yet.
+
+| System (305 political YT comments, 18.7% sarc.) | P | R | F1 |
+|---|---|---|---|
+| cue tier alone (fires on 49/305) | 0.471 | 0.140 | 0.216 |
+| gpt-4.1-mini @ deployed t=0.095 | **0.201** | **0.965** | 0.333 |
+| gpt-4.1-mini @ domain-tuned (leave-fold-out) | 0.230 | 0.509 | 0.317 |
+
+The pattern is unambiguous: recall stays high (0.965, the model misses almost no real sarcasm) but precision falls to
+**0.20** — four sincere comments flagged for every true one. Re-tuning the threshold on the domain does not rescue it
+(0.317 vs 0.333); the leave-fold-out folds mostly pick t≈1.0 ("flag almost nothing"), trading recall away without buying
+precision. The cause is content: political comments carry anger, rhetorical questions, and emphatic criticism that mimic
+the surface markers of ประชด but are sincere — finding 12's failure mode amplified. The lexical cue tier is nearly useless
+here (F1 0.216, fires on 16\% of items): the `555` / vowel-stretch / `??` markers that carry signal in reviews and tweets
+barely appear in political argument.
+
+The high-precision AND-gate (finding 21: auto-label only when cue and LLM agree) degrades in step. On this domain
+`auto_sarcasm` precision is **0.438** (7/16), down from 0.90 on gold; only 8\% of items are auto-labelled and 92\% go to a
+review queue. The negative side survives (`auto_not_sarcasm` 7/7, overall recall 0.97), so "definitely not sarcastic"
+remains trustworthy while "sarcastic" does not.
+
+**Deployment consequence:** on content like this the system is safe only as a **recall-oriented triage** that surfaces
+candidates for a human, never as an unattended labeller or auto-reply. This is the calibration workflow doing exactly its
+job: one afternoon of blind labelling produced a decisive, quantified verdict on transfer *before* any deployment, and the
+verdict is that keyword-mined review/tweet training does not carry to political discourse. It re-confirms the project's
+spine from the opposite side: no threshold, model tier, or agent count repairs a precision problem that is really a
+domain-shift problem — only in-domain labels do. Reproduce with `calibrate_domain.py --name yt --csv <labelled.csv>` and
+`autolabel.py --csv <labelled.csv> --eval`; the comments are third-party text (gitignored), the tooling and this write-up
+are the durable artefacts.
+
 ## Thesis conclusion (revised after findings 7-12)
 
 **Before:** "multi-agent (recall-preserving verifier) genuinely helps but marginally (+0.054, cost 1.80×)"
@@ -817,6 +852,10 @@ There's a precision/recall tension a single verifier can't fully resolve → roo
   (needs `wcb_model/` + torch)
 - `calibrate_domain.py` / `CALIBRATE.md` — the applied answer to finding 12: collect → label → re-tune the
   escalation threshold on your own domain, using the exact deployed scorer · scores once (cached), then free to re-analyse
+
+**Added in finding 22 (cross-domain reality on user data):**
+- `autolabel.py` — unattended high-precision auto-labelling via an AND-gate (cue AND LLM agree, else defer to review);
+  the tool used to measure that auto-labelling precision collapses 0.90 → 0.44 off-domain
 
 ## Running the web app
 

@@ -328,13 +328,15 @@ def run_server(port):
     @app.get("/")
     def page():
         html = PAGE
-        if "domain" in QUEUES:                          # DOMAIN_LABEL_FILE set -> add its tab and land on it
-            n = len(load("domain")[0])
-            html = html.replace(
-                "<button class=\"tab\" id=\"tab-random\" onclick=\"setQueue('random')\">random (250)</button>",
-                "<button class=\"tab\" id=\"tab-random\" onclick=\"setQueue('random')\">random (250)</button>\n"
-                f"      <button class=\"tab\" id=\"tab-domain\" onclick=\"setQueue('domain')\">domain ({n})</button>")
-            html = html.replace("||'random'", "||'domain'")
+        if "domain" in QUEUES:                          # launched to label ONE file -> show ONLY that queue,
+            n = len(load("domain")[0])                  # so you can't accidentally label a different tab
+            for b in ("harvest", "batch400", "random"):
+                html = re.sub(rf'<button class="tab" id="tab-{b}"[^>]*>[^<]*</button>\s*', '', html)
+            html = html.replace('<div class="tabs">',
+                f'<div class="tabs">\n      <button class="tab on" id="tab-domain" '
+                f'onclick="setQueue(\'domain\')">domain ({n})</button>')
+            # force the domain queue on load, ignoring any remembered tab in localStorage
+            html = html.replace("localStorage.getItem('lastQueue')||'random'", "'domain'")
         return html
 
     @app.get("/api/state")
