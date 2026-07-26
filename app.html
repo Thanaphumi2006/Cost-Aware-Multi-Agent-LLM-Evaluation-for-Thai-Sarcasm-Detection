@@ -96,6 +96,10 @@ tbody tr:last-child td{border-bottom:none}
 
 .warnbox{font-size:14px;color:#8a3320;background:var(--sar-bg);border:2.4px solid var(--sar);
   border-radius:16px 10px 16px 10px;padding:13px 15px;margin-top:14px;box-shadow:3px 3px 0 var(--sar)}
+/* honest caution (not an error): shown when the detector is likely over-flagging on this content */
+.honest{font-size:13.5px;color:#7a5b1e;background:#fff6d9;border:2.4px solid var(--yellow-d);
+  border-radius:16px 10px 16px 10px;padding:11px 14px;margin-top:12px;box-shadow:3px 3px 0 var(--yellow-d)}
+.honest strong{color:#8a5e10}
 .sp{display:inline-block;width:15px;height:15px;border:2.4px solid var(--ink);border-top-color:transparent;
   border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:8px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -438,6 +442,18 @@ async function escalateTyped(btn) {
 
 // link results: escalate only the "บอกไม่ได้" comments, one by one
 let _linkResults = [];
+
+// findings 12 & 22: on content unlike reviews/tweets (e.g. การเมือง) the detector over-flags --
+// precision measured as low as ~0.20. Real sarcasm is rare (~5-20%), so an implausibly high
+// "ประชด" share is a red flag. Surface it right by the summary so results read as candidates.
+function overflagNote(sar, total) {
+  if (total < 8) return "";                      // too few comments to judge the rate
+  const pct = Math.round((100 * sar) / total);
+  if (pct < 30) return "";
+  return `<div class="honest"><strong>ระวังการจับเกิน:</strong> ลิงก์นี้ถูกตีว่าประชด ${pct}%
+    ซึ่งสูงผิดปกติ (ตามจริงประชดมักมีแค่ ~5–20%) กับเนื้อหาต่างโดเมนอย่างการเมือง ระบบมัก “จับเกิน”
+    (วัดแล้ว precision เหลือ ~0.20) จึงควรถือผล “ประชด” เป็นรายการที่ควรไปตรวจต่อ ไม่ใช่คำตัดสิน</div>`;
+}
 async function escalateLink(btn) {
   btn.disabled = true;
   const note = document.getElementById("linkai_note");
@@ -463,6 +479,8 @@ async function escalateLink(btn) {
   document.getElementById("sum_sar").textContent = `ประชด ${c.sar}`;
   document.getElementById("sum_notx").textContent = `ไม่ประชด ${c.notx}`;
   document.getElementById("sum_unk").textContent = `บอกไม่ได้ ${c.unk}`;
+  const of = document.getElementById("overflag");     // recheck after AI: escalation usually raises the sarcastic share
+  if (of) of.innerHTML = overflagNote(c.sar, _linkResults.length);
   if (stop) {
     btn.disabled = false;
     btn.textContent = `ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${c.unk} ข้อ)`;
@@ -515,6 +533,7 @@ async function analyzeLink(raw) {
         <span class="pill notx" id="sum_notx">ไม่ประชด ${n.notx}</span>
         <span class="pill unk" id="sum_unk">บอกไม่ได้ ${n.unk}</span>
       </div>
+      <div id="overflag">${overflagNote(n.sar, results.length)}</div>
       <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง</p>`;
     if (n.unk > 0)
       html += `<button class="aibtn" id="linkai" onclick="escalateLink(this)">ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${n.unk} ข้อ)</button>
