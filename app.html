@@ -133,6 +133,10 @@ a{color:var(--blue)}
   background:var(--blue);border:2px solid var(--ink);border-radius:9px 5px 9px 5px;
   padding:1px 8px;margin-left:2px;vertical-align:3px}
 .pill.ai{background:#e6eefc;color:var(--blue);border-color:var(--blue)}
+.dlbtn{background:var(--yellow);border-color:var(--ink);box-shadow:3px 3px 0 var(--ink);
+  font-size:14px;margin-top:12px;padding:9px 16px}
+.dlbtn:hover{background:var(--yellow-d)}
+.dlbtn:disabled{opacity:.5;cursor:not-allowed}
 
 /* ---- วิธีทำงาน: การ์ตูนไหลผ่าน 3 ชั้น (cute animation) ---- */
 .flow label{display:block}
@@ -443,6 +447,23 @@ async function escalateTyped(btn) {
 // link results: escalate only the "บอกไม่ได้" comments, one by one
 let _linkResults = [];
 
+// ดาวน์โหลดคอมเมนต์ที่เข้าข่าย "ประชด" เป็น CSV ไว้ส่งต่อให้คนตรวจซ้ำ (review queue)
+// ครอบคลุมผลหลังกด AI ช่วยด้วย เพราะอ่านจาก _linkResults ตอนกดปุ่ม
+function downloadCandidates(btn) {
+  const cands = _linkResults.filter(r => r.v.cls === "sar");
+  if (!cands.length) { if (btn) { btn.textContent = "ยังไม่มีรายการที่เข้าข่ายประชด"; btn.disabled = true; } return; }
+  const q = s => '"' + String(s).replace(/"/g, '""') + '"';           // CSV-escape (คอมเมนต์มี , " ขึ้นบรรทัดได้)
+  const rows = [["comment", "verdict", "cue_score"]];
+  cands.forEach(r => rows.push([r.t, "ประชด", (r.v.s || 0).toFixed(2)]));
+  const csv = "﻿" + rows.map(row => row.map(q).join(",")).join("\r\n");   // BOM -> Excel อ่านไทยถูก
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "sarcasm_candidates.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  if (btn) btn.textContent = `ดาวน์โหลดแล้ว (${cands.length} รายการ)`;
+}
+
 // findings 12 & 22: on content unlike reviews/tweets (e.g. การเมือง) the detector over-flags --
 // precision measured as low as ~0.20. Real sarcasm is rare (~5-20%), so an implausibly high
 // "ประชด" share is a red flag. Surface it right by the summary so results read as candidates.
@@ -481,6 +502,8 @@ async function escalateLink(btn) {
   document.getElementById("sum_unk").textContent = `บอกไม่ได้ ${c.unk}`;
   const of = document.getElementById("overflag");     // recheck after AI: escalation usually raises the sarcastic share
   if (of) of.innerHTML = overflagNote(c.sar, _linkResults.length);
+  const dl = document.getElementById("dlbtn");         // AI changed the candidate set -> let the user re-download
+  if (dl) { dl.disabled = false; dl.textContent = "ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)"; }
   if (stop) {
     btn.disabled = false;
     btn.textContent = `ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${c.unk} ข้อ)`;
@@ -534,7 +557,8 @@ async function analyzeLink(raw) {
         <span class="pill unk" id="sum_unk">บอกไม่ได้ ${n.unk}</span>
       </div>
       <div id="overflag">${overflagNote(n.sar, results.length)}</div>
-      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง</p>`;
+      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง</p>
+      <button class="dlbtn" id="dlbtn" onclick="downloadCandidates(this)">ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)</button>`;
     if (n.unk > 0)
       html += `<button class="aibtn" id="linkai" onclick="escalateLink(this)">ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${n.unk} ข้อ)</button>
         <p class="conf" id="linkai_note">คอมเมนต์ที่ cue ตอบ “บอกไม่ได้” จะถูกส่งต่อทีละอัน <strong>WangchanBERTa ในเครื่อง</strong>ตัดสินก่อน (ฟรี) เหลือเฉพาะอันที่ยังไม่มั่นใจจึงเรียก AI (gpt-4.1-mini)</p>`;
