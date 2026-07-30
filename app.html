@@ -137,6 +137,24 @@ a{color:var(--blue)}
   font-size:14px;margin-top:12px;padding:9px 16px}
 .dlbtn:hover{background:var(--yellow-d)}
 .dlbtn:disabled{opacity:.5;cursor:not-allowed}
+/* triage tool: CSV upload, stats line, filter toggles, per-item review buttons */
+.csvup{font-family:var(--disp);font-size:15px;cursor:pointer;border:2.4px dashed var(--ink);color:var(--ink);
+  border-radius:12px 7px 12px 7px;padding:10px 16px;background:#fff}
+.csvup:hover{background:var(--yellow)}
+.stats{font-size:13px;color:var(--ink2);margin-top:12px}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tgl{font-family:var(--body);font-size:13px;padding:5px 12px;cursor:pointer;background:#fff;color:var(--ink);
+  border:2.2px solid var(--ink);border-radius:12px 7px 12px 7px;box-shadow:2px 2px 0 var(--ink)}
+.tgl.on{background:var(--yellow)}
+.tgl:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
+.rev{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:9px}
+.rv{font-family:var(--body);font-size:12.5px;padding:3px 11px;cursor:pointer;background:#fff;color:var(--ink);
+  border:2px solid var(--ink);border-radius:10px 6px 10px 6px;box-shadow:1.5px 1.5px 0 var(--ink)}
+.rv.ok.on{background:var(--sar-bg);color:var(--sar);border-color:var(--sar)}
+.rv.no.on{background:var(--not-bg);color:var(--not);border-color:var(--not)}
+.rv:active{transform:translate(1.5px,1.5px);box-shadow:0 0 0 var(--ink)}
+.revtag{font-size:12px;color:var(--ink2)}
+.citem.dim{opacity:.5}
 
 /* ---- วิธีทำงาน: การ์ตูนไหลผ่าน 3 ชั้น (cute animation) ---- */
 .flow label{display:block}
@@ -197,11 +215,12 @@ a{color:var(--blue)}
   </div>
 
   <div class="box panel">
-    <label for="inp">ข้อความ หรือลิงก์</label>
-    <textarea id="inp" placeholder="เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555&#10;หรือวางลิงก์กระทู้ Reddit เช่น https://www.reddit.com/r/Thailand/comments/..."
+    <label for="inp">ข้อความเดียว · หลายคอมเมนต์ (บรรทัดละอัน) · หรือลิงก์</label>
+    <textarea id="inp" placeholder="พิมพ์ข้อความเดียว เช่น: บริการดีมากกก รอแค่ชั่วโมงเดียวเอง 555&#10;หรือวางหลายคอมเมนต์ บรรทัดละอัน แล้วตรวจทีเดียว&#10;หรือวางลิงก์ YouTube / Pantip / Reddit"
               autocomplete="off" spellcheck="false"></textarea>
     <div class="actions">
       <button class="go" id="go">ตรวจเลย!</button>
+      <label class="csvup">อัปโหลด CSV<input type="file" id="csvfile" accept=".csv,.txt" hidden></label>
     </div>
     <div class="hint" style="margin-top:12px">ลองตัวอย่าง:</div>
     <div class="chips" id="chips"></div>
@@ -444,24 +463,126 @@ async function escalateTyped(btn) {
      </div>`;
 }
 
-// link results: escalate only the "บอกไม่ได้" comments, one by one
-let _linkResults = [];
+// ===== triage tool: batch scan + review station + stats + filter =====
+let _linkResults = [];       // [{t, v:{cls,label,s,hits}, review?: 'confirmed'|'fp'}]
+let _scanStats = { scanned: 0, llm: 0, wcb: 0 };
+let _scanSource = "";
+let _viewFilter = "all";     // 'all' | 'sar'
+const LLM_COST = 0.00012;    // ~$ per gpt-4.1-mini classification (README: $0.015 / 127 items)
 
-// ดาวน์โหลดคอมเมนต์ที่เข้าข่าย "ประชด" เป็น CSV ไว้ส่งต่อให้คนตรวจซ้ำ (review queue)
-// ครอบคลุมผลหลังกด AI ช่วยด้วย เพราะอ่านจาก _linkResults ตอนกดปุ่ม
+const _counts = () => { const c = { sar: 0, notx: 0, unk: 0 }; _linkResults.forEach(r => c[r.v.cls]++); return c; };
+
+// multi-line paste or an uploaded CSV -> array of comments (first column, header row dropped)
+function _firstCsvField(line) {
+  if (line[0] === '"') { let i = 1, s = ""; while (i < line.length) { if (line[i] === '"') { if (line[i + 1] === '"') { s += '"'; i += 2; continue; } break; } s += line[i++]; } return s; }
+  const c = line.indexOf(","); return c < 0 ? line : line.slice(0, c);
+}
+function parseBatch(raw) {
+  let lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length && /^"?(text|comment)"?(,|$)/i.test(lines[0])) lines = lines.slice(1);
+  return lines.map(_firstCsvField).map(s => s.trim()).filter(Boolean);
+}
+
+// score a batch of comments (from a link, a paste, or a CSV) and render the triage panel
+function scanComments(comments, source) {
+  _scanSource = source;
+  _scanStats = { scanned: comments.length, llm: 0, wcb: 0 };
+  _viewFilter = "all";
+  _linkResults = comments.map(t => ({ t, v: verdictOf(t) }));
+  _linkResults.sort((a, b) => b.v.s - a.v.s);            // by cue confidence, most-likely-sarcastic first
+  renderScan();
+}
+
+function statsLine() {
+  const c = _counts(), n = _linkResults.length, pct = n ? Math.round(100 * c.sar / n) : 0;
+  let s = `สแกน ${n} คอมเมนต์ · เข้าข่ายประชด ${c.sar} (${pct}%)`;
+  if (_scanStats.wcb) s += ` · WangchanBERTa ตอบฟรี ${_scanStats.wcb}`;
+  if (_scanStats.llm) s += ` · เรียก GPT (เสียเงิน) ${_scanStats.llm} ครั้ง ~$${(_scanStats.llm * LLM_COST).toFixed(4)}`;
+  return s;
+}
+
+function renderScan() {
+  const c = _counts(), n = _linkResults.length;
+  let html = `<div class="verdict"><span class="dot"></span>ตรวจแล้ว ${n} คอมเมนต์ (${esc(_scanSource)})</div>
+    <div class="sumline">
+      <span class="pill sar" id="sum_sar">ประชด ${c.sar}</span>
+      <span class="pill notx" id="sum_notx">ไม่ประชด ${c.notx}</span>
+      <span class="pill unk" id="sum_unk">บอกไม่ได้ ${c.unk}</span>
+    </div>
+    <div id="overflag">${overflagNote(c.sar, n)}</div>
+    <p class="stats" id="stats">${statsLine()}</p>
+    <div class="ctrls">
+      <button class="tgl ${_viewFilter === "all" ? "on" : ""}" id="tgl_all" onclick="setFilter('all')">ทั้งหมด (${n})</button>
+      <button class="tgl ${_viewFilter === "sar" ? "on" : ""}" id="tgl_sar" onclick="setFilter('sar')">เฉพาะเข้าข่ายประชด (${c.sar})</button>
+      <span class="conf" style="margin-left:auto;align-self:center">เรียงตามคะแนนมากไปน้อย</span>
+    </div>
+    <button class="dlbtn" id="dlbtn" onclick="downloadCandidates(this)">ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)</button>`;
+  if (c.unk > 0)
+    html += `<button class="aibtn" id="linkai" onclick="escalateLink(this)">ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${c.unk} ข้อ)</button>
+      <p class="conf" id="linkai_note">คอมเมนต์ที่ cue ตอบ “บอกไม่ได้” จะถูกส่งต่อทีละอัน <strong>WangchanBERTa ในเครื่อง</strong>ตัดสินก่อน (ฟรี) เหลือเฉพาะที่ยังไม่มั่นใจจึงเรียก AI (gpt-4.1-mini)</p>`;
+  html += `<div id="items"></div>`;
+  out.className = "box alt result";
+  out.innerHTML = html;
+  renderItems();
+}
+
+function renderItems() {
+  const box = document.getElementById("items");
+  if (!box) return;
+  let html = "";
+  _linkResults.forEach((r, i) => {
+    if (_viewFilter === "sar" && r.v.cls !== "sar") return;
+    const v = r.v, cueNames = v.hits.map(c => esc(c.name)).join(" · "), rev = r.review;
+    const reviewUI = v.cls === "sar"
+      ? `<div class="rev">
+          <button class="rv ok ${rev === "confirmed" ? "on" : ""}" onclick="reviewItem(${i},'confirmed')">ยืนยันว่าประชด</button>
+          <button class="rv no ${rev === "fp" ? "on" : ""}" onclick="reviewItem(${i},'fp')">ไม่ใช่ประชด</button>
+          ${rev ? `<span class="revtag">${rev === "confirmed" ? "ยืนยันแล้ว" : "ตีตกแล้ว"}</span>` : ""}
+        </div>` : "";
+    html += `<div class="citem ${rev === "fp" ? "dim" : ""}" id="ci${i}">
+      <span class="pill ${v.cls}" id="pi${i}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
+      <p class="ctxt">${esc(r.t.length > 220 ? r.t.slice(0, 219) + "…" : r.t)}</p>
+      ${cueNames ? `<p class="cwhy">cue ที่เจอ: ${cueNames}</p>` : ""}
+      ${reviewUI}
+    </div>`;
+  });
+  box.innerHTML = html || `<p class="note">ไม่มีรายการในมุมมองนี้</p>`;
+}
+
+function setFilter(f) {
+  _viewFilter = f;
+  const a = document.getElementById("tgl_all"), s = document.getElementById("tgl_sar");
+  if (a && s) { a.classList.toggle("on", f === "all"); s.classList.toggle("on", f === "sar"); }
+  renderItems();
+}
+
+// review station: tick a candidate confirmed / false-positive (click again to undo)
+function reviewItem(i, state) {
+  _linkResults[i].review = _linkResults[i].review === state ? undefined : state;
+  renderItems();
+  const dl = document.getElementById("dlbtn");
+  if (dl) {
+    dl.disabled = false;
+    const nc = _linkResults.filter(r => r.review === "confirmed").length;
+    dl.textContent = nc ? `ดาวน์โหลดเฉพาะที่ยืนยัน (${nc}) · CSV` : "ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)";
+  }
+}
+
+// export the review queue: confirmed items if any were ticked, otherwise all candidates
 function downloadCandidates(btn) {
-  const cands = _linkResults.filter(r => r.v.cls === "sar");
-  if (!cands.length) { if (btn) { btn.textContent = "ยังไม่มีรายการที่เข้าข่ายประชด"; btn.disabled = true; } return; }
-  const q = s => '"' + String(s).replace(/"/g, '""') + '"';           // CSV-escape (คอมเมนต์มี , " ขึ้นบรรทัดได้)
-  const rows = [["comment", "verdict", "cue_score"]];
-  cands.forEach(r => rows.push([r.t, "ประชด", (r.v.s || 0).toFixed(2)]));
-  const csv = "﻿" + rows.map(row => row.map(q).join(",")).join("\r\n");   // BOM -> Excel อ่านไทยถูก
+  const confirmed = _linkResults.filter(r => r.review === "confirmed");
+  const rows = confirmed.length ? confirmed : _linkResults.filter(r => r.v.cls === "sar");
+  if (!rows.length) { if (btn) { btn.textContent = "ยังไม่มีรายการให้ดาวน์โหลด"; btn.disabled = true; } return; }
+  const q = s => '"' + String(s).replace(/"/g, '""') + '"';           // CSV-escape (comments may hold , " newline)
+  const csvRows = [["comment", "verdict", "cue_score", "reviewed"]];
+  rows.forEach(r => csvRows.push([r.t, "ประชด", (r.v.s || 0).toFixed(2), r.review === "confirmed" ? "confirmed" : ""]));
+  const csv = "﻿" + csvRows.map(row => row.map(q).join(",")).join("\r\n");   // BOM -> Excel reads Thai
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url; a.download = "sarcasm_candidates.csv";
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-  if (btn) btn.textContent = `ดาวน์โหลดแล้ว (${cands.length} รายการ)`;
+  if (btn) btn.textContent = `ดาวน์โหลดแล้ว (${rows.length} รายการ${confirmed.length ? " · เฉพาะที่ยืนยัน" : ""})`;
 }
 
 // findings 12 & 22: on content unlike reviews/tweets (e.g. การเมือง) the detector over-flags --
@@ -477,7 +598,6 @@ function overflagNote(sar, total) {
 }
 async function escalateLink(btn) {
   btn.disabled = true;
-  const note = document.getElementById("linkai_note");
   const todo = _linkResults.map((r, i) => ({ i, t: r.t })).filter(x => _linkResults[x.i].v.cls === "unk");
   let done = 0, stop = null;
   for (const it of todo) {
@@ -486,34 +606,15 @@ async function escalateLink(btn) {
     if (d === null) { stop = "nohelper"; break; }
     // ไม่มีคีย์ = ชั้น LLM ใช้ไม่ได้ แต่ WangchanBERTa ในเครื่องยังตอบข้ออื่นได้ จึงทำต่อ ไม่ break
     if (!d.available) { stop = "nokey"; continue; }
-    const cls = aiCls(d.decision), lab = aiLabel(d.decision);
-    const pill = document.getElementById("pi" + it.i);
-    if (pill) {
-      pill.className = "pill " + cls;
-      pill.innerHTML = `${lab} <span class="aibadge">${d.tier === "wcb" ? "ในเครื่อง" : "AI"}</span>`;
-    }
-    _linkResults[it.i].v.cls = cls;
+    _linkResults[it.i].v.cls = aiCls(d.decision);
+    if (d.tier === "wcb") _scanStats.wcb++; else _scanStats.llm++;   // for the cost line
     done++;
   }
-  const c = { sar: 0, notx: 0, unk: 0 };
-  _linkResults.forEach(r => c[r.v.cls]++);
-  document.getElementById("sum_sar").textContent = `ประชด ${c.sar}`;
-  document.getElementById("sum_notx").textContent = `ไม่ประชด ${c.notx}`;
-  document.getElementById("sum_unk").textContent = `บอกไม่ได้ ${c.unk}`;
-  const of = document.getElementById("overflag");     // recheck after AI: escalation usually raises the sarcastic share
-  if (of) of.innerHTML = overflagNote(c.sar, _linkResults.length);
-  const dl = document.getElementById("dlbtn");         // AI changed the candidate set -> let the user re-download
-  if (dl) { dl.disabled = false; dl.textContent = "ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)"; }
-  if (stop) {
-    btn.disabled = false;
-    btn.textContent = `ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${c.unk} ข้อ)`;
-    if (note) note.innerHTML = stop === "nohelper"
-      ? "ยังไม่ได้เปิดตัวช่วยบนเครื่อง (<code>python Gold/app.py</code>) ยังใช้ AI ไม่ได้"
-      : "ตัวช่วยทำงานอยู่ แต่ยังไม่มีคีย์ AI (ตั้ง <code>OPENAI_API_KEY</code> ใน <code>.env</code>)";
-  } else {
-    btn.style.display = "none";
-    if (note) note.textContent = `AI ช่วยตัดสินไปแล้ว ${done} ข้อ (ทั้งหมดที่ cue ไม่ชัด) · ส่งเฉพาะอันที่ไม่ชัด จึงประหยัด`;
-  }
+  renderScan();     // redraw with new verdicts, updated stats/cost, review buttons on the new candidates
+  const note = document.getElementById("linkai_note");
+  if (stop && note) note.innerHTML = stop === "nohelper"
+    ? "ยังไม่ได้เปิดตัวช่วยบนเครื่อง (<code>python Gold/app.py</code>) ยังใช้ AI ไม่ได้ · Pantip ก็ยังตรวจแบบ cue ได้"
+    : "ตัวช่วยทำงานอยู่ แต่ยังไม่มีคีย์ AI (ตั้ง <code>OPENAI_API_KEY</code> ใน <code>.env</code>)";
 }
 // ===========================================================================
 
@@ -543,37 +644,7 @@ async function analyzeLink(raw) {
     if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
     const bag = data.comments || [];
     if (!bag.length) throw new Error("ไม่พบคอมเมนต์ในลิงก์นี้");
-
-    const results = bag.map(t => ({ t, v: verdictOf(t) }));
-    const n = { sar: 0, notx: 0, unk: 0 };
-    results.forEach(r2 => n[r2.v.cls]++);
-
-    results.sort((a, b) => b.v.s - a.v.s);
-    _linkResults = results;
-    let html = `<div class="verdict"><span class="dot"></span>ตรวจแล้ว ${results.length} คอมเมนต์ (${esc(data.platform || "ลิงก์")})</div>
-      <div class="sumline">
-        <span class="pill sar" id="sum_sar">ประชด ${n.sar}</span>
-        <span class="pill notx" id="sum_notx">ไม่ประชด ${n.notx}</span>
-        <span class="pill unk" id="sum_unk">บอกไม่ได้ ${n.unk}</span>
-      </div>
-      <div id="overflag">${overflagNote(n.sar, results.length)}</div>
-      <p class="conf">เรียงจากคะแนนประชดมากไปน้อย · ให้คะแนนด้วย cue ฟรีบนหน้านี้เอง</p>
-      <button class="dlbtn" id="dlbtn" onclick="downloadCandidates(this)">ดาวน์โหลดรายการที่เข้าข่ายประชด (CSV)</button>`;
-    if (n.unk > 0)
-      html += `<button class="aibtn" id="linkai" onclick="escalateLink(this)">ให้ AI ช่วยตัดสินอันที่ cue ไม่ชัด (${n.unk} ข้อ)</button>
-        <p class="conf" id="linkai_note">คอมเมนต์ที่ cue ตอบ “บอกไม่ได้” จะถูกส่งต่อทีละอัน <strong>WangchanBERTa ในเครื่อง</strong>ตัดสินก่อน (ฟรี) เหลือเฉพาะอันที่ยังไม่มั่นใจจึงเรียก AI (gpt-4.1-mini)</p>`;
-    html += `<div>`;
-    results.forEach(({ t, v }, i) => {
-      const cueNames = v.hits.map(c => esc(c.name)).join(" · ");
-      html += `<div class="citem" id="ci${i}">
-        <span class="pill ${v.cls}" id="pi${i}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
-        <p class="ctxt">${esc(t.length > 220 ? t.slice(0, 219) + "…" : t)}</p>
-        ${cueNames ? `<p class="cwhy">cue ที่เจอ: ${cueNames}</p>` : ""}
-      </div>`;
-    });
-    html += "</div>";
-    out.className = "box alt result";
-    out.innerHTML = html;
+    scanComments(bag, data.platform || "ลิงก์");     // score + render the triage panel
   } catch (e) {
     out.className = "box alt result";
     const msg = String(e.message || e);
@@ -591,12 +662,30 @@ async function analyzeLink(raw) {
 
 go.addEventListener("click", () => {
   const text = inp.value.trim();
-  if (isUrl(text)) { analyzeLink(text); return; }
-  render();                                          // instant free cue verdict
-  if (text && verdictOf(text).cls === "unk") {       // unsure -> let the AI help (one cheap call)
+  if (!text) { render(); return; }
+  if (isUrl(text)) { analyzeLink(text); return; }             // a link -> fetch a thread
+  const batch = parseBatch(text);
+  if (batch.length >= 2) { scanComments(batch, `วางเอง ${batch.length} รายการ`); return; }  // many lines -> batch triage
+  render();                                                    // one text -> instant free cue verdict
+  if (verdictOf(text).cls === "unk") {                         // unsure -> let the AI help (one cheap call)
     const b = out.querySelector(".aibtn");
     if (b) escalateTyped(b);
   }
+});
+
+// upload a CSV / text file of comments (first column) -> batch triage
+const csvfile = document.getElementById("csvfile");
+if (csvfile) csvfile.addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const b = parseBatch(String(rd.result || ""));
+    if (b.length) scanComments(b, `ไฟล์ ${esc(f.name)} · ${b.length} รายการ`);
+    else { out.className = "box alt result"; out.innerHTML = '<p class="note" style="margin-top:0">ไม่พบข้อความในไฟล์นี้</p>'; }
+  };
+  rd.readAsText(f);
+  e.target.value = "";      // allow re-uploading the same file
 });
 
 const chips = document.getElementById("chips");
