@@ -50,14 +50,21 @@ developer page has a key box and must stay local).
 
 ## The paper
 
-`docs/paper.tex` is current (includes findings 21 and 22). `docs/paper.pdf` is **stale** — rebuild it with
-`xelatex`/`lualatex` (Thai script needs one of those) or upload `paper.tex` to Overleaf, which handles the
-fonts for you.
+`docs/paper.tex` is current (includes finding 21) and `docs/paper.pdf` is **stale**. The source romanizes
+Thai (`prachot`, not ประชด) and uses only standard packages, so it compiles with **plain pdflatex** — no
+Thai font, no xelatex. It is a single self-contained file.
+
+Rebuild in ~2 minutes:
+1. Overleaf → **New Project → Upload Project** (or **Import from GitHub**), add `docs/paper.tex`.
+2. Menu → Compiler → **pdfLaTeX** (the default), then **Recompile**.
+3. Download the PDF and drop it in as `docs/paper.pdf`.
+
+Or locally, on any machine with a TeX install: `pdflatex paper.tex` (twice, for the references).
 
 ## Status of the three apply tracks
 
 - **Use it — done.** The tool runs the full cascade on real content end to end and exports a reviewer queue.
 - **Deploy publicly — production path verified locally** (gunicorn, 2 workers, `TRUST_PROXY` honored).
   Actual public reach needs your own domain, TLS certificate, and a host; that part is yours.
-- **Rebuild `paper.pdf` — not possible in the dev sandbox** (no LaTeX toolchain, Homebrew blocked). The
-  source is ready and static-checked; build it via Overleaf or a machine with xelatex.
+- **Rebuild `paper.pdf` — not possible in the dev sandbox** (no LaTeX toolchain, Homebrew blocked), but the
+  source is pdflatex-clean and self-contained: upload `docs/paper.tex` to Overleaf and Recompile (steps above).
