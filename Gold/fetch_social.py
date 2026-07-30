@@ -100,16 +100,21 @@ def fetch_youtube(url, limit):
             "ignore_no_formats_error": True,        # we only want comments -> don't fail if no video format is offered
             "extractor_args": {"youtube": {"player_client": ["web"],       # the client that uses a PO token
                                            "comment_sort": ["top"], "max_comments": [str(limit * 3)]}}}
-    try:
-        with yt_dlp.YoutubeDL(opts) as y:
-            info = y.extract_info(url, download=False)
-    except Exception:
-        # the usual cause today is a missing PO token -> point the user at the helper instead of a bare error
-        if not _pot_provider_up():
-            raise FetchError("YouTube needs the PO-token helper running (bgutil on port 4416). "
-                             "Pantip works without it.")
-        raise
-    return [c.get("text", "") for c in (info.get("comments") or [])]
+    last = None
+    for _ in range(2):                          # YouTube comment fetches are flaky; one retry clears most transients
+        try:
+            with yt_dlp.YoutubeDL(opts) as y:
+                info = y.extract_info(url, download=False)
+            return [c.get("text", "") for c in (info.get("comments") or [])]
+        except Exception as e:
+            last = e
+    # both tries failed. Only blame the PO-token wall if the error actually looks like it -- otherwise a
+    # transient hiccup was being mis-reported as "needs the helper" even though plain fetches work.
+    msg = str(last).lower()
+    pot_like = any(k in msg for k in ("po token", "po_token", "sign in to confirm", "not a bot", "unplayable"))
+    if pot_like and not _pot_provider_up():
+        raise FetchError("YouTube ต้องใช้ตัวช่วย PO-token (bgutil พอร์ต 4416) หรือลองใหม่อีกครั้ง · Pantip ใช้ได้เลย")
+    raise FetchError(f"YouTube: {type(last).__name__} ลองใหม่อีกครั้ง หรือใช้ลิงก์ Pantip")
 
 
 # ---------- Pantip (Thai forum) ----------
