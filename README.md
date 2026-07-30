@@ -16,6 +16,7 @@ What you can access here:
 - **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
 - **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo (pictured below).
 - **[Full findings, 1 to 22](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
+- **[Apply it — a short playbook](APPLY.md)**: which tool for which job (try / triage / batch / auto-label / calibrate), the one-command run, and the deploy path.
 
 <details>
 <summary><b>The whole project on one board</b> (click to expand)</summary>
