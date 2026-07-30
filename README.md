@@ -13,7 +13,7 @@ What you can access here:
 
 - **[Live detector](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/app.html)**, paste Thai text or a comment-thread link, get a verdict with the reasons shown. Runs in your browser; nothing you type leaves your machine. (Same file: [`app.html`](app.html))
 - **[One-minute visual overview](https://thanaphumi2006.github.io/Cost-Aware-Multi-Agent-LLM-Evaluation-for-Thai-Sarcasm-Detection/overview.html)** of what the system does and how each method scored, for readers without an ML background. (Same file: [`overview.html`](overview.html))
-- **[4-page summary PDF](docs/paper.pdf)** with the method, all results tables, and limitations.
+- **[Summary paper (PDF)](docs/paper.pdf)** with the method, all results tables, and limitations.
 - **[Interactive story board](https://claude.ai/code/artifact/47aa95d4-86a2-47f9-959f-487b258c936e)**, the whole project in six chapters, Miro-style, in the same doodle look as the demo (pictured below).
 - **[Full findings, 1 to 22](Gold/RESULTS.md)** with the statistics behind every claim, and the code that produced them in [`Gold/`](Gold/).
 - **[Apply it — a short playbook](APPLY.md)**: which tool for which job (try / triage / batch / auto-label / calibrate), the one-command run, and the deploy path.
@@ -287,7 +287,7 @@ dataset/
   README.md              Hugging Face dataset card for the gold set (two splits)
   upload_hf.py           builds the splits and uploads them (needs huggingface-cli login)
 docs/
-  paper.pdf              4-page summary (Thai script rendered)
+  paper.pdf              the summary paper, Thai script rendered (regenerate from paper.html)
   paper.tex              the same paper as arXiv-ready LaTeX (compiles clean)
 ```
 
