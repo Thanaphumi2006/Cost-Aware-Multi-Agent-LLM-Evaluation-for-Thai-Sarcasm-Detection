@@ -99,20 +99,27 @@ def flag(text, sentiment=None):
     out = {"sarcastic": label, "prob": None if prob is None else round(prob, 4), "by": by}
     sent = _norm_sentiment(sentiment)
 
+    # priority reflects how RELIABLE the "sentiment is inverted" call is, measured on real data:
+    # a POSITIVE label on sarcastic text is a clear inversion (~0.71 precision); a NEUTRAL one is
+    # noisier (~0.30). Thresholding the sarcasm score does NOT help (flat precision) -- prioritise by
+    # sentiment class instead. Review 'high' first for precision; add 'low' for recall.
     if label is None:                                   # unresolved (no key, cue unsure) -> be conservative
-        out.update(trust_sentiment=False, flag="review",
+        out.update(trust_sentiment=False, flag="review", priority="low",
                    reason="sarcasm unresolved (no API key) -- review to be safe")
     elif label == 0:
-        out.update(trust_sentiment=True, flag="ok", reason="no sarcasm signal")
+        out.update(trust_sentiment=True, flag="ok", priority=None, reason="no sarcasm signal")
     elif sent == "negative":
-        out.update(trust_sentiment=True, flag="ok",
+        out.update(trust_sentiment=True, flag="ok", priority=None,
                    reason="sarcastic, but the sentiment is already negative")
-    elif sent is None:
-        out.update(trust_sentiment=False, flag="review",
+    elif sent == "positive":
+        out.update(trust_sentiment=False, flag="review", priority="high",
+                   reason="sarcasm inverts a POSITIVE sentiment (the clearest, most reliable error)")
+    elif sent == "neutral":
+        out.update(trust_sentiment=False, flag="review", priority="low",
+                   reason="sarcastic but sentiment is neutral (possible understated negativity)")
+    else:                                               # no sentiment provided -> can't gauge, be safe
+        out.update(trust_sentiment=False, flag="review", priority="high",
                    reason="sarcastic -- re-check its sentiment (surface likely inverted)")
-    else:                                               # positive / neutral + sarcastic = the inverted case
-        out.update(trust_sentiment=False, flag="review",
-                   reason=f"sarcasm likely inverts a {sent} sentiment")
     return out
 
 
@@ -123,23 +130,26 @@ def run(csv, out, text_col, sent_col):
     if text_col not in df.columns:
         sys.exit(f"input has no '{text_col}' column (columns: {list(df.columns)})")
     has_sent = sent_col in df.columns
-    rows, calls, flagged = [], 0, 0
+    rows, calls, hi, lo = [], 0, 0, 0
     for _, r in df.iterrows():
         res = flag(r[text_col], r[sent_col] if has_sent else None)
         if res["by"] == "gpt-4.1-mini":
             calls += 1
-        if res["flag"] == "review":
-            flagged += 1
+        if res.get("priority") == "high":
+            hi += 1
+        elif res.get("priority") == "low":
+            lo += 1
         row = {text_col: r[text_col]}
         if has_sent:
             row[sent_col] = r[sent_col]
-        row.update(sarcastic=res["sarcastic"], sarcasm_prob=res["prob"],
-                   decided_by=res["by"], flag=res["flag"], reason=res["reason"])
+        row.update(sarcastic=res["sarcastic"], sarcasm_prob=res["prob"], decided_by=res["by"],
+                   flag=res["flag"], priority=res.get("priority") or "", reason=res["reason"])
         rows.append(row)
     pd.DataFrame(rows).to_csv(out, index=False, encoding="utf-8-sig")
     n = len(rows)
-    print(f"{n} rows · {calls} LLM calls ({100*calls/n:.0f}%) · flagged for review {flagged}/{n} "
-          f"({100*flagged/n:.0f}%) -> {out}")
+    print(f"{n} rows · {calls} LLM calls ({100*calls/n:.0f}%) · flagged for review: "
+          f"{hi} high-priority + {lo} low-priority = {hi + lo}/{n} -> {out}")
+    print("   review 'high' first (positive-sentiment sarcasm, most reliable); add 'low' for full recall.")
     if not has_sent:
         print(f"(no '{sent_col}' column: flags every sarcastic item for a sentiment re-check)")
 

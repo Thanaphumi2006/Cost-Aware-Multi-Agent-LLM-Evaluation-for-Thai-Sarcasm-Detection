@@ -42,6 +42,14 @@ if not r["trust_sentiment"]:
 Cost-aware (the free cue answers most rows; only cue-unsure text costs a gpt-4.1-mini call). Same domain
 caveat as everything else: calibrate first, treat "review" as "a human should look", not a verdict.
 
+**Precision vs. recall — use the `priority` column, not a threshold.** Raising the sarcasm score threshold
+does NOT improve flag precision (the LLM's false positives are as confident as its true ones — measured flat
+~0.32). What works is the sentiment class: a POSITIVE label on sarcastic text is a clean inversion, a NEUTRAL
+one is noisy. So each flag carries `priority` = `high` (positive-sentiment sarcasm) or `low` (neutral). On a
+labelled test, high-priority precision was **0.83** vs. 0.32 for low. Review `high` first for precision; add
+`low` for full recall. (On review-domain content, where sarcastic *praise* is the main failure mode, most
+errors land in `high` — so there you get precision AND recall.)
+
 **Wired end to end** (`Gold/sentiment_pipeline.py`): if you don't already have a sentiment model, this runs
 one for you (WangchanBERTa, default `phoner45/wangchan-sentiment-thai-text-model`, auto-downloaded from HF
 on first run) and applies the guard in a single pass. On a quick check it caught two sarcastic reviews the

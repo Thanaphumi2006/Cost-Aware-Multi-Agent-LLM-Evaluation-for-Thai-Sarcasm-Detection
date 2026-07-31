@@ -64,8 +64,8 @@ def analyze(text):
     """WangchanBERTa sentiment, guarded by the sarcasm flag."""
     lab, conf = sentiment(text)
     g = sarcasm_flag.flag(text, sentiment=lab)     # lab (pos/neu/neg) is normalised inside flag()
-    return {"sentiment": lab, "sentiment_conf": round(conf, 3),
-            "sarcastic": g["sarcastic"], "flag": g["flag"], "reason": g["reason"], "by": g["by"]}
+    return {"sentiment": lab, "sentiment_conf": round(conf, 3), "sarcastic": g["sarcastic"],
+            "flag": g["flag"], "priority": g.get("priority"), "reason": g["reason"], "by": g["by"]}
 
 
 def run(csv, out, text_col):
@@ -75,19 +75,23 @@ def run(csv, out, text_col):
     if text_col not in df.columns:
         sys.exit(f"input has no '{text_col}' column (columns: {list(df.columns)})")
     print(f"sentiment model: {DEFAULT_MODEL}\n")
-    rows, calls, flagged = [], 0, 0
+    rows, calls, hi, lo = [], 0, 0, 0
     for t in df[text_col]:
         r = analyze(t)
         if r["by"] == "gpt-4.1-mini":
             calls += 1
-        if r["flag"] == "review":
-            flagged += 1
+        if r.get("priority") == "high":
+            hi += 1
+        elif r.get("priority") == "low":
+            lo += 1
         rows.append({text_col: t, "sentiment": r["sentiment"], "sentiment_conf": r["sentiment_conf"],
-                     "sarcastic": r["sarcastic"], "flag": r["flag"], "reason": r["reason"]})
+                     "sarcastic": r["sarcastic"], "flag": r["flag"], "priority": r.get("priority") or "",
+                     "reason": r["reason"]})
     pd.DataFrame(rows).to_csv(out, index=False, encoding="utf-8-sig")
     n = len(rows)
-    print(f"{n} rows · {calls} sarcasm-LLM calls ({100*calls/max(n,1):.0f}%) · "
-          f"sentiment flagged as untrustworthy {flagged}/{n} ({100*flagged/max(n,1):.0f}%) -> {out}")
+    print(f"{n} rows · {calls} sarcasm-LLM calls ({100*calls/max(n,1):.0f}%) · flagged: "
+          f"{hi} high-priority + {lo} low-priority -> {out}")
+    print("   'high' = positive-sentiment sarcasm (most reliable, review first); 'low' = neutral-sentiment sarcasm.")
 
 
 def main():
