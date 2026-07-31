@@ -269,6 +269,7 @@ Gold/
   compare_systems.py     paired bootstrap + McNemar
   predict.py             the deployable tool (the research conclusion, packaged up)
   autolabel.py           unattended high-precision auto-labelling (cue AND LLM must agree, else defer)
+  sarcasm_flag.py        flag likely-inverted sentiment (sarcasm) for a Thai sentiment pipeline — see APPLY.md
   app.py                 the web demo (developer page at /, doodle user page at /app) — LOCAL only
   serve_public.py        hardened server for public hosting (safe subset of app.py) — see HOSTING.md
   HOSTING.md             how to expose the demo safely (WSGI + HTTPS proxy, SSRF/rate-limit notes)

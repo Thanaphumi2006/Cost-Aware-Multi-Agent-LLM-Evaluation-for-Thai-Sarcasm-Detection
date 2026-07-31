@@ -20,7 +20,26 @@ Then open **http://127.0.0.1:8000/app**. (Manual/Windows steps: see the README "
 | Triage a comment thread | the demo, paste a **YouTube / Pantip / Reddit** link | fetch → scan → review → download the confirmed CSV |
 | Triage a batch you already have | the demo, paste comments (one per line) **or upload a CSV** | works on any content, not just the 3 platforms |
 | Auto-label a dataset unattended | `python Gold/autolabel.py --csv in.csv --out out.csv --eval` | AND-gate, ~0.90 precision in-domain; defers the rest to review |
+| Guard a **Thai sentiment pipeline** | `python Gold/sarcasm_flag.py --csv scored.csv --out flagged.csv` | flags text where sarcasm likely inverts a non-negative label; also importable as `flag(text, sentiment)` |
 | Check accuracy on your own domain | `python Gold/calibrate_domain.py --name X --csv labelled.csv` | needs a labelled sample; runbook in `Gold/CALIBRATE.md` |
+
+### Sarcasm-flagging for a sentiment pipeline
+
+Sentiment models miscode sarcasm: a positive surface ("บริการดีมาก รอแค่ 2 ชั่วโมง") hides a negative
+intent, so the pipeline mislabels a complaint as POSITIVE. `Gold/sarcasm_flag.py` adds a stage that flags
+exactly those items (a non-negative label on sarcastic text) for a human to re-check — it never relabels
+silently. Bring your pipeline's output as a CSV with a `text` column and its `sentiment` column; the tool
+adds `sarcastic`, `flag` (review/ok), and `reason`. Or call it inline:
+
+```python
+from sarcasm_flag import flag
+r = flag(text, sentiment=my_pipeline_label)
+if not r["trust_sentiment"]:
+    route_to_human(text)          # r["flag"] == "review"
+```
+
+Cost-aware (the free cue answers most rows; only cue-unsure text costs a gpt-4.1-mini call). Same domain
+caveat as everything else: calibrate first, treat "review" as "a human should look", not a verdict.
 
 ## What it is good at (and not)
 
