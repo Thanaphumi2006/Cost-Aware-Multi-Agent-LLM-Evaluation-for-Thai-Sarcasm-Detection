@@ -773,6 +773,36 @@ domain-shift problem — only in-domain labels do. Reproduce with `calibrate_dom
 `autolabel.py --csv <labelled.csv> --eval`; the comments are third-party text (gitignored), the tooling and this write-up
 are the durable artefacts.
 
+**23. Applied: a sarcasm guard for a Thai sentiment pipeline — the precision knob is the sentiment class, not a threshold**
+
+Sentiment models miscode sarcasm because surface form and intent diverge: a positive label on sarcastic text is an
+inverted (wrong) reading. `sentiment_pipeline.py` runs a WangchanBERTa sentiment model
+(`phoner45/wangchan-sentiment-thai-text-model`, pos/neu/neg) and then guards it with the cue → gpt-4.1-mini cascade
+(`sarcasm_flag.py`): a **non-negative** sentiment on **sarcastic** text is flagged for human review, never relabelled
+silently. Evaluated against the human sarcasm labels on two domains.
+
+**Thresholding the sarcasm score does not raise flag precision.** Swept 0.095 → 0.99 on the 305 labelled YouTube
+comments: flag precision stayed flat at **~0.32** while recall bled from 0.97 to 0.62. The LLM's false positives are as
+confident as its true ones (findings 6, 21 again), so the score gives nothing to threshold. The lever that works is the
+**sentiment class** — a POSITIVE label on sarcastic text is a clean inversion, a NEUTRAL one is noisy — so each flag
+carries `priority` = `high` (positive) or `low` (neutral).
+
+| Domain (real sentiment errors) | `high` flags / precision | `high`-only recall | `high`+`low` recall / precision |
+|---|---|---|---|
+| YouTube political (n=305, 39 errors) | 6 / **0.83** | 0.13 | **0.97** / 0.32 |
+| Wongnai reviews (n=85, 6 errors) | 4 / **0.75** | 0.50 | 0.67 / — |
+
+The `high` tier is the reliable one on both domains (precision 0.75–0.83 vs ~0.32 for `low`). **Domain shapes recall via
+the sarcasm's surface:** political sarcasm is mostly *neutral*-surface (bitter, read as neutral), so few errors land in
+`high` (recall 0.13); review sarcasm is *positive*-surface (sarcastic praise), so more do (0.50 `high`, 0.67 both). But
+review recall still caps at 0.67 because the detector **misses 2 of 6 subtle sarcastic reviews outright** — a detector
+limit no flag tuning repairs. Samples are tiny (39 and 6 positive-errors), so read directions, not points.
+
+**Applied lesson:** the guard is a **precise "check these first" filter, not a complete net.** Deploy the `high`-priority
+flag on a review stream (where sarcastic praise dominates and precision is ~0.75) as human-assist triage; treat `low` as
+an optional recall pass. It never auto-relabels — consistent with the project's recall-triage posture (finding 22).
+Reproduce with `sentiment_pipeline.py --csv texts.csv --out out.csv` (or `sarcasm_flag.py` to guard your own pipeline).
+
 ## Thesis conclusion (revised after findings 7-12)
 
 **Before:** "multi-agent (recall-preserving verifier) genuinely helps but marginally (+0.054, cost 1.80×)"
@@ -856,6 +886,11 @@ There's a precision/recall tension a single verifier can't fully resolve → roo
 **Added in finding 22 (cross-domain reality on user data):**
 - `autolabel.py` — unattended high-precision auto-labelling via an AND-gate (cue AND LLM agree, else defer to review);
   the tool used to measure that auto-labelling precision collapses 0.90 → 0.44 off-domain
+
+**Added in finding 23 (sarcasm guard for a sentiment pipeline):**
+- `sarcasm_flag.py` — flags text where sarcasm likely inverts a non-negative sentiment; `priority` high/low is the
+  precision knob (threshold tuning does not work). `flag(text, sentiment)` API + CSV mode.
+- `sentiment_pipeline.py` — WangchanBERTa sentiment (`phoner45/wangchan-sentiment-thai-text-model`) wired to the guard.
 
 ## Running the web app
 
