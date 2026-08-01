@@ -133,6 +133,13 @@ a{color:var(--blue)}
   background:var(--blue);border:2px solid var(--ink);border-radius:9px 5px 9px 5px;
   padding:1px 8px;margin-left:2px;vertical-align:3px}
 .pill.ai{background:#e6eefc;color:var(--blue);border-color:var(--blue)}
+/* step trail: how many cascade tiers a result passed through */
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:11.5px}
+.stepn{font-family:var(--disp);color:var(--ink2);border:2px solid var(--ink);
+  border-radius:8px 5px 8px 5px;padding:0 8px;background:#fff}
+.step{padding:1px 8px;border:1.8px solid var(--dot);border-radius:8px 5px 8px 5px;color:var(--ink2);background:#fff}
+.step.decide{border-color:var(--ink);color:var(--ink);font-weight:700;box-shadow:1.5px 1.5px 0 var(--ink)}
+.sep{color:var(--ink2)}
 .dlbtn{background:var(--yellow);border-color:var(--ink);box-shadow:3px 3px 0 var(--ink);
   font-size:14px;margin-top:12px;padding:9px 16px}
 .dlbtn:hover{background:var(--yellow-d)}
@@ -382,6 +389,8 @@ function render() {
   if (v.cls === "unk")
     html += `<button class="aibtn" onclick="escalateTyped(this)">ให้ AI ช่วยตัดสิน (cue ไม่ชัด)</button>
              <div id="aislot"></div>`;
+  else
+    html += stepsHTML("cue");                         // cue decided on its own = 1 ชั้น
   out.className = "box alt result " + v.cls;
   out.innerHTML = html;
 }
@@ -426,6 +435,18 @@ async function askAI(text) {
 const aiCls   = dec => dec === "sarcasm" ? "sar" : dec === "not_sarcasm" ? "notx" : "unk";
 const aiLabel = dec => dec === "sarcasm" ? "น่าจะประชด" : dec === "not_sarcasm" ? "น่าจะไม่ประชด" : "บอกไม่ได้";
 
+// small trail under a result: how many tiers it passed through (cue -> WangchanBERTa -> GPT).
+// by = 'cue' (1 ชั้น) | 'wcb' (2 ชั้น) | 'llm' (3 ชั้น). The tier that decided is highlighted.
+function stepsHTML(by) {
+  if (!by) return "";
+  const tiers = [["①", "cue"], ["②", "WangchanBERTa"], ["③", "GPT"]];
+  const depth = by === "cue" ? 1 : by === "wcb" ? 2 : 3;
+  const trail = tiers.slice(0, depth)
+    .map((t, i) => `<span class="step${i === depth - 1 ? " decide" : ""}">${t[0]} ${t[1]}</span>`)
+    .join('<span class="sep">→</span>');
+  return `<div class="steps"><span class="stepn">ผ่าน ${depth} ชั้น</span>${trail}</div>`;
+}
+
 // typed single sentence: cue said "บอกไม่ได้" -> ask the AI helper for this one text
 async function escalateTyped(btn) {
   const text = inp.value.trim();
@@ -460,6 +481,7 @@ async function escalateTyped(btn) {
        <p class="conf">${wcb
          ? "ตัดสินด้วยโมเดลบนเครื่องคุณเอง ข้อความไม่ถูกส่งออกไปไหน และไม่มีค่าใช้จ่าย"
          : "ข้อความถูกส่งไป OpenAI ผ่านตัวช่วยบนเครื่องคุณ เฉพาะตอนสองชั้นแรกตอบไม่ได้เท่านั้น"}</p>
+       ${stepsHTML(wcb ? "wcb" : "llm")}
      </div>`;
 }
 
@@ -488,7 +510,7 @@ function scanComments(comments, source) {
   _scanSource = source;
   _scanStats = { scanned: comments.length, llm: 0, wcb: 0 };
   _viewFilter = "all";
-  _linkResults = comments.map(t => ({ t, v: verdictOf(t) }));
+  _linkResults = comments.map(t => { const v = verdictOf(t); return { t, v, by: v.cls === "unk" ? null : "cue" }; });
   _linkResults.sort((a, b) => b.v.s - a.v.s);            // by cue confidence, most-likely-sarcastic first
   renderScan();
 }
@@ -543,6 +565,7 @@ function renderItems() {
       <span class="pill ${v.cls}" id="pi${i}" style="font-size:13px;padding:3px 11px">${v.label}${v.hits.length ? " " + (v.s >= 0 ? "+" : "") + v.s.toFixed(2) : ""}</span>
       <p class="ctxt">${esc(r.t.length > 220 ? r.t.slice(0, 219) + "…" : r.t)}</p>
       ${cueNames ? `<p class="cwhy">cue ที่เจอ: ${cueNames}</p>` : ""}
+      ${stepsHTML(r.by)}
       ${reviewUI}
     </div>`;
   });
@@ -607,6 +630,7 @@ async function escalateLink(btn) {
     // ไม่มีคีย์ = ชั้น LLM ใช้ไม่ได้ แต่ WangchanBERTa ในเครื่องยังตอบข้ออื่นได้ จึงทำต่อ ไม่ break
     if (!d.available) { stop = "nokey"; continue; }
     _linkResults[it.i].v.cls = aiCls(d.decision);
+    _linkResults[it.i].by = d.tier === "wcb" ? "wcb" : "llm";        // how deep this one went
     if (d.tier === "wcb") _scanStats.wcb++; else _scanStats.llm++;   // for the cost line
     done++;
   }
