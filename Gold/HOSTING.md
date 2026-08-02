@@ -27,7 +27,23 @@ that sets it from a request.
 - **Safe by default.** Binds `127.0.0.1` unless you say otherwise; warns if you bind `0.0.0.0`
   without `TRUST_PROXY`.
 
-## Recommended deployment
+## Docker (works anywhere)
+
+A `Dockerfile` at the repo root packages the demo so it runs the same on any container host:
+
+```bash
+docker build -t sarcasm-demo .                                   # ~10-15 min (trains the WCB model in)
+docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... sarcasm-demo    # open http://localhost:8000/app
+```
+
+- Exposes only the safe routes; the key is passed at runtime with `-e`, never baked in (`.env` is
+  `.dockerignore`d). Behind a reverse proxy, add `-e TRUST_PROXY=1`.
+- WangchanBERTa is trained into the image by default (self-contained, instant start). For a lean
+  `cue -> GPT` image without torch's model, build with `--build-arg WITH_WCB=0`.
+- To go public: run the container, then point your domain at it through an HTTPS proxy (below). The
+  container itself needs no domain or TLS to run locally.
+
+## Recommended deployment (VM / bare metal)
 
 Run it under a real WSGI server, on loopback, behind an HTTPS reverse proxy.
 
