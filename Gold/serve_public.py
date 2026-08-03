@@ -52,6 +52,7 @@ _usage = {"day": "", "day_count": 0, "ip_hour": {}}
 _usage_lock = threading.Lock()
 _det = None
 _wcb = None
+_wcb_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------- helpers
@@ -88,19 +89,36 @@ def has_wcb():
 
 
 def wcb_prob(text):
-    """P(sarcastic) from the deployed WangchanBERTa (lazy-loaded). Mirrors app.py.wcb_prob."""
+    """P(sarcastic) from the deployed WangchanBERTa. Loaded once, thread-safely (double-checked lock),
+    so a concurrent first request and the background warm-up cannot both load the 400 MB model."""
     global _wcb
     if _wcb is None:
-        import torch
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
-        tok = AutoTokenizer.from_pretrained(WCB_DIR)
-        mdl = AutoModelForSequenceClassification.from_pretrained(WCB_DIR)
-        mdl.eval()
-        _wcb = (tok, mdl, torch)
+        with _wcb_lock:
+            if _wcb is None:
+                import torch
+                from transformers import AutoModelForSequenceClassification, AutoTokenizer
+                tok = AutoTokenizer.from_pretrained(WCB_DIR)
+                mdl = AutoModelForSequenceClassification.from_pretrained(WCB_DIR)
+                mdl.eval()
+                _wcb = (tok, mdl, torch)
     tok, mdl, torch = _wcb
     with torch.no_grad():
         enc = tok([text], truncation=True, padding=True, max_length=256, return_tensors="pt")
         return float(torch.softmax(mdl(**enc).logits[0], -1)[1])
+
+
+def _warm():
+    """load WangchanBERTa (plus one real inference to fully init torch) in the background at startup,
+    so the first escalation is not slow and never trips a client/worker timeout. No-ops if the model
+    is missing. Runs on import, so it warms both a direct run and every gunicorn worker."""
+    if has_wcb():
+        try:
+            wcb_prob("อุ่นเครื่อง")
+        except Exception:
+            pass
+
+
+threading.Thread(target=_warm, daemon=True).start()
 
 
 def detector():
@@ -130,7 +148,7 @@ def _harden(resp):
 # ---------------------------------------------------------------- routes
 @app.route("/healthz")
 def healthz():
-    return jsonify({"ok": True, "wcb": has_wcb(), "llm": bool(API_KEY)})
+    return jsonify({"ok": True, "wcb": has_wcb(), "wcb_warm": _wcb is not None, "llm": bool(API_KEY)})
 
 
 @app.route("/app")
@@ -202,7 +220,7 @@ def _startup_banner():
     print("=" * 60)
     print(" Thai Sarcasm Detector -- PUBLIC server (serve_public.py)")
     print(f"  OPENAI_API_KEY : {'present' if API_KEY else 'MISSING -> escalate stays cue/WCB-only'}")
-    print(f"  WangchanBERTa  : {'ready' if has_wcb() else 'no wcb_model/ -> tier 2 off (cue -> LLM)'}")
+    print(f"  WangchanBERTa  : {'ready (warming in background)' if has_wcb() else 'no wcb_model/ -> tier 2 off (cue -> LLM)'}")
     print(f"  TRUST_PROXY    : {'on (X-Forwarded-For, rightmost)' if TRUST_PROXY else 'off (socket peer)'}")
     print(f"  limits         : {IP_HOUR_CAP}/hr/IP · {DAILY_CAP}/day total · {MAX_TEXT} chars/req")
     print("  exposed routes : GET /app, POST /api/fetch_comments, POST /api/escalate, GET /healthz")
@@ -221,4 +239,4 @@ if __name__ == "__main__":
     if a.host == "0.0.0.0" and not TRUST_PROXY:
         print("WARNING: binding 0.0.0.0 without TRUST_PROXY -- rate limits will see the proxy IP, "
               "not real clients. Prefer a reverse proxy + TRUST_PROXY=1.", file=sys.stderr)
-    app.run(debug=False, host=a.host, port=a.port)
+    app.run(debug=False, host=a.host, port=a.port, threaded=True)   # serve while the model warms
