@@ -69,3 +69,6 @@ Gold/loadtest_requests.csv
 # โมเดล fine-tune (405 MB) -- เกินลิมิต 100 MB ของ GitHub
 space/wcb_model/
 Gold/train.log
+
+# raw lm-eval harness dumps (regenerable; derived *_pred.csv are kept)
+Gold/out_*/
